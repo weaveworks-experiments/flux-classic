@@ -1,0 +1,455 @@
+@font-face {
+  font-family: "Roboto";
+  src: url("../../node_modules/materialize-css/font/roboto/Roboto-Regular.woff2"),
+    url("../../node_modules/materialize-css/font/roboto/Roboto-Regular.woff"),
+    url("../../node_modules/materialize-css/font/roboto/Roboto-Regular.ttf");
+}
+
+.browsehappy {
+  margin: 0.2em 0;
+  background: #ccc;
+  color: #000;
+  padding: 0.2em 0;
+}
+
+/* weave company colours */
+@weave-gray-blue: rgb(85,105,145);
+@weave-blue: rgb(0,210,255);
+@weave-orange: rgb(255,75,25);
+@weave-charcoal-blue: rgb(50,50,75); // #32324B
+
+@primary-color: @weave-charcoal-blue;
+@background-color: lighten(@primary-color, 66%);
+@background-secondary-color: lighten(@background-color, 8%);
+@background-dark-color: @primary-color;
+@text-color: lighten(@primary-color, 10%);
+@text-secondary-color: lighten(@primary-color, 33%);
+@text-tertiary-color: lighten(@primary-color, 50%);
+@text-darker-color: @primary-color;
+@white: @background-secondary-color;
+
+/* add this class to truncate text with ellipsis, container needs width */
+.truncate {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hideable {
+  transition: opacity .5s ease-in-out;
+}
+
+.hide {
+  opacity: 0;
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+}
+*:before,
+*:after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+}
+
+html,
+body {
+  height: 100%;
+  width: 100%;
+}
+
+/* Space out content a bit */
+body {
+  background: linear-gradient(30deg, @background-color 0%, @background-secondary-color 100%);
+  color: @text-color;
+  line-height: 150%;
+  font-family: "Roboto", sans-serif;
+  font-size: 13px;
+  margin: 0;
+}
+
+p {
+  line-height: 20px;
+  padding-top: 6px;
+  margin-bottom: 14px;
+  letter-spacing: 0;
+  font-weight: 400;
+  color: @text-color;
+}
+
+h2 {
+  font-size: 34px;
+  line-height: 40px;
+  padding-top: 8px;
+  margin-bottom: 12px;
+  font-weight: 400;
+}
+
+#app {
+}
+
+.header {
+  position: absolute;
+  top: 32px;
+  width: 100%;
+  height: 80px;
+  z-index: 20;
+}
+
+.footer {
+  position: absolute;
+  bottom: 16px;
+  right: 48px;
+  z-index: 20;
+  color: @text-tertiary-color;
+  font-size: 85%;
+
+  a {
+    color: @text-secondary-color;
+
+    &:hover {
+      color: @text-color;
+    }
+  }
+}
+
+.logo {
+  margin: -8px 0 0 64px;
+  height: 64px;
+  width: 250px;
+  float: left;
+}
+
+.topologies {
+  float: left;
+  margin: 4px 64px;
+
+  .topologies-item {
+    margin: 0px 16px;
+    float: left;
+
+    &-label {
+      color: @text-secondary-color;
+      font-size: 16px;
+      text-transform: uppercase;
+    }
+
+  }
+
+  .topologies-sub {
+    margin-top: 4px;
+
+    &-item {
+      &-label {
+        color: @text-secondary-color;
+        font-size: 12px;
+        text-transform: uppercase;
+      }
+    }
+  }
+
+  .topologies-item-main,
+  .topologies-sub-item {
+    cursor: pointer;
+
+    &-active, &:hover {
+      .topologies-sub-item-label,
+      .topologies-item-label {
+        color: @text-color;
+      }
+    }
+
+  }
+
+}
+
+.topology-options {
+  margin-top: -16px;
+}
+
+.status {
+  &-icon {
+    font-size: 16px;
+    position: relative;
+    top: 1px;
+  }
+
+  &-label {
+    margin-left: 0.5em;
+  }
+}
+
+.nodes-chart {
+
+  &-error {
+    .hideable;
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    color: @text-secondary-color;
+
+    &-icon {
+      opacity: 0.25;
+      font-size: 320px;
+    }
+  }
+
+  svg {
+    .hideable;
+    position: absolute;
+    top: 0px;
+  }
+
+  text {
+    font-size: 14px;
+    font-family: Roboto;
+    fill: @text-secondary-color;
+    text-shadow: 0 2px 0 @white, 2px 0 0 @white, 0 -2px 0 @white, -2px 0 0 @white;
+
+    &.node-label {
+      fill: @text-color;
+    }
+
+    &.node-sublabel {
+      font-size: 12px;
+      fill: @text-secondary-color;
+    }
+  }
+
+  g.node {
+    cursor: pointer;
+    transition: opacity .5s ease-in-out;
+
+    &.pseudo {
+      opacity: 0.8;
+      cursor: default;
+
+      .node-label {
+        fill: @text-secondary-color;
+      }
+
+      .node-sublabel {
+        fill: @text-tertiary-color;
+      }
+
+      .border {
+        stroke: @text-tertiary-color;
+        stroke-width: 1px;
+      }
+    }
+
+    &.blurred {
+      opacity: 0.25;
+    }
+  }
+
+  .edge {
+    transition: opacity .5s ease-in-out;
+
+    &.blurred {
+      opacity: 0.2;
+    }
+
+    .link {
+      stroke: @text-secondary-color;
+      stroke-width: 1px;
+      fill: none;
+      stroke-opacity: 0.5;
+    }
+    .shadow {
+      stroke: @weave-blue;
+      stroke-width: 10px;
+      fill: none;
+      stroke-opacity: 0;
+    }
+    &.highlighted {
+      .shadow {
+        stroke-opacity: 0.1;
+      }
+    }
+  }
+
+
+  circle.border {
+    stroke-width: 3px;
+    fill: none;
+  }
+
+  circle.shadow {
+    stroke: none;
+    fill: @background-secondary-color;
+  }
+
+  circle.node {
+    fill: @text-color;
+  }
+
+  circle.highlighted {
+    fill: @weave-blue;
+    fill-opacity: 0.1;
+    stroke: @weave-blue;
+    stroke-width: 1px;
+    stroke-opacity: 0.4;
+  }
+
+}
+
+#details {
+  position: absolute;
+  z-index: 1024;
+  display: block;
+  right: 36px;
+  top: 24px;
+  bottom: 48px;
+  width: 420px;
+
+  .details-tools-wrapper {
+    position: relative;
+  }
+
+  .details-tools {
+    position: absolute;
+    top: 16px;
+    right: 24px;
+    color: @white;
+
+    span {
+      cursor: pointer;
+      &:hover {
+        color: white;
+      }
+    }
+  }
+}
+
+.node-details {
+  height: 100%;
+  width: 100%;
+  background-color: rgba(255, 255, 255, 0.86);
+
+  &-header {
+
+    padding: 24px 36px 24px 36px;
+
+    &-label {
+      color: white;
+      margin: 0;
+      width: 348px;
+
+      &-minor {
+        width: 348px;
+        font-size: 120%;
+        color: @white;
+      }
+    }
+
+    &-notavailable {
+      background-color: @background-dark-color;
+    }
+  }
+
+  &-content {
+    position: absolute;
+    top: 115px;
+    bottom: 0;
+    padding: 0 36px 0 36px;
+    overflow-y: scroll;
+    width: 100%;
+
+    &-info {
+      margin-top: 16px;
+    }
+  }
+
+  &-table {
+
+    &:last-child {
+      margin-bottom: 1em;
+    }
+
+    &-title {
+      text-transform: uppercase;
+      margin-bottom: 0;
+      color: @text-secondary-color;
+      font-size: 100%;
+    }
+
+    &-row {
+      white-space: nowrap;
+      clear: left;
+
+      &-key {
+        width: 11em;
+        float: left;
+      }
+
+      &-value-major {
+        margin-right: 0.5em;
+      }
+
+      &-value-scalar {
+        width: 2em;
+        text-align: right;
+        margin-right: 0.5em;
+      }
+
+      &-value-minor,
+      &-value-unit {
+        font-size: 95%;
+        color: @text-secondary-color;
+      }
+
+    }
+
+  }
+
+}
+
+.sidebar {
+  position: fixed;
+  bottom: 16px;
+  left: 20px;
+  width: 18em;
+  font-size: 85%;
+
+  &-item {
+    background-color: darken(@background-color, 8%);
+    border-radius: 2px;
+    padding: 4px 8px;
+    width: 100%;
+    margin-top: 2px;
+
+    &.status {
+      background-color: darken(@background-color, 4%);
+      color: @text-secondary-color;
+    }
+    &.status-loading {
+      animation: status-loading 2.0s infinite ease-in-out;
+    }
+
+    &-action {
+      float: right;
+      text-transform: uppercase;
+      font-weight: bold;
+      color: darken(@weave-orange, 25%);
+      cursor: pointer;
+      font-size: 90%;
+    }
+  }
+}
+
+@keyframes status-loading {
+  0%, 100% {
+    background-color: darken(@background-color, 4%);
+    color: @text-secondary-color;
+  } 50% {
+    background-color: darken(@background-color, 8%);
+    color: @text-color;
+  }
+}

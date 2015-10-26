@@ -2,6 +2,9 @@
 *.o
 *.a
 *.so
+listen/listen
+dlisten/dlisten
+coatlctl/coatlctl
 
 # Folders
 _obj
@@ -22,8 +25,11 @@ _testmain.go
 *.exe
 *.test
 *.prof
+profile.cov
+coverage.html
 
-# local
-.*.done
-*.bin
-build/
+# Emacs backup files
+*~
+
+# Vim backup files
+*.swp

@@ -1,0 +1,9 @@
+FROM scratch
+
+WORKDIR /home/ambergreen
+ENV HTTP_PORT=7070
+EXPOSE 7070
+COPY ./display.bin /home/ambergreen/server
+COPY ./index.html /home/ambergreen/
+COPY ./*.css ./*.js /home/ambergreen/res/
+ENTRYPOINT ["/home/ambergreen/server"]

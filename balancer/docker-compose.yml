@@ -1,0 +1,20 @@
+ambergris:
+  image: ambergris/server
+  privileged: true
+  net: "host"
+  links:
+   - etcd
+etcd:
+  image: quay.io/coreos/etcd
+  ports:
+   - "2379:2379"
+   - "4001:4001"
+  command: -advertise-client-urls http://0.0.0.0:2379 -listen-client-urls http://0.0.0.0:2379,http://0.0.0.0:4001
+  volumes:
+   - ./default.etcd:/default.etcd
+dlisten:
+  image: bboreham/dlisten
+  links:
+   - etcd
+  volumes:
+   - /var/run/weave/weave.sock:/var/run/docker.sock

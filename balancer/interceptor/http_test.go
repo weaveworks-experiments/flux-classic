@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dpw/ambergris/interceptor/events"
+	"github.com/squaremo/ambergreen/balancer/interceptor/events"
 
 	"github.com/stretchr/testify/require"
 )

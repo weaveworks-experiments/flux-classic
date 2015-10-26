@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/bboreham/coatl/backends"
-	"github.com/bboreham/coatl/data"
+	"github.com/squaremo/ambergreen/pkg/backends"
+	"github.com/squaremo/ambergreen/pkg/data"
 
 	docker "github.com/fsouza/go-dockerclient"
 )

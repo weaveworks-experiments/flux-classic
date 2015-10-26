@@ -18,7 +18,7 @@ func enrol(args []string) {
 	if err != nil {
 		log.Fatal("Invalid port number: ", err)
 	}
-	err = backend.AddInstance(serviceName, instance, args[2], port)
+	err = backend.AddInstance(serviceName, instance, args[2], port, map[string]string{})
 	if err != nil {
 		log.Fatal(err)
 	}

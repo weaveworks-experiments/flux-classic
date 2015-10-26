@@ -9,7 +9,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/dpw/ambergris/interceptor/model"
+	"github.com/squaremo/ambergreen/balancer/interceptor/model"
 )
 
 // A simple control mechanism for the daemon via a unix socket.

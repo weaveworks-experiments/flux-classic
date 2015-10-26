@@ -10,11 +10,11 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/dpw/ambergris/coatl"
-	"github.com/dpw/ambergris/interceptor/eventlogger"
-	"github.com/dpw/ambergris/interceptor/events"
-	"github.com/dpw/ambergris/interceptor/model"
-	"github.com/dpw/ambergris/interceptor/simplecontrol"
+	"github.com/squaremo/ambergreen/balancer/coatl"
+	"github.com/squaremo/ambergreen/balancer/interceptor/eventlogger"
+	"github.com/squaremo/ambergreen/balancer/interceptor/events"
+	"github.com/squaremo/ambergreen/balancer/interceptor/model"
+	"github.com/squaremo/ambergreen/balancer/interceptor/simplecontrol"
 )
 
 type config struct {

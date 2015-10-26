@@ -5,7 +5,7 @@ import (
 	"log"
 	"strconv"
 
-	"github.com/bboreham/coatl/data"
+	"github.com/squaremo/ambergreen/pkg/data"
 )
 
 // example: coatlctl service create --docker-image micro-wiki/pages

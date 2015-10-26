@@ -3,7 +3,7 @@ package eventlogger
 import (
 	log "github.com/Sirupsen/logrus"
 
-	"github.com/dpw/ambergris/interceptor/events"
+	"github.com/squaremo/ambergreen/balancer/interceptor/events"
 )
 
 type EventLogger struct {

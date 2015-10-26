@@ -3,8 +3,9 @@ package main
 import (
 	"log"
 
-	"github.com/bboreham/coatl/backends"
 	"github.com/spf13/cobra"
+
+	"github.com/squaremo/ambergreen/pkg/backends"
 )
 
 var topCmd = &cobra.Command{

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/dpw/ambergris/interceptor"
+	"github.com/squaremo/ambergreen/balancer/interceptor"
 )
 
 func main() {

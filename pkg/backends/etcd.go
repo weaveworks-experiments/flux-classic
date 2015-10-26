@@ -6,7 +6,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/bboreham/coatl/data"
+	"github.com/squaremo/ambergreen/pkg/data"
+
 	etcd_errors "github.com/coreos/etcd/error"
 	"github.com/coreos/go-etcd/etcd"
 )

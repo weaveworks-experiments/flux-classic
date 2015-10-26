@@ -1,4 +1,4 @@
 FROM gliderlabs/alpine
 ENTRYPOINT ["/bin/coatlctl"]
 
-COPY coatlctl /bin/coatlctl
+COPY command.bin /bin/coatlctl

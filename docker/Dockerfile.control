@@ -1,4 +1,4 @@
 FROM gliderlabs/alpine
 ENTRYPOINT ["/bin/dlisten"]
 
-COPY dlisten /bin/dlisten
+COPY control.bin /bin/dlisten

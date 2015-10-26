@@ -7,8 +7,8 @@ import (
 	"net"
 	"sync"
 
-	"github.com/dpw/ambergris/interceptor/events"
-	"github.com/dpw/ambergris/interceptor/model"
+	"github.com/squaremo/ambergreen/balancer/interceptor/events"
+	"github.com/squaremo/ambergreen/balancer/interceptor/model"
 )
 
 type forwarding struct {

@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/dpw/ambergris/interceptor/events"
+	"github.com/squaremo/ambergreen/balancer/interceptor/events"
 )
 
 func httpShim(inbound, outbound *net.TCPConn, eh events.Handler) error {

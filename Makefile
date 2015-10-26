@@ -12,6 +12,9 @@ clean:
 	rm -f docker/.*.done
 	rm -rf ./build
 
+.PHONY: test
+test:
+
 # Don't remove this if a subsequent step fails
 .PRECIOUS: docker/.build.done
 

@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>weave bal</title>
+    <script type="text/javascript" src="res/react.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-core/5.8.23/browser.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.0.0-alpha1/jquery.min.js"></script>
+    <script src="res/d3.v3.js"></script>
+    <script src="res/rickshaw.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="res/main.css"/>
+    <link rel="stylesheet" type="text/css" href="res/graph.css"/>
+
+    <style type="text/css">
+      .yAxis {
+        float: left;
+      }
+      .chart {
+        float: left;
+      }
+      .legend {
+        float: left;
+      }
+      .instanceView {
+        clear: both;
+      }
+      #main {
+        position: relative;
+        top: 100px;
+      }
+
+      .rickshaw_legend {
+        color: inherit;
+        background-color: inherit;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="header" id="header">
+    </header>
+
+    <section id="main">
+      <div id="list"/>
+    </section>
+
+    <script type="text/babel">
+
+const Logo = React.createClass({
+  render: function() {
+    return (
+      <div className="logo">
+        <svg width="100%" height="100%" viewBox="0 0 1089 217">
+          <path fill="#32324B" d="M114.937,118.165l75.419-67.366c-5.989-4.707-12.71-8.52-19.981-11.211l-55.438,49.52V118.165z"/>
+          <path fill="#32324B" d="M93.265,108.465l-20.431,18.25c1.86,7.57,4.88,14.683,8.87,21.135l11.561-10.326V108.465z"/>
+          <path fill="#00D2FF" d="M155.276,53.074V35.768C151.815,35.27,148.282,35,144.685,35c-3.766,0-7.465,0.286-11.079,0.828v36.604
+            L155.276,53.074z"/>
+          <path fill="#00D2FF" d="M155.276,154.874V82.133l-21.671,19.357v80.682c3.614,0.543,7.313,0.828,11.079,0.828
+            c4.41,0,8.723-0.407,12.921-1.147l58.033-51.838c1.971-6.664,3.046-13.712,3.046-21.015c0-3.439-0.254-6.817-0.708-10.132
+            L155.276,154.874z"/>
+          <path fill="#FF4B19" d="M155.276,133.518l58.14-51.933c-2.77-6.938-6.551-13.358-11.175-19.076l-46.965,41.951V133.518z"/>
+          <path fill="#FF4B19" d="M133.605,123.817l-18.668,16.676V41.242c-8.086,3.555-15.409,8.513-21.672,14.567V162.19
+            c4.885,4.724,10.409,8.787,16.444,12.03l23.896-21.345V123.817z"/>
+          <text x="260" y="160" style={{fontSize: 170}}>
+            <tspan style={{fontWeight: 'bold'}}>weave</tspan><tspan>bal</tspan>
+          </text>
+        </svg>
+      </div>);
+}
+});
+
+      React.render(<Logo />, document.getElementById('header'));
+
+      var ServiceList = React.createClass({
+        render: function() {
+          var serviceNodes = this.state.data.map(function(service) {
+            return (<li key={service.name} className="">
+                      <ServiceView data={service}/>
+                    </li>)
+          });
+          return (
+            <ul className="serviceList">
+              {serviceNodes}
+            </ul>
+          );
+        },
+        getInitialState() {
+            return {data: []};
+        },
+        refreshData: function() {
+          $.ajax('/api/', {
+            dataType: 'json',
+            success: function(services) {
+              if (this.isMounted()) {
+                this.setState({data: services});
+                setTimeout(this.refreshData, 10000);
+              }
+            }.bind(this)
+          });
+        },
+        componentDidMount: function() {
+            this.refreshData();
+        }
+      });
+
+      var ServiceView = React.createClass({
+        render: function() {
+          return (
+            <div className="serviceView">
+              <div><strong>{this.props.data.name}</strong>
+                {this.props.data.details.address}:{this.props.data.details.port}
+              </div>
+              <InstanceList service={this.props.data.name}/>
+            </div>
+          );
+        }
+      });
+
+      function second(arr) { return arr[1]; }
+      function follows(a, b) { return function(x) { return a(b(x)); }; }
+      function zip(as, bs, fn) {
+        var len = Math.min(as.length, bs.length);
+        var res = new Array(len);
+        for (var i=0; i<len; i++) {
+          res[i] = fn(as[i], bs[i]);
+        }
+        return res;
+      }
+
+      function renderChart(chart) {
+        chart.graph.render();
+        chart.yAxis.render();
+        chart.xAxis.render();
+      }
+
+      function statsURL(instance, start, end) {
+          var query = 'query=rate(microwiki_http_service_requests{instance="'+instance.details.address+':9090"}['+intervalSecs+'s])';
+          var interval = '&step='+intervalSecs+'s&start='+start+'&end='+end;
+          return 'http://192.168.99.100:9090/api/v1/query_range?'+query+interval;
+      }
+
+      var intervalSecs = 10;
+
+      var InstanceList = React.createClass({
+        getInitialState: function() {
+          return {data: []}
+        },
+        refreshData: function() {
+          $.ajax('/api/'+this.props.service+'/', {
+            dataType: 'json',
+            success: function(service) {
+              if (this.isMounted()) {
+                this.setState({data: service.children});
+                setTimeout(this.refreshData, intervalSecs * 1000);
+              }
+            }.bind(this)
+          });
+        },
+        componentDidMount: function() {
+          this.refreshData();
+        },
+        render: function() {
+          var instanceNodes = this.state.data.map(function(i) {
+            return (<li key={i.name}><InstanceView instance={i}/></li>)
+          });
+          return (<ul>
+            {instanceNodes}
+          </ul>);
+        }
+      });
+
+      var InstanceView = React.createClass({
+        getData: function(start, end, k) {
+          $.ajax(statsURL(this.props.instance, start, end), {
+            success: function(json) {
+              var result = json.data.result;
+              var okData = [], errData = [];
+              for (var i=0; i < result.length; i++) {
+                switch (result[i].metric.status) {
+                case "200":
+                  okData = result[i].values;
+                  break;
+                case "500":
+                  errData = result[i].values;
+                  break
+                }
+              }
+              k(okData, errData);
+            }.bind(this)
+          });
+        },
+        stepChart: function step(chart, lastNow) {
+          var now = +new Date() / 1000;
+          this.getData(lastNow, now, function(okData, errData) {
+            if (this.isMounted()) {
+              var nextNow = lastNow;
+              var data = zip(okData, errData, function(ok, err) {
+                return [{OK: Number(ok[1]), Error: Number(err[1])}, ok[0]];
+              });
+              data.forEach(function(datum) {
+                if (datum[1] > lastNow) {
+                  chart.series.addData.apply(chart.series, datum);
+                  nextNow = datum[1];
+                }
+              });
+              renderChart(chart);
+              setTimeout(step.bind(this, chart, nextNow), intervalSecs * 1000);
+            }
+          }.bind(this));
+        },
+        componentDidMount: function() {
+          var end = +new Date() / 1000;
+          var start = end - 300;
+          this.getData(start, end, function(okData, errData) {
+            var base = start;
+            function toXY(xy) {
+              return {x: xy[0], y: Number(xy[1])};
+            }
+            var div = React.findDOMNode(this.refs.chart);
+            var lines = [{name: 'OK', color: 'blue', data: okData.map(toXY)},
+                         {name: 'Error', color: 'red', data: errData.map(toXY)}];
+            var series = new Rickshaw.Series.FixedDuration(
+                                  lines, undefined /*palette*/,
+                                  {timeInterval: intervalSecs * 1000,
+                                   maxDataPoints: 300 / intervalSecs,
+		                   timeBase: base});
+            var graph = new Rickshaw.Graph({
+              element: div,
+              renderer: 'line',
+              interpolation: 'linear',
+              series: series,
+              width: 500,
+              height: 100,
+            });
+
+            var xAxis = new Rickshaw.Graph.Axis.Time({
+              graph: graph,
+            });
+            var yAxis = new Rickshaw.Graph.Axis.Y({
+              graph: graph,
+              orientation: 'left',
+              height: 100,
+              ticks: 5,
+              element: React.findDOMNode(this.refs.chartY)
+            });
+
+            var legend = new Rickshaw.Graph.Legend({
+              element: React.findDOMNode(this.refs.legend),
+              graph: graph
+            });
+
+            var chart = {graph: graph, series: series, yAxis: yAxis, xAxis: xAxis};
+            renderChart(chart);
+            this.stepChart(chart, end);
+          }.bind(this));
+        },
+        render: function() {
+          return (<div className="instanceView">
+              <div>{this.props.instance.details.address}:{this.props.instance.details.port}
+                ({maybeTruncate(this.props.instance.name)};
+                 {labels(this.props.instance.details.labels)})
+              </div>
+              <div className="yAxis" ref="chartY"/>
+              <div className="chart" ref="chart"/>
+              <div className="legend" ref="legend"/>
+            </div>)
+        }
+      });
+
+      function labels(kv) {
+        var s = [];
+        for (var k in kv) {
+          s.push(k + "=" + kv[k]);
+        }
+        return s.join(", ");
+      }
+
+      function maybeTruncate(id) {
+        if (id.length > 12) {
+          return id.substr(0, 12) + '...';
+        }
+        return id;
+      }
+
+      React.render(<ServiceList />, document.getElementById('list'));
+    </script>
+
+  </body>
+</html>

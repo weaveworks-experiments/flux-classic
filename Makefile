@@ -26,10 +26,10 @@ test:
 	rm -rf build-container
 	touch $@
 
-docker/.balancer.done: balancer.bin
 docker/.agent.done: agent.bin
+docker/.balancer.done: balancer.bin
 docker/.command.done: command.bin
-docker/.display.done: display.bin display/index.html display/res/*.css display/res/*.js display/main.css
+docker/.display.done: display.bin
 
 run_build_container=docker run --rm -v $$PWD/build:/go \
     -v $$PWD/docker/build-wrapper.sh:/build-wrapper.sh \
@@ -38,8 +38,7 @@ run_build_container=docker run --rm -v $$PWD/build:/go \
 %.bin: docker/.build.done docker/build-wrapper.sh $(DEPS)
 	rm -rf build/src/$(BASEPKG)
 	mkdir -p build/src/$(BASEPKG)
-	cp -pr $(*F) build/src/$(BASEPKG)/
-	cp -pr pkg build/src/$(BASEPKG)/
+	cp -pr pkg $(*F) build/src/$(BASEPKG)/
 	$(run_build_container) "go get ./... && go build ./..."
 	cp build/bin/$(*F) $@
 

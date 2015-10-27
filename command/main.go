@@ -9,7 +9,7 @@ import (
 )
 
 var topCmd = &cobra.Command{
-	Use:   "coatlctl",
+	Use:   "amberctl",
 	Short: "control weave Run",
 	Long:  `Write more documentation here`,
 }

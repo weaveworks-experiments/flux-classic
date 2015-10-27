@@ -4,7 +4,7 @@ BASEPKG:=github.com/squaremo/$(PROJ)
 DEPS:=$(shell find pkg -name '*.go')
 
 .PHONY: images
-images: docker/.balancer.done docker/.control.done \
+images: docker/.balancer.done docker/.agent.done \
 	docker/.display.done docker/.command.done
 
 .PHONY: clean
@@ -27,7 +27,7 @@ test:
 	touch $@
 
 docker/.balancer.done: balancer.bin
-docker/.control.done: control.bin
+docker/.agent.done: agent.bin
 docker/.command.done: command.bin
 docker/.display.done: display.bin display/index.html display/res/*.css display/res/*.js display/main.css
 

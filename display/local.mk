@@ -1,12 +1,17 @@
-DISPLAY_STATIC:=display/index.html display/res/*.css display/res/*.js display/main.css
+DISPLAY_BABELGEN:=$(patsubst %.babel,%.js,$(shell find display/gen -name '*.babel'))
+DISPLAY_LESSGEN:=$(patsubst %.less,%.css,$(shell find display/gen -name '*.less'))
+DISPLAY_STATIC:=display/index.html display/res/*.css display/res/*.js
 
-docker/.display.done: $(DISPLAY_STATIC)
+docker/.display.done: $(DISPLAY_STATIC) $(DISPLAY_LESSGEN) $(DISPLAY_BABELGEN)
 
-display/main.css: display/main.less
-	lessc display/main.less display/main.css
+%.css: %.less
+	lessc $^ $@
+
+%.js: %.babel
+	babel $^ -o $@
 
 .PHONY: clean-display
 clean: clean-display
 
 clean-display:
-	rm -f display/main.css
+	rm -f $(DISPLAY_BABELGEN) $(DISPLAY_LESSGEN)

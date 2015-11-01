@@ -31,15 +31,19 @@ docker/.balancer.done: balancer.bin
 docker/.command.done: command.bin
 docker/.display.done: display.bin
 
-run_build_container=docker run --rm -v $$PWD/build:/go \
+# $1: extra docker run args
+# $2: directory to mount as /build
+# $3: working directory under /build
+# $4: command string to pass to build-wrapper.sh
+run_build_container=docker run --rm $1 -v $$PWD$(and $2,/$2):/build \
     -v $$PWD/docker/build-wrapper.sh:/build-wrapper.sh \
-    --workdir=/go/src/$(BASEPKG)/$(*F) -e GOPATH=/go $(PROJ)/build sh /build-wrapper.sh
+    --workdir=/build$(and $3,/$3) $(PROJ)/build sh /build-wrapper.sh "$4"
 
 %.bin: docker/.build.done docker/build-wrapper.sh $(DEPS)
 	rm -rf build/src/$(BASEPKG)
 	mkdir -p build/src/$(BASEPKG)
 	cp -pr pkg $(*F) build/src/$(BASEPKG)/
-	$(run_build_container) "go get ./... && go build ./..."
+	$(call run_build_container,-e GOPATH=/build,build,src/$(BASEPKG)/$(*F),go get ./... && go build ./...)
 	cp build/bin/$(*F) $@
 
 # Subdir-specific rules

@@ -38,5 +38,9 @@ WORKDIR $GOPATH
 
 # End borrowings
 
+RUN curl -sL https://deb.nodesource.com/setup_4.x | bash - \
+    && apt-get install -y nodejs
+RUN npm install -g less babel-cli
+
 ENV CGO_ENABLED=0
 RUN go install std

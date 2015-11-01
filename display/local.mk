@@ -5,10 +5,10 @@ DISPLAY_STATIC:=display/index.html display/res/*.css display/res/*.js
 docker/.display.done: $(DISPLAY_STATIC) $(DISPLAY_LESSGEN) $(DISPLAY_BABELGEN)
 
 %.css: %.less
-	lessc $^ $@
+	$(call run_build_container,,,,lessc $^ $@)
 
 %.js: %.babel
-	babel $^ -o $@
+	$(call run_build_container,,,,babel $^ -o $@)
 
 .PHONY: clean-display
 clean: clean-display

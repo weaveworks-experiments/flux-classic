@@ -8,7 +8,7 @@ docker/.display.done: $(DISPLAY_STATIC) $(DISPLAY_LESSGEN) $(DISPLAY_BABELGEN)
 	$(call run_build_container,,,,lessc $^ $@)
 
 %.js: %.babel
-	$(call run_build_container,,,,babel $^ -o $@)
+	$(call run_build_container,,,,babel $^ --plugins transform-react-jsx -o $@)
 
 .PHONY: clean-display
 clean: clean-display

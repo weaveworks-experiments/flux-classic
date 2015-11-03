@@ -3,6 +3,8 @@ package prometheus
 import (
 	"net"
 	"net/http"
+	"strconv"
+	"time"
 
 	prom "github.com/prometheus/client_golang/prometheus"
 
@@ -10,17 +12,40 @@ import (
 )
 
 type handler struct {
-	connections prom.Counter
+	connections   *prom.CounterVec
+	http          *prom.CounterVec
+	httpRoundtrip *prom.GaugeVec
+	httpTotal     *prom.GaugeVec
 }
 
 func NewEventHandler(address string) (events.Handler, error) {
 
-	connectionCounter := prom.NewCounter(prom.CounterOpts{
+	connectionCounter := prom.NewCounterVec(prom.CounterOpts{
 		Name: "ambergreen_connections_total",
-		Help: "Number of TCP connections established through balancer",
-	})
-	if err := prom.Register(connectionCounter); err != nil {
-		return nil, err
+		Help: "Number of TCP connections established",
+	}, []string{"src", "dst", "protocol"})
+
+	httpLabels := []string{"src", "dst", "method", "code"}
+
+	httpCounter := prom.NewCounterVec(prom.CounterOpts{
+		Name: "ambergreen_http_total",
+		Help: "Number of HTTP request/response exchanges",
+	}, httpLabels)
+
+	httpRoundtrip := prom.NewGaugeVec(prom.GaugeOpts{
+		Name: "ambergreen_http_roundtrip_usec",
+		Help: "HTTP response roundtrip time in microseconds",
+	}, httpLabels)
+
+	httpTotal := prom.NewGaugeVec(prom.GaugeOpts{
+		Name: "ambergreen_http_total_usec",
+		Help: "HTTP total response time in microseconds",
+	}, httpLabels)
+
+	for _, m := range []prom.Collector{connectionCounter, httpCounter, httpRoundtrip, httpTotal} {
+		if err := prom.Register(m); err != nil {
+			return nil, err
+		}
 	}
 
 	mux := http.NewServeMux()
@@ -35,13 +60,23 @@ func NewEventHandler(address string) (events.Handler, error) {
 	go http.Serve(listener, mux)
 
 	return &handler{
-		connections: connectionCounter,
+		connections:   connectionCounter,
+		http:          httpCounter,
+		httpRoundtrip: httpRoundtrip,
+		httpTotal:     httpTotal,
 	}, nil
 }
 
 func (h *handler) Connection(ev *events.Connection) {
-	h.connections.Inc()
+	h.connections.WithLabelValues(ev.Inbound.IP.String(), ev.Outbound.IP.String(), ev.Protocol).Inc()
 }
 
 func (h *handler) HttpExchange(ev *events.HttpExchange) {
+	src := ev.Inbound.IP.String()
+	dst := ev.Outbound.IP.String()
+	method := ev.Request.Method
+	code := strconv.Itoa(ev.Response.StatusCode)
+	h.http.WithLabelValues(src, dst, method, code).Inc()
+	h.httpRoundtrip.WithLabelValues(src, dst, method, code).Set(float64(ev.RoundTrip / time.Microsecond))
+	h.httpTotal.WithLabelValues(src, dst, method, code).Set(float64(ev.TotalTime / time.Microsecond))
 }

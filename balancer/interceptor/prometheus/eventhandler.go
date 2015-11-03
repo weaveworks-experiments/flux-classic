@@ -15,8 +15,8 @@ type handler struct {
 	events.DiscardOthers
 	connections   *prom.CounterVec
 	http          *prom.CounterVec
-	httpRoundtrip *prom.GaugeVec
-	httpTotal     *prom.GaugeVec
+	httpRoundtrip *prom.SummaryVec
+	httpTotal     *prom.SummaryVec
 }
 
 func NewEventHandler(address string) (events.Handler, error) {
@@ -33,12 +33,12 @@ func NewEventHandler(address string) (events.Handler, error) {
 		Help: "Number of HTTP request/response exchanges",
 	}, httpLabels)
 
-	httpRoundtrip := prom.NewGaugeVec(prom.GaugeOpts{
+	httpRoundtrip := prom.NewSummaryVec(prom.SummaryOpts{
 		Name: "ambergreen_http_roundtrip_usec",
 		Help: "HTTP response roundtrip time in microseconds",
 	}, httpLabels)
 
-	httpTotal := prom.NewGaugeVec(prom.GaugeOpts{
+	httpTotal := prom.NewSummaryVec(prom.SummaryOpts{
 		Name: "ambergreen_http_total_usec",
 		Help: "HTTP total response time in microseconds",
 	}, httpLabels)
@@ -78,6 +78,6 @@ func (h *handler) HttpExchange(ev *events.HttpExchange) {
 	method := ev.Request.Method
 	code := strconv.Itoa(ev.Response.StatusCode)
 	h.http.WithLabelValues(src, dst, method, code).Inc()
-	h.httpRoundtrip.WithLabelValues(src, dst, method, code).Set(float64(ev.RoundTrip / time.Microsecond))
-	h.httpTotal.WithLabelValues(src, dst, method, code).Set(float64(ev.TotalTime / time.Microsecond))
+	h.httpRoundtrip.WithLabelValues(src, dst, method, code).Observe(float64(ev.RoundTrip / time.Microsecond))
+	h.httpTotal.WithLabelValues(src, dst, method, code).Observe(float64(ev.TotalTime / time.Microsecond))
 }

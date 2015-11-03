@@ -1,16 +1,20 @@
 PROJ:=ambergreen
 BASEPKG:=github.com/squaremo/$(PROJ)
+IMAGES=balancer agent display command
 
 DEPS:=$(shell find pkg -name '*.go')
 
 .PHONY: images
-images: docker/.balancer.done docker/.agent.done \
-	docker/.display.done docker/.command.done
+images: $(foreach i,$(IMAGES),docker/.$(i).done)
 
 .PHONY: clean
 clean:
-	rm -f docker/.*.done *.bin
+	rm -f $(foreach i,$(IMAGES),docker/.$(i).done) *.bin
 	rm -rf ./build
+
+.PHONY: realclean
+realclean: clean
+	rm -f docker/.build.done docker/.webbuild.done
 
 .PHONY: test
 test:
@@ -26,10 +30,7 @@ test:
 	rm -rf build-container
 	touch $@
 
-docker/.agent.done: agent.bin
-docker/.balancer.done: balancer.bin
-docker/.command.done: command.bin
-docker/.display.done: display.bin
+$(foreach i,$(IMAGES),$(eval docker/.$(i).done: $(i).bin))
 
 # $1: build image
 # $2: extra docker run args

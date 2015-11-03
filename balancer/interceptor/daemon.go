@@ -14,6 +14,7 @@ import (
 	"github.com/squaremo/ambergreen/balancer/interceptor/eventlogger"
 	"github.com/squaremo/ambergreen/balancer/interceptor/events"
 	"github.com/squaremo/ambergreen/balancer/interceptor/model"
+	"github.com/squaremo/ambergreen/balancer/interceptor/prometheus"
 	"github.com/squaremo/ambergreen/balancer/interceptor/simplecontrol"
 )
 
@@ -31,12 +32,14 @@ type Controller interface {
 func Main() error {
 	var cf config
 	var useSimpleControl bool
+	var exposePrometheus string
 
 	// The bridge specified should be the one where packets sent
 	// to service IP addresses go.  So even with weave, that's
 	// typically 'docker0'.
 	flag.StringVar(&cf.bridge, "bridge", "docker0", "bridge device")
 	flag.StringVar(&cf.chain, "chain", "AMBERGRIS", "iptables chain name")
+	flag.StringVar(&exposePrometheus, "expose-prometheus", "", "expose stats to Prometheus on this IPaddress and port; e.g., :9000")
 	flag.BoolVar(&useSimpleControl, "s", false, "use the unix socket controller")
 	flag.Parse()
 
@@ -44,7 +47,15 @@ func Main() error {
 		return fmt.Errorf("excess command line arguments")
 	}
 
-	cf.eventHandler = eventlogger.EventLogger{}
+	if exposePrometheus == "" {
+		cf.eventHandler = eventlogger.EventLogger{}
+	} else {
+		handler, err := prometheus.NewEventHandler(exposePrometheus)
+		if err != nil {
+			return err
+		}
+		cf.eventHandler = handler
+	}
 
 	err := cf.setupChain("nat", "PREROUTING")
 	if err != nil {

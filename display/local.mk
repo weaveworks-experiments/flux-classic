@@ -3,6 +3,8 @@ DISPLAY_LESSGEN:=$(patsubst %.less,%.css,$(shell find display/gen -name '*.less'
 DISPLAY_GEN:=$(DISPLAY_LESSGEN) $(DISPLAY_BABELGEN)
 DISPLAY_STATIC:=display/index.html display/res/*.css display/res/*.js
 
+display.bin: $(shell find display -name '*.go')
+
 docker/.display.done: $(DISPLAY_STATIC) $(DISPLAY_GEN)
 
 $(DISPLAY_GEN): docker/.webbuild.done

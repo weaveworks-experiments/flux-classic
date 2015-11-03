@@ -9,7 +9,7 @@ images: docker/.balancer.done docker/.agent.done \
 
 .PHONY: clean
 clean:
-	rm -f docker/.*.done
+	rm -f docker/.*.done *.bin
 	rm -rf ./build
 
 .PHONY: test

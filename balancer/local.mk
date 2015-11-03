@@ -1,3 +1,5 @@
+balancer.bin: $(shell find balancer -name '*.go')
+
 test: test-balancer
 
 .PHONY: test-balancer

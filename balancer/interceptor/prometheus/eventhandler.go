@@ -12,6 +12,7 @@ import (
 )
 
 type handler struct {
+	events.DiscardOthers
 	connections   *prom.CounterVec
 	http          *prom.CounterVec
 	httpRoundtrip *prom.GaugeVec

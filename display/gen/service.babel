@@ -61,7 +61,7 @@ function renderChart(chart) {
 }
 
 function statsURL(instance, start, end) {
-  var query = 'query=rate(microwiki_http_service_requests{instance="'+instance.details.address+':9090"}['+intervalSecs+'s])';
+  var query = 'query=rate(ambergreen_http_total{dst="'+instance.details.address+'"}['+intervalSecs+'s])';
   var interval = '&step='+intervalSecs+'s&start='+start+'&end='+end;
   return 'http://192.168.99.100:9090/api/v1/query_range?'+query+interval;
 }
@@ -103,7 +103,7 @@ var InstanceView = React.createClass({
         var result = json.data.result;
         var okData = [], errData = [];
         for (var i=0; i < result.length; i++) {
-          switch (result[i].metric.status) {
+          switch (result[i].metric.code) {
           case "200":
             okData = result[i].values;
             break;

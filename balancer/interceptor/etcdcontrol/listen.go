@@ -1,5 +1,5 @@
 // Integrate coatl with ambergris via channel
-package coatl
+package etcdcontrol
 
 import (
 	"log"

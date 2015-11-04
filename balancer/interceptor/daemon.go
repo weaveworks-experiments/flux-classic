@@ -10,7 +10,7 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/squaremo/ambergreen/balancer/coatl"
+	"github.com/squaremo/ambergreen/balancer/interceptor/etcdcontrol"
 	"github.com/squaremo/ambergreen/balancer/interceptor/eventlogger"
 	"github.com/squaremo/ambergreen/balancer/interceptor/events"
 	"github.com/squaremo/ambergreen/balancer/interceptor/model"
@@ -75,7 +75,7 @@ func Main() error {
 	if useSimpleControl {
 		controlServer, err = simplecontrol.NewServer(errors)
 	} else {
-		controlServer, err = coatl.NewListener(errors)
+		controlServer, err = etcdcontrol.NewListener(errors)
 	}
 	if err != nil {
 		return err

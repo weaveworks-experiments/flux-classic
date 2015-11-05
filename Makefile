@@ -10,11 +10,10 @@ images: $(foreach i,$(IMAGES),docker/.$(i).done)
 .PHONY: clean
 clean:
 	rm -f $(foreach i,$(IMAGES),docker/.$(i).done) *.bin
-	rm -rf ./build
 
 .PHONY: realclean
 realclean: clean
-	rm -f docker/.build.done docker/.webbuild.done
+	rm -rf build docker/.build.done docker/.webbuild.done
 
 .PHONY: test
 test:

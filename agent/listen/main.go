@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/bboreham/coatl/backends"
-	"github.com/bboreham/coatl/data"
 	"github.com/spf13/cobra"
+	"github.com/squaremo/ambergreen/pkg/backends"
+	"github.com/squaremo/ambergreen/pkg/data"
 )
 
 var topCmd = &cobra.Command{

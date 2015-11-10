@@ -84,15 +84,19 @@ func (l *Listener) Sync() error {
 }
 
 func (l *Listener) Register(container *docker.Container) error {
+nextService:
 	for serviceName, service := range l.services {
-		spec := service.details.InstanceSpec
-		if instance, ok := l.extractInstance(spec, container); ok {
-			err := l.backend.AddInstance(serviceName, container.ID, instance)
-			if err != nil {
-				log.Println("ambergreen: failed to register service:", err)
-				return err
+		for group, spec := range service.details.InstanceSpecs {
+			if instance, ok := l.extractInstance(spec, container); ok {
+				instance.InstanceGroup = group
+				err := l.backend.AddInstance(serviceName, container.ID, instance)
+				if err != nil {
+					log.Println("ambergreen: failed to register service:", err)
+					return err
+				}
+				log.Printf("Registered %s instance %.12s at %s:%d", serviceName, container.ID, instance.Address, instance.Port)
+				continue nextService
 			}
-			log.Printf("Registered %s instance %.12s at %s:%d", serviceName, container.ID, instance.Address, instance.Port)
 		}
 	}
 	return nil

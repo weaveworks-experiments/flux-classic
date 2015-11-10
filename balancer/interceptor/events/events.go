@@ -12,18 +12,22 @@ type Handler interface {
 }
 
 type Connection struct {
-	Inbound  *net.TCPAddr
-	Outbound *net.TCPAddr
-	Protocol string
+	Instance      string
+	InstanceGroup string
+	Inbound       *net.TCPAddr
+	Outbound      *net.TCPAddr
+	Protocol      string
 }
 
 type HttpExchange struct {
-	Inbound   *net.TCPAddr
-	Outbound  *net.TCPAddr
-	Request   *http.Request
-	Response  *http.Response
-	RoundTrip time.Duration
-	TotalTime time.Duration
+	Instance      string
+	InstanceGroup string
+	Inbound       *net.TCPAddr
+	Outbound      *net.TCPAddr
+	Request       *http.Request
+	Response      *http.Response
+	RoundTrip     time.Duration
+	TotalTime     time.Duration
 }
 
 type DiscardOthers struct{}

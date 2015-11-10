@@ -24,9 +24,9 @@ func NewEventHandler(address string) (events.Handler, error) {
 	connectionCounter := prom.NewCounterVec(prom.CounterOpts{
 		Name: "ambergreen_connections_total",
 		Help: "Number of TCP connections established",
-	}, []string{"src", "dst", "protocol"})
+	}, []string{"individual", "group", "src", "dst", "protocol"})
 
-	httpLabels := []string{"src", "dst", "method", "code"}
+	httpLabels := []string{"individual", "group", "src", "dst", "method", "code"}
 
 	httpCounter := prom.NewCounterVec(prom.CounterOpts{
 		Name: "ambergreen_http_total",
@@ -69,15 +69,17 @@ func NewEventHandler(address string) (events.Handler, error) {
 }
 
 func (h *handler) Connection(ev *events.Connection) {
-	h.connections.WithLabelValues(ev.Inbound.IP.String(), ev.Outbound.IP.String(), ev.Protocol).Inc()
+	h.connections.WithLabelValues(ev.Instance, ev.InstanceGroup, ev.Inbound.IP.String(), ev.Outbound.IP.String(), ev.Protocol).Inc()
 }
 
 func (h *handler) HttpExchange(ev *events.HttpExchange) {
+	indy := ev.Instance
+	group := ev.InstanceGroup
 	src := ev.Inbound.IP.String()
 	dst := ev.Outbound.IP.String()
 	method := ev.Request.Method
 	code := strconv.Itoa(ev.Response.StatusCode)
-	h.http.WithLabelValues(src, dst, method, code).Inc()
-	h.httpRoundtrip.WithLabelValues(src, dst, method, code).Observe(float64(ev.RoundTrip / time.Microsecond))
-	h.httpTotal.WithLabelValues(src, dst, method, code).Observe(float64(ev.TotalTime / time.Microsecond))
+	h.http.WithLabelValues(indy, group, src, dst, method, code).Inc()
+	h.httpRoundtrip.WithLabelValues(indy, group, src, dst, method, code).Observe(float64(ev.RoundTrip / time.Microsecond))
+	h.httpTotal.WithLabelValues(indy, group, src, dst, method, code).Observe(float64(ev.TotalTime / time.Microsecond))
 }

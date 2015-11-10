@@ -15,17 +15,20 @@ type InstanceSpec struct {
 	Selector    map[string]string `json:"selector,omitempty"`
 }
 
+type InstanceGroup string
+
 type Service struct {
-	Address      string       `json:"address,omitempty"`
-	Port         int          `json:"port,omitempty"`
-	Protocol     string       `json:"protocol,omitempty"`
-	InstanceSpec InstanceSpec `json:"instanceSpec,omitempty"`
+	Address       string                         `json:"address,omitempty"`
+	Port          int                            `json:"port,omitempty"`
+	Protocol      string                         `json:"protocol,omitempty"`
+	InstanceSpecs map[InstanceGroup]InstanceSpec `json:"instanceSpec,omitempty"`
 }
 
 type Instance struct {
-	Address string            `json:"address,omitempty"`
-	Port    int               `json:"port,omitempty"`
-	Labels  map[string]string `json:"labels"`
+	InstanceGroup InstanceGroup     `json:"instanceGroup"`
+	Address       string            `json:"address,omitempty"`
+	Port          int               `json:"port,omitempty"`
+	Labels        map[string]string `json:"labels"`
 }
 
 const ServicePath = "/weave/service/"

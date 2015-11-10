@@ -14,6 +14,8 @@ type addServiceOpts struct {
 	protocol    string
 }
 
+const DEFAULT_GROUP = data.InstanceGroup("default")
+
 func (opts *addServiceOpts) addService(args []string) {
 	if len(args) != 3 {
 		log.Fatal("Must supply service name, address and port number")
@@ -23,17 +25,20 @@ func (opts *addServiceOpts) addService(args []string) {
 	if err != nil {
 		log.Fatal("Invalid port number:", err)
 	}
+
 	err = backend.AddService(serviceName, data.Service{
 		Address:  args[1],
 		Port:     port,
 		Protocol: opts.protocol,
-		InstanceSpec: data.InstanceSpec{
-			AddressSpec: data.AddressSpec{
-				Type: "fixed",
-				Port: port,
-			},
-			Selector: map[string]string{
-				"image": opts.dockerImage,
+		InstanceSpecs: map[data.InstanceGroup]data.InstanceSpec{
+			DEFAULT_GROUP: data.InstanceSpec{
+				AddressSpec: data.AddressSpec{
+					Type: "fixed",
+					Port: port,
+				},
+				Selector: map[string]string{
+					"image": opts.dockerImage,
+				},
 			},
 		},
 	})

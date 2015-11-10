@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"strconv"
 	"strings"
@@ -17,6 +18,11 @@ type Listener struct {
 	dc         *docker.Client
 	services   map[string]*service
 	containers map[string]*docker.Container
+	hostIP     string
+}
+
+type Config struct {
+	HostIP string
 }
 
 type service struct {
@@ -24,12 +30,13 @@ type service struct {
 	details data.Service
 }
 
-func NewListener(dc *docker.Client) *Listener {
+func NewListener(config Config, dc *docker.Client) *Listener {
 	listener := &Listener{
 		backend:    backends.NewBackend([]string{}),
 		dc:         dc,
 		services:   make(map[string]*service),
 		containers: make(map[string]*docker.Container),
+		hostIP:     config.HostIP,
 	}
 	return listener
 }
@@ -77,98 +84,114 @@ func (l *Listener) Sync() error {
 }
 
 func (l *Listener) Register(container *docker.Container) error {
-	serviceName := l.serviceName(container)
-	service, err := l.backend.GetServiceDetails(serviceName)
-	if err != nil {
-		log.Printf("ignoring %.12s; service '%s' not registered", container.ID, serviceName)
-		return err
+	for serviceName, service := range l.services {
+		spec := service.details.InstanceSpec
+		if instance, ok := l.extractInstance(spec, container); ok {
+			err := l.backend.AddInstance(serviceName, container.ID, instance)
+			if err != nil {
+				log.Println("ambergreen: failed to register service:", err)
+				return err
+			}
+			log.Printf("Registered %s instance %.12s at %s:%d", serviceName, container.ID, instance.Address, instance.Port)
+		}
 	}
-	port := l.servicePort(container)
-	if port == 0 {
-		port = service.Port
+	return nil
+}
+
+func (l *Listener) extractInstance(spec data.InstanceSpec, container *docker.Container) (data.Instance, bool) {
+	if !l.includesContainer(spec, container) {
+		return data.Instance{}, false
 	}
 
-	labels := map[string]string{"tag": imageTag(container.Config.Image)}
+	ipAddress, port := l.getAddress(spec, container)
+	labels := map[string]string{
+		"docker.io/tag":   imageTag(container.Config.Image),
+		"docker.io/image": imageName(container.Config.Image),
+	}
 	for k, v := range container.Config.Labels {
 		labels[k] = v
 	}
 
-	err = l.backend.AddInstance(serviceName, container.ID, container.NetworkSettings.IPAddress, port, labels)
-	if err != nil {
-		log.Println("coatl: failed to register service:", err)
-		return err
-	}
-	log.Printf("Registered %s instance %.12s at %s", serviceName, container.ID, container.NetworkSettings.IPAddress)
-	return nil
+	return data.Instance{
+		Address: ipAddress,
+		Port:    port,
+		Labels:  labels,
+	}, true
 }
 
 func (l *Listener) Deregister(container *docker.Container) error {
-	service := l.serviceName(container)
-	if l.backend.CheckRegisteredService(service) != nil {
-		return nil
-	}
-	err := l.backend.RemoveInstance(service, container.ID)
-	if err != nil {
-		log.Println("coatl: failed to deregister service:", err)
-		return err
-	}
-	log.Printf("Deregistered %s instance %.12s", service, container.ID)
-	return err
-}
-
-func findOverride(container *docker.Container, key string) (val string, found bool) {
-	for _, kv := range container.Config.Env {
-		kvp := strings.SplitN(kv, "=", 2)
-		if kvp[0] == key {
-			return kvp[1], true
-		}
-	}
-	if v, found := container.Config.Labels[key]; found {
-		return v, true
-	}
-	return "", false
-}
-
-func (l *Listener) serviceFromImage(image string) *service {
-	for _, service := range l.services {
-		if image == service.details.Image {
-			return service
+	for serviceName, _ := range l.services {
+		if l.backend.CheckRegisteredService(serviceName) == nil {
+			err := l.backend.RemoveInstance(serviceName, container.ID)
+			if err != nil {
+				log.Println("coatl: failed to deregister service:", err)
+				return err
+			}
+			log.Printf("Deregistered %s instance %.12s", serviceName, container.ID)
 		}
 	}
 	return nil
 }
 
-func (l *Listener) serviceName(container *docker.Container) string {
-	// First choice is just the container name
-	name := strings.TrimPrefix(container.Name, "/")
-	// If there is an environment variable overriding, use that
-	if val, found := findOverride(container, "SERVICE_NAME"); found {
-		name = val
-	}
-	// If this is a service that has been registered against a specific image name, override
-	if s := l.serviceFromImage(imageName(container.Config.Image)); s != nil {
-		name = s.name
-	}
-	return name
-}
-
-func (l *Listener) servicePort(container *docker.Container) int {
-	port := 0
-	// If there is exactly one port exposed, that's the one.
-	if len(container.NetworkSettings.Ports) == 1 {
-		for portInfo := range container.NetworkSettings.Ports {
-			if val, err := strconv.Atoi(portInfo.Port()); err == nil {
-				port = val
+func (l *Listener) includesContainer(spec data.InstanceSpec, container *docker.Container) bool {
+	for label, value := range spec.Selector {
+		switch {
+		case label == "image":
+			if imageName(container.Config.Image) != value {
+				return false
+			}
+		case len(label) > 4 && label[:4] == "env.":
+			if envValue(container.Config.Env, label[4:]) != value {
+				return false
+			}
+		default:
+			if container.Config.Labels[label] != value {
+				return false
 			}
 		}
 	}
-	// If there is an environment variable overriding, use that
-	if val, found := findOverride(container, "SERVICE_PORT"); found {
-		if num, err := strconv.Atoi(val); err == nil {
-			port = num
+	return true
+}
+
+func (l *Listener) getAddress(spec data.InstanceSpec, container *docker.Container) (string, int) {
+	addrSpec := spec.AddressSpec
+	switch addrSpec.Type {
+	case "mapped":
+		return l.mappedPortAddress(container, addrSpec.Port)
+	case "fixed":
+		return l.fixedPortAddress(container, addrSpec.Port)
+	}
+	return "", 0
+}
+
+func (l *Listener) mappedPortAddress(container *docker.Container, port int) (string, int) {
+	p := docker.Port(fmt.Sprintf("%d/tcp", port))
+	if bindings, found := container.NetworkSettings.Ports[p]; found {
+		for _, binding := range bindings {
+			if binding.HostIP == "" || binding.HostIP == "0.0.0.0" {
+				port, err := strconv.Atoi(binding.HostPort)
+				if err != nil {
+					return "", 0
+				}
+				return l.hostIP, port
+			}
 		}
 	}
-	return port
+	return "", 0
+}
+
+func (l *Listener) fixedPortAddress(container *docker.Container, port int) (string, int) {
+	return container.NetworkSettings.IPAddress, port
+}
+
+func envValue(env []string, key string) string {
+	for _, entry := range env {
+		keyval := strings.Split(entry, "=")
+		if keyval[0] == key {
+			return keyval[1]
+		}
+	}
+	return ""
 }
 
 func (l *Listener) Run(events <-chan *docker.APIEvents) {

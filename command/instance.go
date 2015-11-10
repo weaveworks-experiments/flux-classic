@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+
+	"github.com/squaremo/ambergreen/pkg/data"
 )
 
 func enrol(args []string) {
 	if len(args) != 4 {
-		log.Fatal("Usage: coatlctl enrol <service> <instance> <address> <port>")
+		log.Fatal("Usage: amberctl enrol <service> <instance> <address> <port>")
 	}
 	serviceName, instance := args[0], args[1]
 	if err := backend.CheckRegisteredService(serviceName); err != nil {
@@ -18,7 +20,11 @@ func enrol(args []string) {
 	if err != nil {
 		log.Fatal("Invalid port number: ", err)
 	}
-	err = backend.AddInstance(serviceName, instance, args[2], port, map[string]string{})
+	err = backend.AddInstance(serviceName, instance, data.Instance{
+		Address: args[2],
+		Port:    port,
+		Labels:  map[string]string{},
+	})
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -27,7 +33,7 @@ func enrol(args []string) {
 
 func unenrol(args []string) {
 	if len(args) != 2 {
-		log.Fatal("Usage: coatlctl unenrol <service> <instance>")
+		log.Fatal("Usage: amberctl unenrol <service> <instance>")
 	}
 	serviceName, instance := args[0], args[1]
 	err := backend.RemoveInstance(serviceName, instance)

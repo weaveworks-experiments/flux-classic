@@ -5,11 +5,21 @@ import (
 	"strings"
 )
 
+type AddressSpec struct {
+	Type string
+	Port int
+}
+
+type InstanceSpec struct {
+	AddressSpec AddressSpec       `json:"addressSpec,omitempty"`
+	Selector    map[string]string `json:"selector,omitempty"`
+}
+
 type Service struct {
-	Address  string `json:"address,omitempty"`
-	Port     int    `json:"port,omitempty"`
-	Protocol string `json:"protocol,omitempty"`
-	Image    string `json:"image,omitempty"`
+	Address      string       `json:"address,omitempty"`
+	Port         int          `json:"port,omitempty"`
+	Protocol     string       `json:"protocol,omitempty"`
+	InstanceSpec InstanceSpec `json:"instanceSpec,omitempty"`
 }
 
 type Instance struct {

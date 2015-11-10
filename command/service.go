@@ -23,7 +23,20 @@ func (opts *addServiceOpts) addService(args []string) {
 	if err != nil {
 		log.Fatal("Invalid port number:", err)
 	}
-	err = backend.AddService(serviceName, args[1], port, opts.protocol, opts.dockerImage)
+	err = backend.AddService(serviceName, data.Service{
+		Address:  args[1],
+		Port:     port,
+		Protocol: opts.protocol,
+		InstanceSpec: data.InstanceSpec{
+			AddressSpec: data.AddressSpec{
+				Type: "fixed",
+				Port: port,
+			},
+			Selector: map[string]string{
+				"image": opts.dockerImage,
+			},
+		},
+	})
 	if err != nil {
 		log.Fatal(err)
 	}

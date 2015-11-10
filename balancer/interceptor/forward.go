@@ -23,7 +23,7 @@ type forwarding struct {
 	shimName string
 }
 
-type shimFunc func(inbound, outbound *net.TCPConn, eventHandler events.Handler) error
+type shimFunc func(inbound, outbound *net.TCPConn, conn *events.Connection, eventHandler events.Handler) error
 
 func (svc *service) startForwarding(upd model.ServiceUpdate) (serviceState, error) {
 	bridgeIP, err := svc.config.bridgeIP()
@@ -135,12 +135,13 @@ func (fwd *forwarding) forward(inbound *net.TCPConn) {
 		return
 	}
 
-	fwd.config.eventHandler.Connection(&events.Connection{
+	connEvent := &events.Connection{
+		Ident:    inst.Ident,
 		Inbound:  inAddr,
 		Outbound: outAddr,
 		Protocol: shimName,
-	})
-	err = shim(inbound, outbound, fwd.config.eventHandler)
+	}
+	err = shim(inbound, outbound, connEvent, fwd.config.eventHandler)
 	if err != nil {
 		log.Error("forwarding from ", inAddr, " to ", outAddr, ": ",
 			err)
@@ -153,7 +154,8 @@ func (fwd *forwarding) pickInstanceAndShim() (model.Instance, shimFunc, string) 
 	return fwd.Instances[rand.Intn(len(fwd.Instances))], fwd.shim, fwd.shimName
 }
 
-func tcpShim(inbound, outbound *net.TCPConn, eh events.Handler) error {
+func tcpShim(inbound, outbound *net.TCPConn, connEvent *events.Connection, eh events.Handler) error {
+	eh.Connection(connEvent)
 	ch := make(chan error, 1)
 	go func() {
 		var err error

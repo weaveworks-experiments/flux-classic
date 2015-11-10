@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/squaremo/ambergreen/balancer/interceptor/events"
+	"github.com/squaremo/ambergreen/balancer/interceptor/model"
 
 	"github.com/stretchr/testify/require"
 )
@@ -37,7 +38,13 @@ func wrapShim(shim shimFunc, target *net.TCPAddr, check func(error)) *shimHarnes
 			go func() {
 				outbound, err := net.DialTCP("tcp", nil, target)
 				check(err)
-				check(shim(inbound, outbound, h))
+				cevent := &events.Connection{
+					Ident:    model.Ident{target.String(), "default"},
+					Inbound:  inbound.RemoteAddr().(*net.TCPAddr),
+					Outbound: target,
+					Protocol: "http",
+				}
+				check(shim(inbound, outbound, cevent, h))
 			}()
 		}
 	}()

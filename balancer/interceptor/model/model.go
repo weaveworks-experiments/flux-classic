@@ -19,14 +19,20 @@ func (ipport IPPort) TCPAddr() *net.TCPAddr {
 	return &net.TCPAddr{IP: ipport.IP(), Port: ipport.Port}
 }
 
+type Ident struct {
+	Individual string
+	Group      string
+}
+
 type Instance struct {
+	Ident
 	IPPort
 }
 
 func (i Instance) String() string { return i.IPPort.TCPAddr().String() }
 
-func MakeInstance(ip net.IP, port int) Instance {
-	return Instance{IPPort{string(ip), port}}
+func MakeInstance(indy, group string, ip net.IP, port int) Instance {
+	return Instance{Ident{indy, group}, IPPort{string(ip), port}}
 }
 
 type ServiceKey struct {

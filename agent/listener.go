@@ -240,7 +240,7 @@ func (l *Listener) Run(events <-chan *docker.APIEvents) {
 					log.Println("Error unmarshalling: ", err)
 					continue
 				}
-				l.services[serviceName] = &service{name: serviceName, details: data.Service{}}
+				l.services[serviceName] = s
 				log.Println("Service", s.name, "updated:", s.details)
 				// See if any containers match now.
 				l.Sync()

@@ -21,7 +21,7 @@ type Service struct {
 	Address       string                         `json:"address,omitempty"`
 	Port          int                            `json:"port,omitempty"`
 	Protocol      string                         `json:"protocol,omitempty"`
-	InstanceSpecs map[InstanceGroup]InstanceSpec `json:"instanceSpec,omitempty"`
+	InstanceSpecs map[InstanceGroup]InstanceSpec `json:"instanceSpecs,omitempty"`
 }
 
 type Instance struct {

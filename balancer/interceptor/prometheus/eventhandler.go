@@ -69,12 +69,12 @@ func NewEventHandler(address string) (events.Handler, error) {
 }
 
 func (h *handler) Connection(ev *events.Connection) {
-	h.connections.WithLabelValues(ev.Instance, ev.InstanceGroup, ev.Inbound.IP.String(), ev.Outbound.IP.String(), ev.Protocol).Inc()
+	h.connections.WithLabelValues(ev.Individual, ev.Group, ev.Inbound.IP.String(), ev.Outbound.IP.String(), ev.Protocol).Inc()
 }
 
 func (h *handler) HttpExchange(ev *events.HttpExchange) {
-	indy := ev.Instance
-	group := ev.InstanceGroup
+	indy := ev.Individual
+	group := ev.Group
 	src := ev.Inbound.IP.String()
 	dst := ev.Outbound.IP.String()
 	method := ev.Request.Method

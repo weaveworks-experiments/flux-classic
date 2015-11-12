@@ -31,13 +31,30 @@ var ServiceList = React.createClass({
 });
 
 var ServiceView = React.createClass({
+  getInitialState: function() {
+    return {expanded: true};
+  },
+  toggleListView: function() {
+    this.setState({expanded: !this.state.expanded});
+  },
   render: function() {
+    var toggle, list;
+    if (this.state.expanded) {
+      toggle = (<span onClick={this.toggleListView}>&minus;</span>);
+      list = (<InstanceList service={this.props.data.name}/>);
+    }
+    else {
+      toggle = (<span onClick={this.toggleListView}>+</span>);
+      list = (<RateChart spec={{service: this.props.data.name}}/>)
+    }
     return (
         <div className="serviceView">
-        <div><strong>{this.props.data.name}</strong>
-        {this.props.data.details.address}:{this.props.data.details.port}
-      </div>
-        <InstanceList service={this.props.data.name}/>
+          <div>
+            <strong>{toggle}</strong>
+            <strong>{this.props.data.name}</strong>
+            ({this.props.data.details.address}:{this.props.data.details.port})
+          </div>
+          {list}
         </div>
     );
   }
@@ -53,20 +70,6 @@ function zip(as, bs, fn) {
   }
   return res;
 }
-
-function renderChart(chart) {
-  chart.graph.render();
-  chart.yAxis.render();
-  chart.xAxis.render();
-}
-
-function statsURL(instance, start, end) {
-  var query = 'query=rate(ambergreen_http_total{individual="'+instance.name+'"}['+intervalSecs+'s])';
-  var interval = '&step='+intervalSecs+'s&start='+start+'&end='+end;
-  return 'http://192.168.99.100:9090/api/v1/query_range?'+query+interval;
-}
-
-var intervalSecs = 10;
 
 var InstanceList = React.createClass({
   getInitialState: function() {
@@ -96,9 +99,33 @@ var InstanceList = React.createClass({
   }
 });
 
-var InstanceView = React.createClass({
+
+function renderChart(chart) {
+  chart.graph.render();
+  chart.yAxis.render();
+  chart.xAxis.render();
+}
+
+function statsURL(spec, start, end) {
+  var labels = [];
+  for (var k in spec) { labels.push(k + '="' + spec[k] + '"'); }
+  var query = 'query=rate(ambergreen_http_total{'+labels.join(",")+'}['+intervalSecs+'s])';
+  var interval = '&step='+intervalSecs+'s&start='+start+'&end='+end;
+  return 'http://192.168.99.100:9090/api/v1/query_range?'+query+interval;
+}
+
+var intervalSecs = 10;
+
+var RateChart = React.createClass({
+  render: function() {
+    return (<div>
+              <div className="yAxis" ref="chartY"/>
+              <div className="chart" ref="chart"/>
+              <div className="legend" ref="legend"/>
+            </div>)
+  },
   getData: function(start, end, k) {
-    $.ajax(statsURL(this.props.instance, start, end), {
+    $.ajax(statsURL(this.props.spec, start, end), {
       success: function(json) {
         var result = json.data.result;
         var okData = [], errData = [];
@@ -180,16 +207,17 @@ var InstanceView = React.createClass({
       renderChart(chart);
       this.stepChart(chart, end);
     }.bind(this));
-  },
+  }
+});
+
+var InstanceView = React.createClass({
   render: function() {
     return (<div className="instanceView">
-            <div>{this.props.instance.details.address}:{this.props.instance.details.port}
-            ({maybeTruncate(this.props.instance.name)};
-             {labels(this.props.instance.details.labels)})
-            </div>
-            <div className="yAxis" ref="chartY"/>
-            <div className="chart" ref="chart"/>
-            <div className="legend" ref="legend"/>
+              <div>{this.props.instance.details.address}:{this.props.instance.details.port}
+                ({maybeTruncate(this.props.instance.name)};
+                 {labels(this.props.instance.details.labels)})
+              </div>
+              <RateChart spec={{individual: this.props.instance.name}}/>
             </div>)
   }
 });

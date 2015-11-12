@@ -1,6 +1,6 @@
 PROJ:=ambergreen
 BASEPKG:=github.com/squaremo/$(PROJ)
-IMAGES=balancer agent display amberctl
+IMAGES=balancer agent web amberctl
 GO_SRC_DIRS=$(IMAGES) pkg
 
 DEPS:=$(shell find pkg -name '*.go')

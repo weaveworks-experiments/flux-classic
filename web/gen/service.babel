@@ -60,8 +60,6 @@ var ServiceView = React.createClass({
   }
 });
 
-function second(arr) { return arr[1]; }
-function follows(a, b) { return function(x) { return a(b(x)); }; }
 function zip(as, bs, fn) {
   var len = Math.min(as.length, bs.length);
   var res = new Array(len);

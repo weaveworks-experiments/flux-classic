@@ -46,8 +46,7 @@ func (b *Backend) CheckRegisteredService(serviceName string) error {
 	return err
 }
 
-func (b *Backend) AddService(serviceName, address string, port int, protocol, image string) error {
-	details := data.Service{Address: address, Port: port, Protocol: protocol, Image: image}
+func (b *Backend) AddService(serviceName string, details data.Service) error {
 	json, err := json.Marshal(&details)
 	if err != nil {
 		return fmt.Errorf("Failed to encode: %s", err)
@@ -133,9 +132,8 @@ func (b *Backend) ForeachInstance(serviceName string, fi func(string, data.Insta
 	return nil
 }
 
-func (b *Backend) AddInstance(serviceName, instanceName, address string, port int, labels map[string]string) error {
-	details := data.Instance{Address: address, Port: port, Labels: labels}
-	json, err := json.Marshal(&details)
+func (b *Backend) AddInstance(serviceName string, instanceName string, details data.Instance) error {
+	json, err := json.Marshal(details)
 	if err != nil {
 		return fmt.Errorf("Failed to encode: %s", err)
 	}

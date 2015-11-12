@@ -5,17 +5,30 @@ import (
 	"strings"
 )
 
+type AddressSpec struct {
+	Type string
+	Port int
+}
+
+type InstanceSpec struct {
+	AddressSpec AddressSpec       `json:"addressSpec,omitempty"`
+	Selector    map[string]string `json:"selector,omitempty"`
+}
+
+type InstanceGroup string
+
 type Service struct {
-	Address  string `json:"address,omitempty"`
-	Port     int    `json:"port,omitempty"`
-	Protocol string `json:"protocol,omitempty"`
-	Image    string `json:"image,omitempty"`
+	Address       string                         `json:"address,omitempty"`
+	Port          int                            `json:"port,omitempty"`
+	Protocol      string                         `json:"protocol,omitempty"`
+	InstanceSpecs map[InstanceGroup]InstanceSpec `json:"instanceSpecs,omitempty"`
 }
 
 type Instance struct {
-	Address string            `json:"address,omitempty"`
-	Port    int               `json:"port,omitempty"`
-	Labels  map[string]string `json:"labels"`
+	InstanceGroup InstanceGroup     `json:"instanceGroup"`
+	Address       string            `json:"address,omitempty"`
+	Port          int               `json:"port,omitempty"`
+	Labels        map[string]string `json:"labels"`
 }
 
 const ServicePath = "/weave/service/"

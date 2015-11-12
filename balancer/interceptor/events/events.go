@@ -4,6 +4,8 @@ import (
 	"net"
 	"net/http"
 	"time"
+
+	"github.com/squaremo/ambergreen/balancer/interceptor/model"
 )
 
 type Handler interface {
@@ -12,12 +14,14 @@ type Handler interface {
 }
 
 type Connection struct {
+	model.Ident
 	Inbound  *net.TCPAddr
 	Outbound *net.TCPAddr
 	Protocol string
 }
 
 type HttpExchange struct {
+	model.Ident
 	Inbound   *net.TCPAddr
 	Outbound  *net.TCPAddr
 	Request   *http.Request

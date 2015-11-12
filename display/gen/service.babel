@@ -61,7 +61,7 @@ function renderChart(chart) {
 }
 
 function statsURL(instance, start, end) {
-  var query = 'query=rate(ambergreen_http_total{dst="'+instance.details.address+'"}['+intervalSecs+'s])';
+  var query = 'query=rate(ambergreen_http_total{individual="'+instance.name+'"}['+intervalSecs+'s])';
   var interval = '&step='+intervalSecs+'s&start='+start+'&end='+end;
   return 'http://192.168.99.100:9090/api/v1/query_range?'+query+interval;
 }

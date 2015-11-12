@@ -10,7 +10,8 @@ import (
 	"github.com/squaremo/ambergreen/balancer/interceptor/events"
 )
 
-func httpShim(inbound, outbound *net.TCPConn, eh events.Handler) error {
+func httpShim(inbound, outbound *net.TCPConn, connEvent *events.Connection, eh events.Handler) error {
+	eh.Connection(connEvent)
 	defer inbound.Close()
 	defer outbound.Close()
 
@@ -98,6 +99,7 @@ func httpShim(inbound, outbound *net.TCPConn, eh events.Handler) error {
 		tWroteResponse := time.Now()
 
 		eh.HttpExchange(&events.HttpExchange{
+			Ident:     connEvent.Ident,
 			Inbound:   inboundAddr,
 			Outbound:  outboundAddr,
 			Request:   req.req,

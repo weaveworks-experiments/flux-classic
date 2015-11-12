@@ -115,8 +115,7 @@ func (srv *Server) doRequest(conn *net.UnixConn) error {
 		if err != nil {
 			return err
 		}
-
-		insts = append(insts, model.MakeInstance(addr.IP, addr.Port))
+		insts = append(insts, model.MakeInstance(inst, "default", addr.IP, addr.Port))
 	}
 
 	var update model.ServiceUpdate

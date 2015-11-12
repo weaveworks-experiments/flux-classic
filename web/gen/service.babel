@@ -41,11 +41,12 @@ var ServiceView = React.createClass({
     var toggle, list;
     if (this.state.expanded) {
       toggle = (<span onClick={this.toggleListView}>&minus;</span>);
-      list = (<InstanceList service={this.props.data.name}/>);
+      list = (<GroupList service={this.props.data}/>);
     }
     else {
       toggle = (<span onClick={this.toggleListView}>+</span>);
-      list = (<RateChart spec={{service: this.props.data.name}}/>)
+      var groups = Object.keys(this.props.data.details.instanceSpecs);
+      list = (<RateChart spec={{group: groups}}/>)
     }
     return (
         <div className="serviceView">
@@ -68,6 +69,28 @@ function zip(as, bs, fn) {
   }
   return res;
 }
+
+var GroupList = React.createClass({
+  render: function() {
+    var groups = [];
+    var svc = this.props.service;
+    var specs = svc.details.instanceSpecs;
+    for (var g in specs) {
+      groups.push(<li key={g}><GroupView name={g} spec={specs[g]}/></li>)
+    }
+    return (<ul>{groups}</ul>);
+  },
+});
+
+var GroupView = React.createClass({
+  render: function() {
+    return (
+        <div className="groupView">
+          <strong>{this.props.name}</strong> ({labels(this.props.spec.selector)})
+          <RateChart spec={{group: this.props.name}}/>
+        </div>);
+  },
+});
 
 var InstanceList = React.createClass({
   getInitialState: function() {
@@ -104,10 +127,23 @@ function renderChart(chart) {
   chart.xAxis.render();
 }
 
-function statsURL(spec, start, end) {
+// Turn a specification into a Prometheus label match expression
+function matchExpr(spec) {
   var labels = [];
-  for (var k in spec) { labels.push(k + '="' + spec[k] + '"'); }
-  var query = 'query=rate(ambergreen_http_total{'+labels.join(",")+'}['+intervalSecs+'s])';
+  for (var k in spec) {
+    var eq = '=';
+    var val = spec[k];
+    if (Array.isArray(val)) {
+      eq = "=~";
+      val = val.join("|");
+    }
+    labels.push(k + eq + '"' + spec[k] + '"');
+  }
+  return labels.join(",");
+}
+
+function statsURL(spec, start, end) {
+  var query = 'query=rate(ambergreen_http_total{'+matchExpr(spec)+'}['+intervalSecs+'s])';
   var interval = '&step='+intervalSecs+'s&start='+start+'&end='+end;
   return 'http://192.168.99.100:9090/api/v1/query_range?'+query+interval;
 }

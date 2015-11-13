@@ -25,6 +25,5 @@ _testmain.go
 
 # local
 .*.done
-*.bin
 build/
 cover/

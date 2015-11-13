@@ -2,15 +2,13 @@ PROJ:=ambergreen
 BASEPKG:=github.com/squaremo/$(PROJ)
 IMAGES=balancer agent web amberctl
 
-DEPS:=$(shell find pkg -name '*.go')
-
 .PHONY: images
 images: $(foreach i,$(IMAGES),docker/.$(i).done)
 
 .PHONY: clean
 clean::
 	rm -rf build cover
-	rm -f $(foreach i,$(IMAGES),docker/.$(i).done) *.bin
+	rm -f $(foreach i,$(IMAGES),docker/.$(i).done)
 
 .PHONY: realclean
 realclean:: clean
@@ -27,7 +25,9 @@ realclean:: clean
 	rm -rf build-container
 	touch $@
 
-$(foreach i,$(IMAGES),$(eval docker/.$(i).done: $(i).bin))
+$(foreach i,$(IMAGES),$(eval docker/.$(i).done: build/bin/$(i)))
+$(foreach i,$(IMAGES) pkg,$(eval $(i)_go_srcs:=$(shell find $(i) -name '*.go')))
+$(foreach i,$(IMAGES),$(eval build/bin/$(i): $($(i)_go_srcs)))
 
 # $1: build image
 # $2: extra docker run args
@@ -42,10 +42,9 @@ run_build_container=mkdir -p build/src/$(BASEPKG) && docker run --rm $2 \
 
 get_vendor_submodules=@if [ -z "$$(find vendor -type f -print -quit)" ] ; then git submodule update --init ; fi
 
-%.bin: docker/.build.done docker/build-wrapper.sh $(DEPS)
+build/bin/%: docker/.build.done docker/build-wrapper.sh $(pkg_go_srcs)
 	$(get_vendor_submodules)
 	$(call run_build_container,build,-e GOPATH=/build,$(*F),go install ./...)
-	cp build/bin/$(*F) $@
 
 .PHONY: test
 test::

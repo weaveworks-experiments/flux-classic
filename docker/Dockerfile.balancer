@@ -2,4 +2,4 @@ FROM gliderlabs/alpine
 ENTRYPOINT ["/home/ambergreen/server"]
 RUN apk add --update iptables \
   && rm -rf /var/cache/apk/*
-COPY ./balancer.bin /home/ambergreen/server
+COPY ./balancer /home/ambergreen/server

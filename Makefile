@@ -1,7 +1,6 @@
 PROJ:=ambergreen
 BASEPKG:=github.com/squaremo/$(PROJ)
 IMAGES=balancer agent web amberctl
-GO_SRC_DIRS=$(IMAGES) pkg
 
 DEPS:=$(shell find pkg -name '*.go')
 
@@ -9,13 +8,13 @@ DEPS:=$(shell find pkg -name '*.go')
 images: $(foreach i,$(IMAGES),docker/.$(i).done)
 
 .PHONY: clean
-clean:
-	rm -rf build/src/$(BASEPKG)
+clean::
+	rm -rf build cover
 	rm -f $(foreach i,$(IMAGES),docker/.$(i).done) *.bin
 
 .PHONY: realclean
-realclean: clean
-	rm -rf build docker/.build.done docker/.webbuild.done
+realclean:: clean
+	rm -rf docker/.build.done docker/.webbuild.done
 
 # Don't remove this if a subsequent step fails
 .PRECIOUS: docker/.build.done
@@ -32,33 +31,37 @@ $(foreach i,$(IMAGES),$(eval docker/.$(i).done: $(i).bin))
 
 # $1: build image
 # $2: extra docker run args
-# $3: directory to mount as /build
-# $4: working directory under /build
-# $5: command string to pass to build-wrapper.sh
-run_build_container=docker run --rm $2 -v $$PWD$(and $3,/$3):/build \
+# $3: working directory under /build/src/$(BASEPKG)
+# $4: command string to pass to build-wrapper.sh
+run_build_container=mkdir -p build/src/$(BASEPKG) && docker run --rm $2 \
+    -v $$PWD/build:/build \
+    -v $$PWD:/build/src/$(BASEPKG) \
     -v $$PWD/docker/build-wrapper.sh:/build-wrapper.sh \
-    --workdir=/build$(and $4,/$4) $(PROJ)/$(or $1,build) sh /build-wrapper.sh '$(subst ','"'"',$5)'
+    --workdir=/build/src/$(BASEPKG)$(and $3,/$3) \
+    $(PROJ)/$1 sh /build-wrapper.sh '$(subst ','"'"',$4)'
+
+get_vendor_submodules=@if [ -z "$$(find vendor -type f -print -quit)" ] ; then git submodule update --init ; fi
 
 %.bin: docker/.build.done docker/build-wrapper.sh $(DEPS)
-	rm -rf build/src/$(BASEPKG)
-	mkdir -p build/src/$(BASEPKG)
-	cp -pr pkg $(*F) build/src/$(BASEPKG)/
-	$(call run_build_container,,-e GOPATH=/build,build,src/$(BASEPKG)/$(*F),go get ./... && go build ./...)
+	$(get_vendor_submodules)
+	$(call run_build_container,build,-e GOPATH=/build,$(*F),go install ./...)
 	cp build/bin/$(*F) $@
 
 .PHONY: test
 test::
-	rm -rf build/src/$(BASEPKG)
-	mkdir -p build/src/$(BASEPKG)
-	cp -pr $(GO_SRC_DIRS) build/src/$(BASEPKG)/
-	$(call run_build_container,,-e GOPATH=/build,build,src/$(BASEPKG)/balancer/interceptor,go get -t ./... && go test ./...)
+	$(get_vendor_submodules)
+	$(call run_build_container,build,-e GOPATH=/build,,go test $$(go list ./... | grep -v /vendor/))
 
 .PHONY: cover
 cover: docker/.build.done
-	rm -rf build/src/$(BASEPKG)
-	mkdir -p build/src/$(BASEPKG)
-	cp -pr $(GO_SRC_DIRS) build/src/$(BASEPKG)/
-	$(call run_build_container,,-e GOPATH=/build,build,src/$(BASEPKG),go get -t ./... && { testpkgs="$$(find * -name build -prune -o -name '*_test.go' -printf '%h\n' | sort -u)" ; for p in $$testpkgs ; do go test -coverprofile=$$p/cover.out $(BASEPKG)/$$p && go tool cover -html=$$p/cover.out -o $$p/cover.html ; done })
+	rm -rf cover
+	$(get_vendor_submodules)
+	$(call run_build_container,build,-e GOPATH=/build,,\
+	    for d in $$(find * -path vendor -prune -o -name "*_test.go" -printf "%h\n" | sort -u); do \
+	        mkdir -p cover/$$d && \
+	        go test -coverprofile=cover/$$d.out $(BASEPKG)/$$d && \
+	        go tool cover -html=cover/$$d.out -o cover/$$d.html ; \
+	    done)
 
 # Subdir-specific rules
 

@@ -27,3 +27,4 @@ _testmain.go
 .*.done
 *.bin
 build/
+cover/

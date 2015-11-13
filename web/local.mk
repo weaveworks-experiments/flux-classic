@@ -10,13 +10,13 @@ docker/.web.done: $(WEB_STATIC) $(WEB_GEN)
 $(WEB_GEN): docker/.webbuild.done
 
 %.css: %.less
-	$(call run_build_container,webbuild,,,,lessc $< $@)
+	$(call run_build_container,webbuild,,,lessc $< $@)
 
 %.js: %.babel
-	$(call run_build_container,webbuild,,,,babel $< -o $@)
+	$(call run_build_container,webbuild,,,babel $< -o $@)
 
 .PHONY: clean-web
-clean: clean-web
+clean:: clean-web
 
-clean-web:
+clean-web::
 	rm -f $(WEB_GEN)

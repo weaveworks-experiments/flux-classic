@@ -26,7 +26,7 @@ realclean:: clean
 	touch $@
 
 $(foreach i,$(IMAGES),$(eval docker/.$(i).done: build/bin/$(i)))
-$(foreach i,$(IMAGES) pkg,$(eval $(i)_go_srcs:=$(shell find $(i) -name '*.go')))
+$(foreach i,$(IMAGES) common,$(eval $(i)_go_srcs:=$(shell find $(i) -name '*.go')))
 $(foreach i,$(IMAGES),$(eval build/bin/$(i): $($(i)_go_srcs)))
 
 # $1: build image
@@ -42,7 +42,7 @@ run_build_container=mkdir -p build/src/$(BASEPKG) && docker run --rm $2 \
 
 get_vendor_submodules=@if [ -z "$$(find vendor -type f -print -quit)" ] ; then git submodule update --init ; fi
 
-build/bin/%: docker/.build.done docker/build-wrapper.sh $(pkg_go_srcs)
+build/bin/%: docker/.build.done docker/build-wrapper.sh $(common_go_srcs)
 	$(get_vendor_submodules)
 	$(call run_build_container,build,-e GOPATH=/build,$(*F),go install ./...)
 

@@ -5,8 +5,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/squaremo/ambergreen/pkg/backends"
-	"github.com/squaremo/ambergreen/pkg/data"
+	"github.com/squaremo/ambergreen/common/backends"
+	"github.com/squaremo/ambergreen/common/data"
 )
 
 func addInstanceCommands(top *cobra.Command, backend *backends.Backend) {

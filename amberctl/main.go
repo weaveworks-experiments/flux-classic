@@ -6,7 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/squaremo/ambergreen/pkg/backends"
+	"github.com/squaremo/ambergreen/common/backends"
 )
 
 func main() {

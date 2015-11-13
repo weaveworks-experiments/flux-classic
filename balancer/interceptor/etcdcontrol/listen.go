@@ -5,8 +5,8 @@ import (
 	"log"
 	"net"
 
-	"github.com/squaremo/ambergreen/pkg/backends"
-	"github.com/squaremo/ambergreen/pkg/data"
+	"github.com/squaremo/ambergreen/common/backends"
+	"github.com/squaremo/ambergreen/common/data"
 
 	"github.com/squaremo/ambergreen/balancer/interceptor/model"
 )

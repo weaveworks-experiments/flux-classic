@@ -8,8 +8,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/squaremo/ambergreen/pkg/backends"
-	"github.com/squaremo/ambergreen/pkg/data"
+	"github.com/squaremo/ambergreen/common/backends"
+	"github.com/squaremo/ambergreen/common/data"
 )
 
 const DEFAULT_GROUP = data.InstanceGroup("default")

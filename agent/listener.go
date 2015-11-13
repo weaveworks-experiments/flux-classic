@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/squaremo/ambergreen/pkg/backends"
-	"github.com/squaremo/ambergreen/pkg/data"
+	"github.com/squaremo/ambergreen/common/backends"
+	"github.com/squaremo/ambergreen/common/data"
 
 	docker "github.com/fsouza/go-dockerclient"
 )

@@ -92,11 +92,10 @@ func httpShim(inbound, outbound *net.TCPConn, connEvent *events.Connection, eh e
 		}
 
 		err = resp.Write(inbound)
+		tWroteResponse := time.Now()
 		if err != nil {
 			return err
 		}
-
-		tWroteResponse := time.Now()
 
 		eh.HttpExchange(&events.HttpExchange{
 			Ident:     connEvent.Ident,

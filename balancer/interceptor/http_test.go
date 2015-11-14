@@ -17,126 +17,140 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type shimHarness struct {
+type shimWrapper struct {
 	listener    *net.TCPListener
+	baseUrl     string
 	exchanges   chan *events.HttpExchange
 	connections int
 	events.DiscardOthers
 }
 
-func wrapShim(shim shimFunc, target *net.TCPAddr, check func(error)) *shimHarness {
+func wrapShim(shim shimFunc, target *net.TCPAddr, t *testing.T) *shimWrapper {
 	listener, err := net.ListenTCP("tcp", nil)
-	check(err)
+	require.Nil(t, err)
 
-	h := &shimHarness{
+	w := &shimWrapper{
 		listener:  listener,
 		exchanges: make(chan *events.HttpExchange, 100),
+		baseUrl: fmt.Sprintf("http://localhost:%d/",
+			listener.Addr().(*net.TCPAddr).Port),
 	}
 
 	go func() {
 		for {
 			inbound, err := listener.AcceptTCP()
-			if err != nil {
-				if h.listener != nil {
-					check(err)
-				}
-
+			if w.listener == nil {
 				return
 			}
 
-			h.connections++
+			require.Nil(t, err)
+
+			w.connections++
 			go func() {
 				outbound, err := net.DialTCP("tcp", nil, target)
-				check(err)
+				require.Nil(t, err)
 				cevent := &events.Connection{
 					Ident:    model.Ident{target.String(), "default"},
 					Inbound:  inbound.RemoteAddr().(*net.TCPAddr),
 					Outbound: target,
 					Protocol: "http",
 				}
-				check(shim(inbound, outbound, cevent, h))
+				require.Nil(t, shim(inbound, outbound, cevent, w))
 			}()
 		}
 	}()
 
-	return h
+	return w
 }
 
-func (h *shimHarness) addr() *net.TCPAddr {
-	return h.listener.Addr().(*net.TCPAddr)
+func (w *shimWrapper) addr() *net.TCPAddr {
+	return w.listener.Addr().(*net.TCPAddr)
 }
 
-func (h *shimHarness) stop() error {
-	l := h.listener
-	h.listener = nil
+func (w *shimWrapper) stop() error {
+	l := w.listener
+	w.listener = nil
 	return l.Close()
 }
 
-func (h *shimHarness) HttpExchange(exch *events.HttpExchange) {
-	h.exchanges <- exch
+func (w *shimWrapper) HttpExchange(exch *events.HttpExchange) {
+	w.exchanges <- exch
 }
 
-func TestHttp(t *testing.T) {
-	check := func(err error) {
-		if err != nil {
-			t.Fatal(err)
-		}
-	}
+func readAll(r io.ReadCloser, t *testing.T) string {
+	b, err := ioutil.ReadAll(r)
+	require.Nil(t, err)
+	require.Nil(t, r.Close())
+	return string(b)
+}
 
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-	randStr := func() string {
-		return fmt.Sprint(r.Int63())
-	}
+type harness struct {
+	server           net.Listener
+	expectOut, gotIn string
+	*shimWrapper
+}
 
-	read := func(r io.ReadCloser) string {
-		b, err := ioutil.ReadAll(r)
-		check(err)
-		check(r.Close())
-		return string(b)
-	}
+func newHarness(t *testing.T) *harness {
+	l, err := net.ListenTCP("tcp", nil)
+	require.Nil(t, err)
 
-	var expectOut, gotIn string
+	h := &harness{server: l}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/out", func(w http.ResponseWriter, req *http.Request) {
-		w.Write(([]byte)(expectOut))
+		w.Write(([]byte)(h.expectOut))
 	})
 	mux.HandleFunc("/in", func(w http.ResponseWriter, req *http.Request) {
-		gotIn = read(req.Body)
+		h.gotIn = readAll(req.Body, t)
 	})
 	mux.HandleFunc("/inout", func(w http.ResponseWriter, req *http.Request) {
-		gotIn = read(req.Body)
-		w.Write(([]byte)(expectOut))
+		h.gotIn = readAll(req.Body, t)
+		w.Write(([]byte)(h.expectOut))
 	})
 
-	l, err := net.ListenTCP("tcp", nil)
-	check(err)
+	h.shimWrapper = wrapShim(httpShim, l.Addr().(*net.TCPAddr), t)
+
 	go func() { http.Serve(l, mux) }()
 
-	harness := wrapShim(httpShim, l.Addr().(*net.TCPAddr), check)
-	url := fmt.Sprintf("http://localhost:%d/", harness.addr().Port)
+	return h
+}
 
-	doGet := func() string {
-		res, err := http.Get(url + "out")
-		check(err)
-		return read(res.Body)
-	}
+func (h *harness) stop(t *testing.T) {
+	require.Nil(t, h.server.Close())
+	require.Nil(t, h.shimWrapper.stop())
+}
 
-	doPost := func(s string) {
-		_, err := http.Post(url+"in", "text/plain",
-			bytes.NewBuffer(([]byte)(s)))
-		check(err)
-	}
+func (h *harness) get(c *http.Client, t *testing.T) string {
+	res, err := c.Get(h.baseUrl + "out")
+	require.Nil(t, err)
+	require.Equal(t, http.StatusOK, res.StatusCode)
+	return readAll(res.Body, t)
+}
 
-	doPostInOut := func(s string) string {
-		res, err := http.Post(url+"inout", "text/plain",
-			bytes.NewBuffer(([]byte)(s)))
-		check(err)
-		return read(res.Body)
-	}
+func (h *harness) post(c *http.Client, s string, t *testing.T) {
+	res, err := c.Post(h.baseUrl+"in", "text/plain",
+		bytes.NewBuffer(([]byte)(s)))
+	require.Nil(t, err)
+	require.Equal(t, http.StatusOK, res.StatusCode)
+}
 
-	expectOut = randStr()
-	require.Equal(t, doGet(), expectOut)
+func (h *harness) postInOut(c *http.Client, s string, t *testing.T) string {
+	res, err := c.Post(h.baseUrl+"inout", "text/plain",
+		bytes.NewBuffer(([]byte)(s)))
+	require.Nil(t, err)
+	require.Equal(t, http.StatusOK, res.StatusCode)
+	return readAll(res.Body, t)
+}
+
+func randStr(r *rand.Rand) string {
+	return fmt.Sprint(r.Int63())
+}
+
+func test(harness *harness, client *http.Client, t *testing.T) {
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	harness.expectOut = randStr(r)
+	require.Equal(t, harness.get(client, t), harness.expectOut)
 	exch := <-harness.exchanges
 	require.Equal(t, "GET", exch.Request.Method)
 	require.Equal(t, "/out", exch.Request.URL.String())
@@ -144,33 +158,50 @@ func TestHttp(t *testing.T) {
 	require.True(t, exch.RoundTrip > 0*time.Second && exch.RoundTrip < 100*time.Millisecond)
 	require.True(t, exch.TotalTime > 0*time.Second && exch.TotalTime < 100*time.Millisecond)
 
-	expectIn := randStr()
-	doPost(expectIn)
-	require.Equal(t, gotIn, expectIn)
+	expectIn := randStr(r)
+	harness.post(client, expectIn, t)
+	require.Equal(t, harness.gotIn, expectIn)
 	require.Equal(t, "POST", (<-harness.exchanges).Request.Method)
 
-	expectIn = randStr()
-	require.Equal(t, doPostInOut(expectIn), expectOut)
-	require.Equal(t, gotIn, expectIn)
+	expectIn = randStr(r)
+	require.Equal(t, harness.postInOut(client, expectIn, t),
+		harness.expectOut)
+	require.Equal(t, harness.gotIn, expectIn)
 	require.Equal(t, "POST", (<-harness.exchanges).Request.Method)
 
-	expectOut = randStr()
-	require.Equal(t, doGet(), expectOut)
+	harness.expectOut = randStr(r)
+	require.Equal(t, harness.get(client, t), harness.expectOut)
 	require.Equal(t, "GET", (<-harness.exchanges).Request.Method)
 
-	expectIn = randStr()
-	doPost(expectIn)
-	require.Equal(t, gotIn, expectIn)
+	expectIn = randStr(r)
+	harness.post(client, expectIn, t)
+	require.Equal(t, harness.gotIn, expectIn)
 	require.Equal(t, "POST", (<-harness.exchanges).Request.Method)
 
-	expectIn = randStr()
-	require.Equal(t, doPostInOut(expectIn), expectOut)
-	require.Equal(t, gotIn, expectIn)
+	expectIn = randStr(r)
+	require.Equal(t, harness.postInOut(client, expectIn, t),
+		harness.expectOut)
+	require.Equal(t, harness.gotIn, expectIn)
 	require.Equal(t, "POST", (<-harness.exchanges).Request.Method)
+}
 
-	// should have re-used one connection for all requests
+func TestHttp(t *testing.T) {
+	harness := newHarness(t)
+	defer harness.stop(t)
+	test(harness, http.DefaultClient, t)
 	require.Equal(t, 1, harness.connections)
+}
 
-	check(l.Close())
-	check(harness.stop())
+func noKeepAlivesClient() *http.Client {
+	transport := *http.DefaultTransport.(*http.Transport)
+	transport.DisableKeepAlives = true
+	return &http.Client{Transport: &transport}
+}
+
+func TestHttpNoKeepAlive(t *testing.T) {
+	harness := newHarness(t)
+	defer harness.stop(t)
+
+	test(harness, noKeepAlivesClient(), t)
+	require.Equal(t, 6, harness.connections)
 }

@@ -46,7 +46,7 @@ build/bin/%: docker/.build.done docker/build-wrapper.sh $(common_go_srcs)
 	$(get_vendor_submodules)
 	# to avoid cases where make thinks the target needs updating,
 	# but go build doesn't.
-	rm $@
+	rm -f $@
 	$(call run_build_container,build,-e GOPATH=/build,$(*F),go install ./...)
 
 .PHONY: test

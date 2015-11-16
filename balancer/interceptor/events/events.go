@@ -21,9 +21,7 @@ type Connection struct {
 }
 
 type HttpExchange struct {
-	model.Ident
-	Inbound   *net.TCPAddr
-	Outbound  *net.TCPAddr
+	*Connection
 	Request   *http.Request
 	Response  *http.Response
 	RoundTrip time.Duration

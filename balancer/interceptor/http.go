@@ -15,9 +15,6 @@ func httpShim(inbound, outbound *net.TCPConn, connEvent *events.Connection, eh e
 	defer inbound.Close()
 	defer outbound.Close()
 
-	inboundAddr := inbound.RemoteAddr().(*net.TCPAddr)
-	outboundAddr := outbound.RemoteAddr().(*net.TCPAddr)
-
 	// Request handling and response handling take place in
 	// separate goroutines.  This is not to support pipelining
 	// (although it could easily be extended to do so).  Rather,
@@ -98,13 +95,11 @@ func httpShim(inbound, outbound *net.TCPConn, connEvent *events.Connection, eh e
 		}
 
 		eh.HttpExchange(&events.HttpExchange{
-			Ident:     connEvent.Ident,
-			Inbound:   inboundAddr,
-			Outbound:  outboundAddr,
-			Request:   req.req,
-			Response:  resp,
-			RoundTrip: tReadResponse.Sub(req.tReadReq),
-			TotalTime: tWroteResponse.Sub(req.tReadReq),
+			Connection: connEvent,
+			Request:    req.req,
+			Response:   resp,
+			RoundTrip:  tReadResponse.Sub(req.tReadReq),
+			TotalTime:  tWroteResponse.Sub(req.tReadReq),
 		})
 	}
 }

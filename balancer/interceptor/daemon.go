@@ -5,10 +5,7 @@ import (
 	"fmt"
 	log "github.com/Sirupsen/logrus"
 	"net"
-	"os"
-	"os/signal"
 	"sync"
-	"syscall"
 
 	"github.com/squaremo/ambergreen/balancer/interceptor/etcdcontrol"
 	"github.com/squaremo/ambergreen/balancer/interceptor/eventlogger"
@@ -18,10 +15,13 @@ import (
 	"github.com/squaremo/ambergreen/balancer/interceptor/simplecontrol"
 )
 
+type IPTablesFunc func([]string) ([]byte, error)
+
 type config struct {
 	chain        string
 	bridge       string
 	eventHandler events.Handler
+	iptables     IPTablesFunc
 }
 
 type Controller interface {
@@ -29,72 +29,104 @@ type Controller interface {
 	Close()
 }
 
-func Main() error {
-	var cf config
+type Interceptor struct {
+	Fatal chan error
+
+	config           config
+	natChainSetup    bool
+	filterChainSetup bool
+	controller       Controller
+	updater          *updater
+}
+
+func Start(args []string, iptables IPTablesFunc) *Interceptor {
+	i := &Interceptor{
+		Fatal:  make(chan error, 1),
+		config: config{iptables: iptables},
+	}
+	err := i.start(args)
+	if err != nil {
+		i.Fatal <- err
+	}
+
+	return i
+}
+
+func (i *Interceptor) start(args []string) error {
+	fs := flag.NewFlagSet(args[0], flag.ExitOnError)
+
 	var useSimpleControl bool
 	var exposePrometheus string
 
 	// The bridge specified should be the one where packets sent
 	// to service IP addresses go.  So even with weave, that's
 	// typically 'docker0'.
-	flag.StringVar(&cf.bridge, "bridge", "docker0", "bridge device")
-	flag.StringVar(&cf.chain, "chain", "AMBERGRIS", "iptables chain name")
-	flag.StringVar(&exposePrometheus, "expose-prometheus", "", "expose stats to Prometheus on this IPaddress and port; e.g., :9000")
-	flag.BoolVar(&useSimpleControl, "s", false, "use the unix socket controller")
-	flag.Parse()
+	fs.StringVar(&i.config.bridge,
+		"bridge", "docker0", "bridge device")
+	fs.StringVar(&i.config.chain,
+		"chain", "AMBERGRIS", "iptables chain name")
+	fs.StringVar(&exposePrometheus,
+		"expose-prometheus", "",
+		"expose stats to Prometheus on this IPaddress and port; e.g., :9000")
+	fs.BoolVar(&useSimpleControl,
+		"s", false, "use the unix socket controller")
+	fs.Parse(args[1:])
 
-	if flag.NArg() > 0 {
+	if fs.NArg() > 0 {
 		return fmt.Errorf("excess command line arguments")
 	}
 
 	if exposePrometheus == "" {
-		cf.eventHandler = eventlogger.EventLogger{}
+		i.config.eventHandler = eventlogger.EventLogger{}
 	} else {
 		handler, err := prometheus.NewEventHandler(exposePrometheus)
 		if err != nil {
 			return err
 		}
-		cf.eventHandler = handler
+		i.config.eventHandler = handler
 	}
 
-	err := cf.setupChain("nat", "PREROUTING")
+	err := i.config.setupChain("nat", "PREROUTING")
 	if err != nil {
 		return err
 	}
-	defer cf.deleteChain("nat", "PREROUTING")
+	i.natChainSetup = true
 
-	err = cf.setupChain("filter", "FORWARD", "INPUT")
+	err = i.config.setupChain("filter", "FORWARD", "INPUT")
 	if err != nil {
 		return err
 	}
-	defer cf.deleteChain("filter", "FORWARD", "INPUT")
+	i.filterChainSetup = true
 
-	errors := make(chan error, 1)
-
-	var controlServer Controller
 	if useSimpleControl {
-		controlServer, err = simplecontrol.NewServer(errors)
+		i.controller, err = simplecontrol.NewServer(i.Fatal)
 	} else {
-		controlServer, err = etcdcontrol.NewListener(errors)
+		i.controller, err = etcdcontrol.NewListener(i.Fatal)
 	}
 	if err != nil {
 		return err
 	}
-	defer controlServer.Close()
 
-	updater := cf.newUpdater(controlServer.Updates(), errors)
-	defer updater.close()
+	i.updater = i.config.newUpdater(i.controller.Updates(), i.Fatal)
+	return nil
+}
 
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-
-	select {
-	case <-sigs:
-	case err := <-errors:
-		return err
+func (i *Interceptor) Stop() {
+	if i.natChainSetup {
+		i.config.deleteChain("nat", "PREROUTING")
 	}
 
-	return nil
+	if i.filterChainSetup {
+		i.config.deleteChain("filter", "FORWARD", "INPUT")
+	}
+
+	if i.controller != nil {
+		i.controller.Close()
+	}
+
+	if i.updater != nil {
+		i.updater.close()
+	}
 }
 
 type updater struct {

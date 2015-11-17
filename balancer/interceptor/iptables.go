@@ -2,14 +2,9 @@ package interceptor
 
 import (
 	"fmt"
-	"os/exec"
 	"strings"
 	"unicode"
 )
-
-func (cf *config) chainRule() []interface{} {
-	return []interface{}{"-i", cf.bridge, "-j", cf.chain}
-}
 
 type ipTablesError struct {
 	cmd    string
@@ -32,12 +27,18 @@ func flatten(args []interface{}, onto []string) []string {
 	return onto
 }
 
-func doIPTables(args ...interface{}) error {
+// exec.ExitError is opaque
+type exitError interface {
+	error
+	Success() bool
+}
+
+func (cf *config) doIPTables(args ...interface{}) error {
 	flatArgs := flatten(args, nil)
-	output, err := exec.Command("iptables", flatArgs...).CombinedOutput()
+	output, err := cf.iptables(flatArgs)
 	switch errt := err.(type) {
 	case nil:
-	case *exec.ExitError:
+	case exitError:
 		if !errt.Success() {
 			// sanitize iptables output
 			limit := 200
@@ -64,19 +65,23 @@ func doIPTables(args ...interface{}) error {
 	return nil
 }
 
+func (cf *config) chainRule() []interface{} {
+	return []interface{}{"-i", cf.bridge, "-j", cf.chain}
+}
+
 func (cf *config) setupChain(table string, hookChains ...string) error {
 	err := cf.deleteChain(table, hookChains...)
 	if err != nil {
 		return err
 	}
 
-	err = doIPTables("-t", table, "-N", cf.chain)
+	err = cf.doIPTables("-t", table, "-N", cf.chain)
 	if err != nil {
 		return err
 	}
 
 	for _, hookChain := range hookChains {
-		err = doIPTables("-t", table, "-I", hookChain, cf.chainRule())
+		err = cf.doIPTables("-t", table, "-I", hookChain, cf.chainRule())
 		if err != nil {
 			return err
 		}
@@ -87,7 +92,7 @@ func (cf *config) setupChain(table string, hookChains ...string) error {
 
 func (cf *config) deleteChain(table string, hookChains ...string) error {
 	// First, remove any rules in the chain
-	err := doIPTables("-t", table, "-F", cf.chain)
+	err := cf.doIPTables("-t", table, "-F", cf.chain)
 	if err != nil {
 		if _, ok := err.(ipTablesError); ok {
 			// this probably means the chain doesn't exist
@@ -98,7 +103,7 @@ func (cf *config) deleteChain(table string, hookChains ...string) error {
 	// Remove rules that reference our chain
 	for _, hookChain := range hookChains {
 		for {
-			err := doIPTables("-t", table, "-D", hookChain,
+			err := cf.doIPTables("-t", table, "-D", hookChain,
 				cf.chainRule())
 			if err != nil {
 				if _, ok := err.(ipTablesError); !ok {
@@ -112,7 +117,7 @@ func (cf *config) deleteChain(table string, hookChains ...string) error {
 	}
 
 	// Actually delete the chain
-	return doIPTables("-t", table, "-X", cf.chain)
+	return cf.doIPTables("-t", table, "-X", cf.chain)
 }
 
 func (cf *config) addRule(table string, args []interface{}) error {
@@ -124,5 +129,5 @@ func (cf *config) deleteRule(table string, args []interface{}) error {
 }
 
 func (cf *config) frobRule(table string, op string, args []interface{}) error {
-	return doIPTables("-t", table, op, cf.chain, args)
+	return cf.doIPTables("-t", table, op, cf.chain, args)
 }

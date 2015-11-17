@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -18,12 +19,17 @@ func main() {
 		etcd = "http://localhost:4001"
 	}
 
+	prom := os.Getenv("PROM_ADDRESS")
+	if prom == "" {
+		prom = "http://localhost:9090"
+	}
+
 	back := backends.NewBackend([]string{etcd})
 	if err := back.Ping(); err != nil {
 		log.Fatal(err)
 	}
 	log.Printf("Connected to backend\n")
-	api := &api{back}
+	api := &api{back, prom}
 
 	router := mux.NewRouter()
 
@@ -33,6 +39,8 @@ func main() {
 
 	router.HandleFunc("/api/{service}/", api.listInstances)
 	router.HandleFunc("/api/", api.listServices)
+
+	router.PathPrefix("/stats/").HandlerFunc(api.proxyStats)
 
 	http.ListenAndServe("0.0.0.0:7070", router)
 }
@@ -50,6 +58,7 @@ func homePage(w http.ResponseWriter, r *http.Request) {
 
 type api struct {
 	backend *backends.Backend
+	promURL string
 }
 
 type serviceDetails struct {
@@ -104,4 +113,19 @@ func (api *api) listInstances(w http.ResponseWriter, r *http.Request) {
 		Children: children,
 	}
 	json.NewEncoder(w).Encode(service)
+}
+
+/* Proxy for prometheus, as a stop-gap */
+
+func (api *api) proxyStats(w http.ResponseWriter, r *http.Request) {
+	path := r.URL.Path[len("/stats"):] + "?" + r.URL.RawQuery
+	log.Println(path)
+	resp, err := http.Get(api.promURL + path)
+	if err != nil {
+		http.Error(w, "Error contacting prometheus server: "+err.Error(), 500)
+		return
+	}
+	defer resp.Body.Close()
+	resp.Header.Write(w)
+	io.Copy(w, resp.Body)
 }

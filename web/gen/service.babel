@@ -145,7 +145,7 @@ function matchExpr(spec) {
 function statsURL(spec, start, end) {
   var query = 'query=rate(ambergreen_http_total{'+matchExpr(spec)+'}['+intervalSecs+'s])';
   var interval = '&step='+intervalSecs+'s&start='+start+'&end='+end;
-  return 'http://192.168.99.100:9090/api/v1/query_range?'+query+interval;
+  return '/stats/api/v1/query_range?'+query+interval;
 }
 
 var intervalSecs = 10;

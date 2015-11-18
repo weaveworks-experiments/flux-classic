@@ -15,15 +15,23 @@ type mockIPTables struct {
 	chains map[string][][]string
 }
 
+var builtinChains = []string{
+	"nat PREROUTING",
+	"filter FORWARD",
+	"filter INPUT",
+}
+
 func newMockIPTables(t *testing.T) mockIPTables {
-	return mockIPTables{
-		t: t,
-		chains: map[string][][]string{
-			"nat PREROUTING": make([][]string, 0),
-			"filter FORWARD": make([][]string, 0),
-			"filter INPUT":   make([][]string, 0),
-		},
+	m := mockIPTables{
+		t:      t,
+		chains: make(map[string][][]string),
 	}
+
+	for _, c := range builtinChains {
+		m.chains[c] = make([][]string, 0)
+	}
+
+	return m
 }
 
 type mockExitError bool
@@ -114,7 +122,8 @@ func (m mockIPTables) invoke(args []string) ([]byte, error) {
 }
 
 func TestDaemon(t *testing.T) {
-	i := Start([]string{"interceptor"}, newMockIPTables(t).invoke)
+	iptables := newMockIPTables(t)
+	i := Start([]string{"interceptor"}, iptables.invoke)
 
 	select {
 	case err := <-i.Fatal:
@@ -123,4 +132,9 @@ func TestDaemon(t *testing.T) {
 	}
 
 	i.Stop()
+
+	// check that iptables was cleaned up
+	for c, _ := range iptables.chains {
+		require.Contains(t, builtinChains, c)
+	}
 }

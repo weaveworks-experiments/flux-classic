@@ -40,22 +40,9 @@ func (cf *config) doIPTables(args ...interface{}) error {
 	case nil:
 	case exitError:
 		if !errt.Success() {
-			// sanitize iptables output
-			limit := 200
-			sanOut := strings.Map(func(ch rune) rune {
-				if limit == 0 {
-					return -1
-				}
-				limit--
-
-				if unicode.IsControl(ch) {
-					ch = ' '
-				}
-				return ch
-			}, string(output))
 			return ipTablesError{
 				cmd:    strings.Join(flatArgs, " "),
-				output: sanOut,
+				output: sanitizeIPTablesOutput(output),
 			}
 		}
 	default:
@@ -63,6 +50,21 @@ func (cf *config) doIPTables(args ...interface{}) error {
 	}
 
 	return nil
+}
+
+func sanitizeIPTablesOutput(output []byte) string {
+	limit := 200
+	return strings.Map(func(ch rune) rune {
+		if limit == 0 {
+			return -1
+		}
+		limit--
+
+		if unicode.IsControl(ch) {
+			ch = ' '
+		}
+		return ch
+	}, string(output))
 }
 
 func (cf *config) chainRule() []interface{} {

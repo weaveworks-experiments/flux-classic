@@ -1,9 +1,9 @@
 var ServiceList = React.createClass({
   render: function() {
-    var serviceNodes = this.state.data.map(function(service) {
+    var serviceNodes = this.state.services.map(function(service) {
       return (<li key={service.name} className="">
-              <ServiceView data={service}/>
-              </li>)
+              <ServiceView service={service}/>
+              </li>);
     });
     return (
         <ul className="serviceList">
@@ -12,14 +12,14 @@ var ServiceList = React.createClass({
     );
   },
   getInitialState() {
-    return {data: []};
+    return {services: []};
   },
   refreshData: function() {
     $.ajax('/api/', {
       dataType: 'json',
       success: function(services) {
         if (this.isMounted()) {
-          this.setState({data: services});
+          this.setState({services: services});
           setTimeout(this.refreshData, 10000);
         }
       }.bind(this)
@@ -32,28 +32,36 @@ var ServiceList = React.createClass({
 
 var ServiceView = React.createClass({
   getInitialState: function() {
-    return {expanded: true};
+    return {fields: ['docker.io/tag'], instances: []};
   },
-  toggleListView: function() {
-    this.setState({expanded: !this.state.expanded});
+
+  refreshData: function() {
+    $.ajax('/api/'+this.props.service.name+'/', {
+      dataType: 'json',
+      success: function(service) {
+        if (this.isMounted()) {
+          this.setState({instances: service.children});
+          setTimeout(this.refreshData, 10000);
+        }
+      }.bind(this)
+    });
   },
+
+  componentDidMount: function() {
+    this.refreshData();
+  },
+
   render: function() {
-    var toggle, list;
-    if (this.state.expanded) {
-      toggle = (<span onClick={this.toggleListView}>&minus;</span>);
-      list = (<GroupList service={this.props.data}/>);
-    }
-    else {
-      toggle = (<span onClick={this.toggleListView}>+</span>);
-      var groups = Object.keys(this.props.data.details.instanceSpecs);
-      list = (<RateChart spec={{group: groups}}/>)
-    }
+    var grouper = (<span>Grouped by {this.state.fields.join(', ')}</span>);
+    var list = (<GroupList instances={this.state.instances} fields={this.state.fields}/>);
     return (
         <div className="serviceView">
           <div>
-            <strong>{toggle}</strong>
-            <strong>{this.props.data.name}</strong>
-            ({this.props.data.details.address}:{this.props.data.details.port})
+            <strong>
+              {this.props.service.name}
+              {this.props.service.details.address}:{this.props.service.details.port}
+              ({this.state.instances.length} instances)</strong>
+            <p>Grouped by <strong>{grouper}</strong></p>
           </div>
           {list}
         </div>
@@ -70,24 +78,52 @@ function zip(as, bs, fn) {
   return res;
 }
 
+// Return an object with just the fields given
+function project(object, fields) {
+  var result = {};
+  fields.forEach(function(f) {
+    result[f] = object[f];
+  });
+  return result;
+}
+
+// Group the instances given by the values of the labels given,
+// e.g., by tag.
+function groupInstancesBy(instances, labels) {
+  var result = {};
+  instances.forEach(function(instance) {
+    var key = JSON.stringify(project(instance.details.labels, labels));
+    if (result[key] === undefined) {
+      result[key] = [instance];
+    }
+    else {
+      result[key].push(instance);
+    }
+  });
+  return result;
+}
+
 var GroupList = React.createClass({
   render: function() {
-    var groups = [];
-    var svc = this.props.service;
-    var specs = svc.details.instanceSpecs;
-    for (var g in specs) {
-      groups.push(<li key={g}><GroupView name={g} spec={specs[g]}/></li>)
+    var groups = groupInstancesBy(this.props.instances, this.props.fields);
+    var items = [];
+    for (var g in groups) {
+      items.push(<li key={g}><GroupView name={g} instances={groups[g]}/></li>)
     }
-    return (<ul>{groups}</ul>);
+    return (<ul>{items}</ul>);
   },
 });
+
+function instanceName(instance) {
+  return instance.name;
+}
 
 var GroupView = React.createClass({
   render: function() {
     return (
         <div className="groupView">
-          <strong>{this.props.name}</strong> ({labels(this.props.spec.selector)})
-          <RateChart spec={{group: this.props.name}}/>
+          <strong>{this.props.name} ({this.props.instances.length} instances)</strong>
+          <RateChart spec={{individual: this.props.instances.map(instanceName)}}/>
         </div>);
   },
 });
@@ -137,13 +173,13 @@ function matchExpr(spec) {
       eq = "=~";
       val = val.join("|");
     }
-    labels.push(k + eq + '"' + spec[k] + '"');
+    labels.push(k + eq + '"' + val + '"');
   }
   return labels.join(",");
 }
 
 function statsURL(spec, start, end) {
-  var query = 'query=sum(irate(ambergreen_http_total{'+matchExpr(spec)+'}['+intervalSecs+'s]))';
+  var query = 'query=sum(rate(ambergreen_http_total{'+matchExpr(spec)+'}['+intervalSecs+'s])) by (code)';
   var interval = '&step='+intervalSecs+'s&start='+start+'&end='+end;
   return '/stats/api/v1/query_range?'+query+interval;
 }

@@ -115,6 +115,10 @@ func (l *Listener) extractInstance(spec data.InstanceSpec, container *docker.Con
 	for k, v := range container.Config.Labels {
 		labels[k] = v
 	}
+	for _, v := range container.Config.Env {
+		kv := strings.SplitN(v, "=", 2)
+		labels["env."+kv[0]] = kv[1]
+	}
 
 	return data.Instance{
 		Address: ipAddress,

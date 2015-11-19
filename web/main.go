@@ -126,6 +126,9 @@ func (api *api) proxyStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer resp.Body.Close()
-	resp.Header.Write(w)
+	for k, vs := range resp.Header {
+		w.Header()[k] = vs
+	}
+	w.WriteHeader(resp.StatusCode)
 	io.Copy(w, resp.Body)
 }

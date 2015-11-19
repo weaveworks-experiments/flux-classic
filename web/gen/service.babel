@@ -143,7 +143,7 @@ function matchExpr(spec) {
 }
 
 function statsURL(spec, start, end) {
-  var query = 'query=rate(ambergreen_http_total{'+matchExpr(spec)+'}['+intervalSecs+'s])';
+  var query = 'query=sum(irate(ambergreen_http_total{'+matchExpr(spec)+'}['+intervalSecs+'s]))';
   var interval = '&step='+intervalSecs+'s&start='+start+'&end='+end;
   return '/stats/api/v1/query_range?'+query+interval;
 }

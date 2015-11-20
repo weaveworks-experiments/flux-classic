@@ -10,6 +10,7 @@ import (
 	"github.com/squaremo/ambergreen/balancer/interceptor/etcdcontrol"
 	"github.com/squaremo/ambergreen/balancer/interceptor/eventlogger"
 	"github.com/squaremo/ambergreen/balancer/interceptor/events"
+	"github.com/squaremo/ambergreen/balancer/interceptor/fatal"
 	"github.com/squaremo/ambergreen/balancer/interceptor/model"
 	"github.com/squaremo/ambergreen/balancer/interceptor/prometheus"
 	"github.com/squaremo/ambergreen/balancer/interceptor/simplecontrol"
@@ -30,7 +31,7 @@ type Controller interface {
 }
 
 type Interceptor struct {
-	Fatal chan error
+	fatalSink fatal.Sink
 
 	config           config
 	natChainSetup    bool
@@ -39,14 +40,14 @@ type Interceptor struct {
 	updater          *updater
 }
 
-func Start(args []string, iptables IPTablesFunc) *Interceptor {
+func Start(args []string, fatalSink fatal.Sink, iptables IPTablesFunc) *Interceptor {
 	i := &Interceptor{
-		Fatal:  make(chan error, 1),
-		config: config{iptables: iptables},
+		fatalSink: fatalSink,
+		config:    config{iptables: iptables},
 	}
 	err := i.start(args)
 	if err != nil {
-		i.Fatal <- err
+		fatalSink.Post(err)
 	}
 
 	return i
@@ -99,15 +100,15 @@ func (i *Interceptor) start(args []string) error {
 	i.filterChainSetup = true
 
 	if useSimpleControl {
-		i.controller, err = simplecontrol.NewServer(i.Fatal)
+		i.controller, err = simplecontrol.NewServer(i.fatalSink)
 	} else {
-		i.controller, err = etcdcontrol.NewListener(i.Fatal)
+		i.controller, err = etcdcontrol.NewListener()
 	}
 	if err != nil {
 		return err
 	}
 
-	i.updater = i.config.newUpdater(i.controller.Updates(), i.Fatal)
+	i.updater = i.config.newUpdater(i.controller.Updates(), i.fatalSink)
 	return nil
 }
 
@@ -130,9 +131,9 @@ func (i *Interceptor) Stop() {
 }
 
 type updater struct {
-	config  *config
-	updates <-chan model.ServiceUpdate
-	errors  chan<- error
+	config    *config
+	updates   <-chan model.ServiceUpdate
+	fatalSink fatal.Sink
 
 	lock     sync.Mutex
 	closed   chan struct{}
@@ -140,14 +141,14 @@ type updater struct {
 	services map[model.ServiceKey]*service
 }
 
-func (config *config) newUpdater(updates <-chan model.ServiceUpdate, errors chan<- error) *updater {
+func (config *config) newUpdater(updates <-chan model.ServiceUpdate, fatalSink fatal.Sink) *updater {
 	upd := &updater{
-		config:   config,
-		updates:  updates,
-		errors:   errors,
-		closed:   make(chan struct{}),
-		finished: make(chan struct{}),
-		services: make(map[model.ServiceKey]*service),
+		config:    config,
+		updates:   updates,
+		fatalSink: fatalSink,
+		closed:    make(chan struct{}),
+		finished:  make(chan struct{}),
+		services:  make(map[model.ServiceKey]*service),
 	}
 	go upd.run()
 	return upd
@@ -189,7 +190,7 @@ func (upd *updater) doUpdate(update model.ServiceUpdate) {
 			return
 		}
 
-		svc, err := upd.config.newService(update, upd.errors)
+		svc, err := upd.config.newService(update, upd.fatalSink)
 		if err != nil {
 			log.Error("adding service ", update.ServiceKey, ": ",
 				err)
@@ -211,10 +212,10 @@ func (upd *updater) doUpdate(update model.ServiceUpdate) {
 }
 
 type service struct {
-	config *config
-	key    model.ServiceKey
-	errors chan<- error
-	state  serviceState
+	config    *config
+	key       model.ServiceKey
+	fatalSink fatal.Sink
+	state     serviceState
 
 	// No locking, because all operations are called only from the
 	// updater goroutine.
@@ -225,11 +226,11 @@ type serviceState interface {
 	update(model.ServiceUpdate) (bool, error)
 }
 
-func (config *config) newService(upd model.ServiceUpdate, errors chan<- error) (*service, error) {
+func (config *config) newService(upd model.ServiceUpdate, fatalSink fatal.Sink) (*service, error) {
 	svc := &service{
-		config: config,
-		key:    upd.ServiceKey,
-		errors: errors,
+		config:    config,
+		key:       upd.ServiceKey,
+		fatalSink: fatalSink,
 	}
 
 	err := svc.update(upd)

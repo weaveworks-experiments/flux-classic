@@ -20,7 +20,6 @@ type handler struct {
 }
 
 func NewEventHandler(address string) (events.Handler, error) {
-
 	connectionCounter := prom.NewCounterVec(prom.CounterOpts{
 		Name: "ambergreen_connections_total",
 		Help: "Number of TCP connections established",

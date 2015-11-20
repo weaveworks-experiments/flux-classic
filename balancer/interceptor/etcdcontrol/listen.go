@@ -14,7 +14,6 @@ import (
 type Listener struct {
 	backend *backends.Backend
 	updates chan model.ServiceUpdate
-	errors  chan<- error
 }
 
 func (l *Listener) send(serviceName string) error {
@@ -34,11 +33,10 @@ func (l *Listener) send(serviceName string) error {
 	return nil
 }
 
-func NewListener(errors chan<- error) (*Listener, error) {
+func NewListener() (*Listener, error) {
 	listener := &Listener{
 		backend: backends.NewBackend([]string{}),
 		updates: make(chan model.ServiceUpdate),
-		errors:  errors,
 	}
 	go listener.run()
 	return listener, nil

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/squaremo/ambergreen/balancer/interceptor/fatal"
 	"github.com/squaremo/ambergreen/balancer/interceptor/model"
 )
 
@@ -17,17 +18,17 @@ import (
 // rather than as something to be used in anger.
 
 type Server struct {
-	errors   chan<- error
-	listener *net.UnixListener
-	updates  chan model.ServiceUpdate
-	lock     sync.Mutex
-	closed   chan struct{}
-	finished chan struct{}
+	fatalSink fatal.Sink
+	listener  *net.UnixListener
+	updates   chan model.ServiceUpdate
+	lock      sync.Mutex
+	closed    chan struct{}
+	finished  chan struct{}
 }
 
 const SOCKET = "/var/run/ambergris.sock"
 
-func NewServer(errors chan<- error) (*Server, error) {
+func NewServer(fatalSink fatal.Sink) (*Server, error) {
 	os.Remove(SOCKET)
 	listener, err := net.ListenUnix("unix", &net.UnixAddr{SOCKET, "unix"})
 	if err != nil {
@@ -35,10 +36,11 @@ func NewServer(errors chan<- error) (*Server, error) {
 	}
 
 	srv := &Server{
-		listener: listener,
-		updates:  make(chan model.ServiceUpdate),
-		closed:   make(chan struct{}),
-		finished: make(chan struct{}),
+		fatalSink: fatalSink,
+		listener:  listener,
+		updates:   make(chan model.ServiceUpdate),
+		closed:    make(chan struct{}),
+		finished:  make(chan struct{}),
 	}
 	go srv.run(listener)
 	return srv, nil
@@ -66,10 +68,7 @@ func (srv *Server) run(listener *net.UnixListener) {
 	for {
 		conn, err := listener.AcceptUnix()
 		if err != nil {
-			select {
-			case srv.errors <- err:
-			case <-srv.closed:
-			}
+			srv.fatalSink.Post(err)
 			break
 		}
 

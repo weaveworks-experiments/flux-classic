@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/squaremo/ambergreen/balancer/interceptor/fatal"
 )
 
 type mockIPTables struct {
@@ -123,10 +125,11 @@ func (m mockIPTables) invoke(args []string) ([]byte, error) {
 
 func TestDaemon(t *testing.T) {
 	iptables := newMockIPTables(t)
-	i := Start([]string{"interceptor"}, iptables.invoke)
+	fatalSink := fatal.New()
+	i := Start([]string{"interceptor"}, fatalSink, iptables.invoke)
 
 	select {
-	case err := <-i.Fatal:
+	case err := <-fatalSink:
 		t.Fatal(err)
 	default:
 	}

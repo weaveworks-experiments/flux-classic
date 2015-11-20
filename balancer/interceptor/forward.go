@@ -73,11 +73,7 @@ func (fwd *forwarding) run() {
 	for {
 		conn, err := fwd.listener.AcceptTCP()
 		if err != nil {
-			// Seems like a fatal error
-			select {
-			case fwd.errors <- err:
-			case <-fwd.stopCh:
-			}
+			fwd.fatalSink.Post(err)
 			return
 		}
 

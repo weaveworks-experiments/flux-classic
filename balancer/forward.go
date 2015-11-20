@@ -1,4 +1,4 @@
-package interceptor
+package balancer
 
 import (
 	log "github.com/Sirupsen/logrus"
@@ -7,8 +7,8 @@ import (
 	"net"
 	"sync"
 
-	"github.com/squaremo/ambergreen/balancer/interceptor/events"
-	"github.com/squaremo/ambergreen/balancer/interceptor/model"
+	"github.com/squaremo/ambergreen/balancer/events"
+	"github.com/squaremo/ambergreen/balancer/model"
 )
 
 type forwarding struct {

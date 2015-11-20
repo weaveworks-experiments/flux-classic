@@ -8,7 +8,7 @@ import (
 
 	prom "github.com/prometheus/client_golang/prometheus"
 
-	"github.com/squaremo/ambergreen/balancer/interceptor/events"
+	"github.com/squaremo/ambergreen/balancer/events"
 )
 
 type handler struct {

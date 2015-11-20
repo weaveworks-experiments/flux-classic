@@ -1,4 +1,4 @@
-package interceptor
+package balancer
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/squaremo/ambergreen/balancer/interceptor/fatal"
+	"github.com/squaremo/ambergreen/balancer/fatal"
 )
 
 type mockIPTables struct {

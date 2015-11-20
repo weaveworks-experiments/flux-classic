@@ -1,4 +1,4 @@
-package interceptor
+package balancer
 
 import (
 	"flag"
@@ -7,13 +7,13 @@ import (
 	"net"
 	"sync"
 
-	"github.com/squaremo/ambergreen/balancer/interceptor/etcdcontrol"
-	"github.com/squaremo/ambergreen/balancer/interceptor/eventlogger"
-	"github.com/squaremo/ambergreen/balancer/interceptor/events"
-	"github.com/squaremo/ambergreen/balancer/interceptor/fatal"
-	"github.com/squaremo/ambergreen/balancer/interceptor/model"
-	"github.com/squaremo/ambergreen/balancer/interceptor/prometheus"
-	"github.com/squaremo/ambergreen/balancer/interceptor/simplecontrol"
+	"github.com/squaremo/ambergreen/balancer/etcdcontrol"
+	"github.com/squaremo/ambergreen/balancer/eventlogger"
+	"github.com/squaremo/ambergreen/balancer/events"
+	"github.com/squaremo/ambergreen/balancer/fatal"
+	"github.com/squaremo/ambergreen/balancer/model"
+	"github.com/squaremo/ambergreen/balancer/prometheus"
+	"github.com/squaremo/ambergreen/balancer/simplecontrol"
 )
 
 type IPTablesFunc func([]string) ([]byte, error)

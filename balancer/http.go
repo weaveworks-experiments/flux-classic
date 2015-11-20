@@ -1,4 +1,4 @@
-package interceptor
+package balancer
 
 import (
 	"bufio"
@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/squaremo/ambergreen/balancer/interceptor/events"
+	"github.com/squaremo/ambergreen/balancer/events"
 )
 
 func httpShim(inbound, outbound *net.TCPConn, connEvent *events.Connection, eh events.Handler) error {

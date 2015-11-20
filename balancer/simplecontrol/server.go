@@ -9,8 +9,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/squaremo/ambergreen/balancer/interceptor/fatal"
-	"github.com/squaremo/ambergreen/balancer/interceptor/model"
+	"github.com/squaremo/ambergreen/balancer/fatal"
+	"github.com/squaremo/ambergreen/balancer/model"
 )
 
 // A simple control mechanism for the daemon via a unix socket.

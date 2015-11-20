@@ -8,7 +8,7 @@ import (
 	"github.com/squaremo/ambergreen/common/backends"
 	"github.com/squaremo/ambergreen/common/data"
 
-	"github.com/squaremo/ambergreen/balancer/interceptor/model"
+	"github.com/squaremo/ambergreen/balancer/model"
 )
 
 type Listener struct {

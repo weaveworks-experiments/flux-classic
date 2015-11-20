@@ -7,8 +7,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/squaremo/ambergreen/balancer/interceptor"
-	"github.com/squaremo/ambergreen/balancer/interceptor/fatal"
+	"github.com/squaremo/ambergreen/balancer"
+	"github.com/squaremo/ambergreen/balancer/fatal"
 )
 
 func iptables(args []string) ([]byte, error) {
@@ -23,7 +23,7 @@ func main() {
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
 	fatalSink := fatal.New()
-	i := interceptor.Start(os.Args, fatalSink, iptables)
+	i := balancer.Start(os.Args, fatalSink, iptables)
 	defer i.Stop()
 
 	select {

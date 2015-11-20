@@ -1,4 +1,4 @@
-package interceptor
+package balancer
 
 import (
 	"fmt"

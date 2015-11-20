@@ -1,4 +1,4 @@
-package interceptor
+package balancer
 
 import (
 	"bytes"
@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/squaremo/ambergreen/balancer/interceptor/events"
-	"github.com/squaremo/ambergreen/balancer/interceptor/model"
+	"github.com/squaremo/ambergreen/balancer/events"
+	"github.com/squaremo/ambergreen/balancer/model"
 
 	"github.com/stretchr/testify/require"
 )

@@ -32,7 +32,7 @@ var ServiceList = React.createClass({
 
 var ServiceView = React.createClass({
   getInitialState: function() {
-    return {fields: ['docker.io/tag'], instances: []};
+    return {fields: [], instances: []};
   },
 
   refreshData: function() {
@@ -52,16 +52,23 @@ var ServiceView = React.createClass({
   },
 
   render: function() {
-    var grouper = (<span>Grouped by {this.state.fields.join(', ')}</span>);
+    var grouper;
+    if (this.state.fields.length > 0) {
+        grouper = (<span>Grouped by {this.state.fields.join(', ')}</span>);
+    }
+    else {
+      grouper = (<span>(Not grouped)</span>);
+    }
     var list = (<GroupList instances={this.state.instances} fields={this.state.fields}/>);
     return (
         <div className="serviceView">
           <div>
             <strong>
               {this.props.service.name}
-              {this.props.service.details.address}:{this.props.service.details.port}
-              ({this.state.instances.length} instances)</strong>
-            <p>Grouped by <strong>{grouper}</strong></p>
+              - {this.props.service.details.address}:{this.props.service.details.port}
+              - ({this.state.instances.length} instances)
+            </strong>
+            <div>{grouper}</div>
           </div>
           {list}
         </div>
@@ -122,7 +129,7 @@ var GroupView = React.createClass({
   render: function() {
     return (
         <div className="groupView">
-          <strong>{this.props.name} ({this.props.instances.length} instances)</strong>
+          <strong>{labels(JSON.parse(this.props.name))} ({this.props.instances.length} instances)</strong>
           <RateChart spec={{individual: this.props.instances.map(instanceName)}}/>
         </div>);
   },

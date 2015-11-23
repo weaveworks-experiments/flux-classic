@@ -30,9 +30,65 @@ var ServiceList = React.createClass({
   }
 });
 
+var GROUP_OPTIONS = ['docker.io/tag', 'docker.io/image'];
+
+var GroupingSelect = React.createClass({
+  getInitialState: function() {
+    return {selected: []};
+  },
+
+  render: function() {
+    var self = this;
+    var selected = this.state.selected.map(function(s) {
+      return (<span className="selected">{s}
+                <span
+                  className="selected-x"
+                  onClick={self.clickX.bind(self, s)}>x</span>
+              </span>);
+    });
+    var options = this.props.available.map(function(f) {
+      return (<option value={f}>{f}</option>);
+    });
+    return (<div>
+              {selected}
+              Add:
+              <select defaultValue="" onChange={this.changeSelect}>
+                <option value="">(select field)</option>
+                {options}
+              </select>
+            </div>);
+  },
+
+  clickX: function(opt, ev) {
+    var fields = [];
+    for (var i in this.state.selected) {
+      var s = this.state.selected[i];
+      if (s !== opt) fields.push(s);
+    }
+    this.setState({selected: fields});
+  },
+
+  changeSelect: function(ev) {
+    var opt = ev.target.value;
+    if (opt === '') return;
+    var fields = [];
+    for (var i in this.state.selected) {
+      if (this.state.selected[i] === opt) return;
+      fields.push(this.state.selected[i]);
+    }
+    fields.push(opt);
+    this.setState({selected: fields});
+    this.props.callback(fields);
+  },
+});
+
 var ServiceView = React.createClass({
   getInitialState: function() {
     return {fields: [], instances: []};
+  },
+
+  setFields: function(fields) {
+    this.setState({fields: fields});
   },
 
   refreshData: function() {
@@ -52,23 +108,16 @@ var ServiceView = React.createClass({
   },
 
   render: function() {
-    var grouper;
-    if (this.state.fields.length > 0) {
-        grouper = (<span>Grouped by {this.state.fields.join(', ')}</span>);
-    }
-    else {
-      grouper = (<span>(Not grouped)</span>);
-    }
     var list = (<GroupList instances={this.state.instances} fields={this.state.fields}/>);
     return (
         <div className="serviceView">
           <div>
             <strong>
               {this.props.service.name}
-              - {this.props.service.details.address}:{this.props.service.details.port}
-              - ({this.state.instances.length} instances)
+              {this.props.service.details.address}:{this.props.service.details.port}
+              ({this.state.instances.length} instances)
             </strong>
-            <div>{grouper}</div>
+            <div><GroupingSelect available={GROUP_OPTIONS} callback={this.setFields}/></div>
           </div>
           {list}
         </div>

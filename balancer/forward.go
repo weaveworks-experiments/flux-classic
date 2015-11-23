@@ -1,6 +1,7 @@
 package balancer
 
 import (
+	"fmt"
 	log "github.com/Sirupsen/logrus"
 	"io"
 	"math/rand"
@@ -26,12 +27,12 @@ type forwarding struct {
 type shimFunc func(inbound, outbound *net.TCPConn, conn *events.Connection, eventHandler events.Handler) error
 
 func (svc *service) startForwarding(upd model.ServiceUpdate) (serviceState, error) {
-	bridgeIP, err := svc.config.bridgeIP()
+	ip, err := bridgeIP(svc.bridge)
 	if err != nil {
 		return nil, err
 	}
 
-	listener, err := net.ListenTCP("tcp", &net.TCPAddr{IP: bridgeIP})
+	listener, err := net.ListenTCP("tcp", &net.TCPAddr{IP: ip})
 	if err != nil {
 		return nil, err
 	}
@@ -50,7 +51,7 @@ func (svc *service) startForwarding(upd model.ServiceUpdate) (serviceState, erro
 		"-j", "DNAT",
 		"--to-destination", listener.Addr(),
 	}
-	err = svc.config.addRule("nat", rule)
+	err = svc.ipTables.addRule("nat", rule)
 	if err != nil {
 		return nil, err
 	}
@@ -69,6 +70,28 @@ func (svc *service) startForwarding(upd model.ServiceUpdate) (serviceState, erro
 	return fwd, nil
 }
 
+func bridgeIP(br string) (net.IP, error) {
+	iface, err := net.InterfaceByName(br)
+	if err != nil {
+		return nil, err
+	}
+
+	addrs, err := iface.Addrs()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, addr := range addrs {
+		if cidr, ok := addr.(*net.IPNet); ok {
+			if ip := cidr.IP.To4(); ip != nil {
+				return ip, nil
+			}
+		}
+	}
+
+	return nil, fmt.Errorf("no IPv4 address found on netdev %s", br)
+}
+
 func (fwd *forwarding) run() {
 	for {
 		conn, err := fwd.listener.AcceptTCP()
@@ -84,7 +107,7 @@ func (fwd *forwarding) run() {
 func (fwd *forwarding) stop() {
 	fwd.listener.Close()
 	close(fwd.stopCh)
-	fwd.config.deleteRule("nat", fwd.rule)
+	fwd.ipTables.deleteRule("nat", fwd.rule)
 }
 
 func (fwd *forwarding) update(upd model.ServiceUpdate) (bool, error) {
@@ -137,7 +160,7 @@ func (fwd *forwarding) forward(inbound *net.TCPConn) {
 		Outbound: outAddr,
 		Protocol: shimName,
 	}
-	err = shim(inbound, outbound, connEvent, fwd.config.eventHandler)
+	err = shim(inbound, outbound, connEvent, fwd.eventHandler)
 	if err != nil {
 		log.Error("forwarding from ", inAddr, " to ", outAddr, ": ",
 			err)

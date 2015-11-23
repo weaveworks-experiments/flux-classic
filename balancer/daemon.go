@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	log "github.com/Sirupsen/logrus"
-	"net"
 	"sync"
 
 	"github.com/squaremo/ambergreen/balancer/etcdcontrol"
@@ -16,13 +15,15 @@ import (
 	"github.com/squaremo/ambergreen/balancer/simplecontrol"
 )
 
-type IPTablesFunc func([]string) ([]byte, error)
+func logError(err error, args ...interface{}) {
+	if err != nil {
+		log.WithError(err).Error(args...)
+	}
+}
 
-type config struct {
-	chain        string
-	bridge       string
-	eventHandler events.Handler
-	iptables     IPTablesFunc
+type netConfig struct {
+	chain  string
+	bridge string
 }
 
 type Controller interface {
@@ -31,21 +32,17 @@ type Controller interface {
 }
 
 type Interceptor struct {
-	fatalSink fatal.Sink
-
-	config           config
-	natChainSetup    bool
-	filterChainSetup bool
-	controller       Controller
-	updater          *updater
+	fatalSink    fatal.Sink
+	ipTables     *ipTables
+	netConfig    netConfig
+	controller   Controller
+	eventHandler events.Handler
+	updater      *updater
 }
 
-func Start(args []string, fatalSink fatal.Sink, iptables IPTablesFunc) *Interceptor {
-	i := &Interceptor{
-		fatalSink: fatalSink,
-		config:    config{iptables: iptables},
-	}
-	err := i.start(args)
+func Start(args []string, fatalSink fatal.Sink, ipTablesCmd IPTablesCmd) *Interceptor {
+	i := &Interceptor{fatalSink: fatalSink}
+	err := i.start(args, ipTablesCmd)
 	if err != nil {
 		fatalSink.Post(err)
 	}
@@ -53,7 +50,7 @@ func Start(args []string, fatalSink fatal.Sink, iptables IPTablesFunc) *Intercep
 	return i
 }
 
-func (i *Interceptor) start(args []string) error {
+func (i *Interceptor) start(args []string, ipTablesCmd IPTablesCmd) error {
 	fs := flag.NewFlagSet(args[0], flag.ExitOnError)
 
 	var useSimpleControl bool
@@ -62,9 +59,9 @@ func (i *Interceptor) start(args []string) error {
 	// The bridge specified should be the one where packets sent
 	// to service IP addresses go.  So even with weave, that's
 	// typically 'docker0'.
-	fs.StringVar(&i.config.bridge,
+	fs.StringVar(&i.netConfig.bridge,
 		"bridge", "docker0", "bridge device")
-	fs.StringVar(&i.config.chain,
+	fs.StringVar(&i.netConfig.chain,
 		"chain", "AMBERGRIS", "iptables chain name")
 	fs.StringVar(&exposePrometheus,
 		"expose-prometheus", "",
@@ -77,27 +74,21 @@ func (i *Interceptor) start(args []string) error {
 		return fmt.Errorf("excess command line arguments")
 	}
 
+	i.ipTables = newIPTables(i.netConfig, ipTablesCmd)
+	err := i.ipTables.start()
+	if err != nil {
+		return err
+	}
+
 	if exposePrometheus == "" {
-		i.config.eventHandler = eventlogger.EventLogger{}
+		i.eventHandler = eventlogger.EventLogger{}
 	} else {
 		handler, err := prometheus.NewEventHandler(exposePrometheus)
 		if err != nil {
 			return err
 		}
-		i.config.eventHandler = handler
+		i.eventHandler = handler
 	}
-
-	err := i.config.setupChain("nat", "PREROUTING")
-	if err != nil {
-		return err
-	}
-	i.natChainSetup = true
-
-	err = i.config.setupChain("filter", "FORWARD", "INPUT")
-	if err != nil {
-		return err
-	}
-	i.filterChainSetup = true
 
 	if useSimpleControl {
 		i.controller, err = simplecontrol.NewServer(i.fatalSink)
@@ -108,19 +99,17 @@ func (i *Interceptor) start(args []string) error {
 		return err
 	}
 
-	i.updater = i.config.newUpdater(i.controller.Updates(), i.fatalSink)
+	i.updater = updaterConfig{
+		netConfig:    i.netConfig,
+		updates:      i.controller.Updates(),
+		eventHandler: i.eventHandler,
+		ipTables:     i.ipTables,
+		fatalSink:    i.fatalSink,
+	}.new()
 	return nil
 }
 
 func (i *Interceptor) Stop() {
-	if i.natChainSetup {
-		i.config.deleteChain("nat", "PREROUTING")
-	}
-
-	if i.filterChainSetup {
-		i.config.deleteChain("filter", "FORWARD", "INPUT")
-	}
-
 	if i.controller != nil {
 		i.controller.Close()
 	}
@@ -128,12 +117,22 @@ func (i *Interceptor) Stop() {
 	if i.updater != nil {
 		i.updater.close()
 	}
+
+	if i.ipTables != nil {
+		i.ipTables.close()
+	}
+}
+
+type updaterConfig struct {
+	netConfig netConfig
+	updates   <-chan model.ServiceUpdate
+	*ipTables
+	eventHandler events.Handler
+	fatalSink    fatal.Sink
 }
 
 type updater struct {
-	config    *config
-	updates   <-chan model.ServiceUpdate
-	fatalSink fatal.Sink
+	updaterConfig
 
 	lock     sync.Mutex
 	closed   chan struct{}
@@ -141,14 +140,13 @@ type updater struct {
 	services map[model.ServiceKey]*service
 }
 
-func (config *config) newUpdater(updates <-chan model.ServiceUpdate, fatalSink fatal.Sink) *updater {
+func (cf updaterConfig) new() *updater {
 	upd := &updater{
-		config:    config,
-		updates:   updates,
-		fatalSink: fatalSink,
-		closed:    make(chan struct{}),
-		finished:  make(chan struct{}),
-		services:  make(map[model.ServiceKey]*service),
+		updaterConfig: cf,
+
+		closed:   make(chan struct{}),
+		finished: make(chan struct{}),
+		services: make(map[model.ServiceKey]*service),
 	}
 	go upd.run()
 	return upd
@@ -190,7 +188,7 @@ func (upd *updater) doUpdate(update model.ServiceUpdate) {
 			return
 		}
 
-		svc, err := upd.config.newService(update, upd.fatalSink)
+		svc, err := upd.newService(update)
 		if err != nil {
 			log.Error("adding service ", update.ServiceKey, ": ",
 				err)
@@ -212,13 +210,9 @@ func (upd *updater) doUpdate(update model.ServiceUpdate) {
 }
 
 type service struct {
-	config    *config
-	key       model.ServiceKey
-	fatalSink fatal.Sink
-	state     serviceState
-
-	// No locking, because all operations are called only from the
-	// updater goroutine.
+	*updater
+	key   model.ServiceKey
+	state serviceState
 }
 
 type serviceState interface {
@@ -226,11 +220,10 @@ type serviceState interface {
 	update(model.ServiceUpdate) (bool, error)
 }
 
-func (config *config) newService(upd model.ServiceUpdate, fatalSink fatal.Sink) (*service, error) {
+func (updater *updater) newService(upd model.ServiceUpdate) (*service, error) {
 	svc := &service{
-		config:    config,
-		key:       upd.ServiceKey,
-		fatalSink: fatalSink,
+		updater: updater,
+		key:     upd.ServiceKey,
 	}
 
 	err := svc.update(upd)
@@ -284,13 +277,13 @@ func (svc *service) startRejecting(upd model.ServiceUpdate) (serviceState, error
 		"-j", "REJECT",
 	}
 
-	err := svc.config.addRule("filter", rule)
+	err := svc.ipTables.addRule("filter", rule)
 	if err != nil {
 		return nil, err
 	}
 
 	return rejecting(func() {
-		svc.config.deleteRule("filter", rule)
+		svc.ipTables.deleteRule("filter", rule)
 	}), nil
 }
 
@@ -300,26 +293,4 @@ func (rej rejecting) stop() {
 
 func (rej rejecting) update(upd model.ServiceUpdate) (bool, error) {
 	return len(upd.Instances) == 0, nil
-}
-
-func (cf *config) bridgeIP() (net.IP, error) {
-	iface, err := net.InterfaceByName(cf.bridge)
-	if err != nil {
-		return nil, err
-	}
-
-	addrs, err := iface.Addrs()
-	if err != nil {
-		return nil, err
-	}
-
-	for _, addr := range addrs {
-		if cidr, ok := addr.(*net.IPNet); ok {
-			if ip := cidr.IP.To4(); ip != nil {
-				return ip, nil
-			}
-		}
-	}
-
-	return nil, fmt.Errorf("no IPv4 address found on netdev %s", cf.bridge)
 }

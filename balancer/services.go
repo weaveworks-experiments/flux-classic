@@ -15,6 +15,7 @@ type servicesConfig struct {
 	*ipTables
 	eventHandler events.Handler
 	fatalSink    fatal.Sink
+	done         chan<- struct{}
 }
 
 type services struct {
@@ -63,6 +64,9 @@ func (svcs *services) run() {
 
 		case update := <-svcs.updates:
 			svcs.doUpdate(update)
+			if svcs.done != nil {
+				svcs.done <- struct{}{}
+			}
 		}
 	}
 }

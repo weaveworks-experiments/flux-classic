@@ -29,8 +29,6 @@ type Instance struct {
 	IPPort
 }
 
-func (i Instance) String() string { return i.IPPort.TCPAddr().String() }
-
 func MakeInstance(indy, group string, ip net.IP, port int) Instance {
 	return Instance{Ident{indy, group}, IPPort{string(ip), port}}
 }

@@ -11,11 +11,11 @@ images: $(foreach i,$(IMAGES),docker/$(i).tar)
 .PHONY: clean
 clean::
 	rm -rf build cover
-	rm -f $(foreach i,$(IMAGES),docker/.$(i).done) docker/*.tar
+	rm -f $(foreach i,$(IMAGES),$(call image_stamp,$(i))) docker/*.tar
 
 .PHONY: realclean
 realclean:: clean
-	rm -rf $(foreach i,build webbuild,$(call image_stamp,$(i)))
+	rm -rf $(foreach i,$(BUILD_IMAGES),$(call image_stamp,$(i)))
 
 # Don't remove this if a subsequent step fails
 .PRECIOUS: $(call image_stamp,build)

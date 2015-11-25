@@ -1,23 +1,26 @@
 PROJ:=ambergreen
 BASEPKG:=github.com/squaremo/$(PROJ)
 IMAGES=balancer agent web amberctl
+BUILD_IMAGES=build webbuild
+
+image_stamp=docker/.$1.done
 
 .PHONY: images
-images: $(foreach i,$(IMAGES),docker/.$(i).done)
+images: $(foreach i,$(IMAGES),docker/$(i).tar)
 
 .PHONY: clean
 clean::
 	rm -rf build cover
-	rm -f $(foreach i,$(IMAGES),docker/.$(i).done)
+	rm -f $(foreach i,$(IMAGES),docker/.$(i).done) docker/*.tar
 
 .PHONY: realclean
 realclean:: clean
-	rm -rf docker/.build.done docker/.webbuild.done
+	rm -rf $(foreach i,build webbuild,$(call image_stamp,$(i)))
 
 # Don't remove this if a subsequent step fails
-.PRECIOUS: docker/.build.done
+.PRECIOUS: $(call image_stamp,build)
 
-.%.done: Dockerfile.%
+$(foreach i,$(IMAGES) $(BUILD_IMAGES),docker/.$(i).done): docker/.%.done: docker/Dockerfile.%
 	rm -rf build-container
 	mkdir build-container
 	cp -pr $^ build-container/
@@ -25,7 +28,10 @@ realclean:: clean
 	rm -rf build-container
 	touch $@
 
-$(foreach i,$(IMAGES),$(eval docker/.$(i).done: build/bin/$(i)))
+$(foreach i,$(IMAGES),docker/$(i).tar): docker/%.tar: docker/.%.done
+	docker save --output=$@ $(PROJ)/$(*F)
+
+$(foreach i,$(IMAGES),$(eval $(call image_stamp,$(i)): build/bin/$(i)))
 $(foreach i,$(IMAGES) common,$(eval $(i)_go_srcs:=$(shell find $(i) -name '*.go')))
 $(foreach i,$(IMAGES),$(eval build/bin/$(i): $($(i)_go_srcs)))
 
@@ -42,18 +48,18 @@ run_build_container=mkdir -p build/src/$(BASEPKG) && docker run --rm $2 \
 
 get_vendor_submodules=@if [ -z "$$(find vendor -type f -print -quit)" ] ; then git submodule update --init ; fi
 
-build/bin/%: docker/.build.done docker/build-wrapper.sh $(common_go_srcs)
+build/bin/%: $(call image_stamp,build) docker/build-wrapper.sh $(common_go_srcs)
 	$(get_vendor_submodules)
 	rm -f $@
 	$(call run_build_container,build,-e GOPATH=/build,$(*F),go install ./...)
 
 .PHONY: test
-test::
+test:: $(call image_stamp,build)
 	$(get_vendor_submodules)
 	$(call run_build_container,build,-e GOPATH=/build,,go test $$(go list ./... | grep -v /vendor/))
 
 .PHONY: cover
-cover: docker/.build.done
+cover: $(call image_stamp,build)
 	rm -rf cover
 	$(get_vendor_submodules)
 	$(call run_build_container,build,-e GOPATH=/build,,\

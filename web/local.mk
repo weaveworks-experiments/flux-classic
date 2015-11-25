@@ -3,9 +3,9 @@ WEB_LESSGEN:=$(patsubst %.less,%.css,$(shell find web/gen -name '*.less'))
 WEB_GEN:=$(WEB_LESSGEN) $(WEB_BABELGEN)
 WEB_STATIC:=web/index.html web/res/*.css web/res/*.js
 
-docker/.web.done: $(WEB_STATIC) $(WEB_GEN)
+$(call image_stamp,web): $(WEB_STATIC) $(WEB_GEN)
 
-$(WEB_GEN): docker/.webbuild.done
+$(WEB_GEN): $(call image_stamp,webbuild)
 
 %.css: %.less
 	$(call run_build_container,webbuild,,,lessc $< $@)

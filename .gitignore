@@ -24,6 +24,7 @@ _testmain.go
 *.prof
 
 # local
-.*.done
+docker/*.tar
+docker/.*.done
 build/
 cover/

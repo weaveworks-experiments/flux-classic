@@ -3,6 +3,7 @@ package balancer
 import (
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -48,11 +49,18 @@ func (m mockIPTables) error(msg ...interface{}) ([]byte, error) {
 }
 
 func (m mockIPTables) cmd(args []string) ([]byte, error) {
+	require.True(m.t, len(args) >= 4)
 	require.Equal(m.t, "-t", args[0])
 
-	switch args[2] {
-	case "-N":
-		k := m.key(args)
+	if len(args[2]) != 2 || args[2][0] != '-' ||
+		!strings.ContainsRune("NXFIAD", rune(args[2][1])) {
+		m.t.Log("Unknown iptables option ", args[2])
+		m.t.Fail()
+		return m.error("Unknown option ", args[2])
+	}
+
+	k := m.key(args)
+	if args[2] == "-N" {
 		if _, present := m.chains[k]; present {
 			return m.error("iptables: Chain already exists.")
 		}
@@ -62,13 +70,15 @@ func (m mockIPTables) cmd(args []string) ([]byte, error) {
 		}
 
 		m.chains[k] = make([][]string, 0)
+		return nil, nil
+	}
 
+	if _, present := m.chains[k]; !present {
+		return m.error("iptables: No chain/target/match by that name.")
+	}
+
+	switch args[2] {
 	case "-X":
-		k := m.key(args)
-		if _, present := m.chains[k]; !present {
-			return m.error("iptables: No chain/target/match by that name.")
-		}
-
 		if len(args) > 4 {
 			return m.error("Bad argument '", args[4], "'")
 		}
@@ -76,11 +86,6 @@ func (m mockIPTables) cmd(args []string) ([]byte, error) {
 		delete(m.chains, k)
 
 	case "-F":
-		k := m.key(args)
-		if _, present := m.chains[k]; !present {
-			return m.error("iptables: No chain/target/match by that name.")
-		}
-
 		if len(args) > 4 {
 			return m.error("Bad argument '", args[4], "'")
 		}
@@ -88,31 +93,16 @@ func (m mockIPTables) cmd(args []string) ([]byte, error) {
 		m.chains[k] = m.chains[k][:0]
 
 	case "-I":
-		k := m.key(args)
-		if _, present := m.chains[k]; !present {
-			return m.error("iptables: No chain/target/match by that name.")
-		}
-
 		// no rulenum support needed for now
 
 		m.chains[k] = append([][]string{args[4:]}, m.chains[k]...)
 
 	case "-A":
-		k := m.key(args)
-		if _, present := m.chains[k]; !present {
-			return m.error("iptables: No chain/target/match by that name.")
-		}
-
 		// no rulenum support needed for now
 
 		m.chains[k] = append(m.chains[k], args[4:])
 
 	case "-D":
-		k := m.key(args)
-		if _, present := m.chains[k]; !present {
-			return m.error("iptables: No chain/target/match by that name.")
-		}
-
 		for i, r := range m.chains[k] {
 			if reflect.DeepEqual(args[4:], r) {
 				m.chains[k] = append(m.chains[k][:i], m.chains[k][i+1:]...)
@@ -121,11 +111,6 @@ func (m mockIPTables) cmd(args []string) ([]byte, error) {
 		}
 
 		return m.error("iptables: Bad rule (does a matching rule exist in that chain?).")
-
-	default:
-		m.t.Log("Unknown iptables option ", args[2])
-		m.t.Fail()
-		return m.error("Unknown option ", args[2])
 	}
 
 	return nil, nil

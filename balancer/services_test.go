@@ -14,7 +14,7 @@ import (
 
 func TestServices(t *testing.T) {
 	nc := netConfig{
-		chain:  "AMBERGRIS",
+		chain:  "AMBERGREEN",
 		bridge: "lo",
 	}
 
@@ -47,9 +47,9 @@ func TestServices(t *testing.T) {
 	}
 	<-done
 
-	require.Len(t, mipt.chains["nat AMBERGRIS"], 1)
-	require.Len(t, mipt.chains["filter AMBERGRIS"], 0)
-	require.Regexp(t, "^-p tcp -d 127\\.42\\.0\\.1 --dport 8888 -j DNAT --to-destination 127\\.0\\.0\\.1:\\d+$", strings.Join(mipt.chains["nat AMBERGRIS"][0], " "))
+	require.Len(t, mipt.chains["nat AMBERGREEN"], 1)
+	require.Len(t, mipt.chains["filter AMBERGREEN"], 0)
+	require.Regexp(t, "^-p tcp -d 127\\.42\\.0\\.1 --dport 8888 -j DNAT --to-destination 127\\.0\\.0\\.1:\\d+$", strings.Join(mipt.chains["nat AMBERGREEN"][0], " "))
 
 	// Update it
 	updates <- model.ServiceUpdate{
@@ -63,9 +63,9 @@ func TestServices(t *testing.T) {
 	}
 	<-done
 
-	require.Len(t, mipt.chains["nat AMBERGRIS"], 1)
-	require.Len(t, mipt.chains["filter AMBERGRIS"], 0)
-	require.Regexp(t, "^-p tcp -d 127\\.42\\.0\\.1 --dport 8888 -j DNAT --to-destination 127\\.0\\.0\\.1:\\d+$", strings.Join(mipt.chains["nat AMBERGRIS"][0], " "))
+	require.Len(t, mipt.chains["nat AMBERGREEN"], 1)
+	require.Len(t, mipt.chains["filter AMBERGREEN"], 0)
+	require.Regexp(t, "^-p tcp -d 127\\.42\\.0\\.1 --dport 8888 -j DNAT --to-destination 127\\.0\\.0\\.1:\\d+$", strings.Join(mipt.chains["nat AMBERGREEN"][0], " "))
 
 	// Update with no instances
 	updates <- model.ServiceUpdate{
@@ -74,10 +74,10 @@ func TestServices(t *testing.T) {
 	}
 	<-done
 
-	require.Len(t, mipt.chains["nat AMBERGRIS"], 0)
-	require.Len(t, mipt.chains["filter AMBERGRIS"], 1)
+	require.Len(t, mipt.chains["nat AMBERGREEN"], 0)
+	require.Len(t, mipt.chains["filter AMBERGREEN"], 1)
 	require.Equal(t, "-p tcp -d 127.42.0.1 --dport 8888 -j REJECT",
-		strings.Join(mipt.chains["filter AMBERGRIS"][0], " "))
+		strings.Join(mipt.chains["filter AMBERGREEN"][0], " "))
 
 	// And once more for luck:
 	updates <- model.ServiceUpdate{
@@ -86,10 +86,10 @@ func TestServices(t *testing.T) {
 	}
 	<-done
 
-	require.Len(t, mipt.chains["nat AMBERGRIS"], 0)
-	require.Len(t, mipt.chains["filter AMBERGRIS"], 1)
+	require.Len(t, mipt.chains["nat AMBERGREEN"], 0)
+	require.Len(t, mipt.chains["filter AMBERGREEN"], 1)
 	require.Equal(t, "-p tcp -d 127.42.0.1 --dport 8888 -j REJECT",
-		strings.Join(mipt.chains["filter AMBERGRIS"][0], " "))
+		strings.Join(mipt.chains["filter AMBERGREEN"][0], " "))
 
 	// Delete it
 	updates <- model.ServiceUpdate{
@@ -97,8 +97,8 @@ func TestServices(t *testing.T) {
 	}
 	<-done
 
-	require.Len(t, mipt.chains["nat AMBERGRIS"], 0)
-	require.Len(t, mipt.chains["filter AMBERGRIS"], 0)
+	require.Len(t, mipt.chains["nat AMBERGREEN"], 0)
+	require.Len(t, mipt.chains["filter AMBERGREEN"], 0)
 
 	// Delete it, even though it doesn't exist
 	updates <- model.ServiceUpdate{

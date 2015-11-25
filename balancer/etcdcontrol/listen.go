@@ -1,4 +1,3 @@
-// Integrate coatl with ambergris via channel
 package etcdcontrol
 
 import (

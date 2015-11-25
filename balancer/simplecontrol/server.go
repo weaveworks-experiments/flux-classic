@@ -26,7 +26,7 @@ type Server struct {
 	finished  chan struct{}
 }
 
-const SOCKET = "/var/run/ambergris.sock"
+const SOCKET = "/var/run/ambergreen.sock"
 
 func NewServer(fatalSink fatal.Sink) (*Server, error) {
 	os.Remove(SOCKET)

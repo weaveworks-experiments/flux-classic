@@ -61,7 +61,7 @@ func (d *Daemon) start(args []string, ipTablesCmd IPTablesCmd) error {
 	fs.StringVar(&d.netConfig.bridge,
 		"bridge", "docker0", "bridge device")
 	fs.StringVar(&d.netConfig.chain,
-		"chain", "AMBERGRIS", "iptables chain name")
+		"chain", "AMBERGREEN", "iptables chain name")
 	fs.StringVar(&exposePrometheus,
 		"expose-prometheus", "",
 		"expose stats to Prometheus on this IPaddress and port; e.g., :9000")

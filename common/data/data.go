@@ -10,9 +10,15 @@ type AddressSpec struct {
 	Port int
 }
 
+type Selector map[string]string
+
+func (sel Selector) Empty() bool {
+	return len(sel) == 0
+}
+
 type InstanceSpec struct {
-	AddressSpec AddressSpec       `json:"addressSpec,omitempty"`
-	Selector    map[string]string `json:"selector,omitempty"`
+	AddressSpec AddressSpec `json:"addressSpec,omitempty"`
+	Selector    Selector    `json:"selector,omitempty"`
 }
 
 type InstanceGroup string
@@ -29,6 +35,19 @@ type Instance struct {
 	Address       string            `json:"address,omitempty"`
 	Port          int               `json:"port,omitempty"`
 	Labels        map[string]string `json:"labels"`
+}
+
+type Labeled interface {
+	Label(string) string
+}
+
+func (spec *InstanceSpec) Includes(s Labeled) bool {
+	for label, value := range spec.Selector {
+		if s.Label(label) != value {
+			return false
+		}
+	}
+	return true
 }
 
 const ServicePath = "/weave/service/"

@@ -15,17 +15,9 @@ import (
 const DEFAULT_GROUP = data.InstanceGroup("default")
 
 type addOpts struct {
-	selectOpts
-}
+	backend *backends.Backend
 
-func addServiceCommands(top *cobra.Command, backend *backends.Backend) {
-	add := addOpts{}
-	add.backend = backend
-	add.addCommandTo(top)
-	list := listOpts{backend: backend}
-	list.addCommandTo(top)
-	rm := rmOpts{backend: backend}
-	rm.addCommandTo(top)
+	spec
 }
 
 func (opts *addOpts) addCommandTo(top *cobra.Command) {
@@ -35,7 +27,7 @@ func (opts *addOpts) addCommandTo(top *cobra.Command) {
 		Long:  "Define a service, optionally giving a default specification for instances belonging to that service.",
 		Run:   opts.run,
 	}
-	opts.AddVars(addCmd)
+	opts.addSpecVars(addCmd)
 	top.AddCommand(addCmd)
 }
 
@@ -72,62 +64,4 @@ func (opts *addOpts) run(cmd *cobra.Command, args []string) {
 		log.Fatal(err)
 	}
 	fmt.Println("Added service:", serviceName)
-}
-
-type listOpts struct {
-	verbose bool
-
-	backend *backends.Backend
-}
-
-func (opts *listOpts) addCommandTo(top *cobra.Command) {
-	cmd := &cobra.Command{
-		Use:   "list [options]",
-		Short: "list the services defined",
-		Run:   opts.run,
-	}
-	cmd.Flags().BoolVar(&opts.verbose, "verbose", false, "print the instances for each service in the list")
-	top.AddCommand(cmd)
-}
-
-func (opts *listOpts) run(_ *cobra.Command, args []string) {
-	printService := func(name string, value data.Service) { fmt.Println(name, value) }
-	var printInstance func(name string, value data.Instance)
-	if opts.verbose {
-		printInstance = func(name string, value data.Instance) { fmt.Println("  ", name, value) }
-	}
-	err := opts.backend.ForeachServiceInstance(printService, printInstance)
-	if err != nil {
-		exitWithErrorf("Unable to enumerate services: ", err)
-	}
-}
-
-type rmOpts struct {
-	all bool
-
-	backend *backends.Backend
-}
-
-func (opts *rmOpts) addCommandTo(top *cobra.Command) {
-	cmd := &cobra.Command{
-		Use:   "rm <service>|--all",
-		Short: "remove service definition(s)",
-		Run:   opts.run,
-	}
-	cmd.Flags().BoolVar(&opts.all, "all", false, "remove all service definitions")
-	top.AddCommand(cmd)
-}
-
-func (opts *rmOpts) run(_ *cobra.Command, args []string) {
-	var err error
-	if opts.all {
-		err = opts.backend.RemoveAllServices()
-	} else if len(args) == 1 {
-		err = opts.backend.RemoveService(args[0])
-	} else {
-		exitWithErrorf("Must supply service name or --all")
-	}
-	if err != nil {
-		exitWithErrorf("Failed to delete: " + err.Error())
-	}
 }

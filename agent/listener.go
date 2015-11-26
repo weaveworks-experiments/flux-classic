@@ -102,8 +102,23 @@ nextService:
 	return nil
 }
 
+type containerLabels struct{ *docker.Container }
+
+func (container containerLabels) Label(label string) string {
+	switch {
+	case label == "image":
+		return imageName(container.Config.Image)
+	case label == "tag":
+		return imageTag(container.Config.Image)
+	case len(label) > 4 && label[:4] == "env.":
+		return envValue(container.Config.Env, label[4:])
+	default:
+		return container.Config.Labels[label]
+	}
+}
+
 func (l *Listener) extractInstance(spec data.InstanceSpec, container *docker.Container) (data.Instance, bool) {
-	if !l.includesContainer(spec, container) {
+	if !spec.Includes(containerLabels{container}) {
 		return data.Instance{}, false
 	}
 
@@ -139,26 +154,6 @@ func (l *Listener) Deregister(container *docker.Container) error {
 		}
 	}
 	return nil
-}
-
-func (l *Listener) includesContainer(spec data.InstanceSpec, container *docker.Container) bool {
-	for label, value := range spec.Selector {
-		switch {
-		case label == "image":
-			if imageName(container.Config.Image) != value {
-				return false
-			}
-		case len(label) > 4 && label[:4] == "env.":
-			if envValue(container.Config.Env, label[4:]) != value {
-				return false
-			}
-		default:
-			if container.Config.Labels[label] != value {
-				return false
-			}
-		}
-	}
-	return true
 }
 
 func (l *Listener) getAddress(spec data.InstanceSpec, container *docker.Container) (string, int) {

@@ -41,13 +41,21 @@ type Labeled interface {
 	Label(string) string
 }
 
-func (spec *InstanceSpec) Includes(s Labeled) bool {
-	for label, value := range spec.Selector {
+func (inst Instance) Label(k string) string {
+	return inst.Labels[k]
+}
+
+func (sel Selector) Includes(s Labeled) bool {
+	for label, value := range sel {
 		if s.Label(label) != value {
 			return false
 		}
 	}
 	return true
+}
+
+func (spec *InstanceSpec) Includes(s Labeled) bool {
+	return spec.Selector.Includes(s)
 }
 
 const ServicePath = "/weave/service/"

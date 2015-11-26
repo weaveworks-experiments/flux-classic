@@ -30,7 +30,7 @@ var ServiceList = React.createClass({
   }
 });
 
-var GROUP_OPTIONS = ['docker.io/tag', 'docker.io/image'];
+var GROUP_OPTIONS = ['tag', 'image'];
 
 var GroupingSelect = React.createClass({
   getInitialState: function() {

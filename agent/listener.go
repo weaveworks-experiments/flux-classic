@@ -124,8 +124,8 @@ func (l *Listener) extractInstance(spec data.InstanceSpec, container *docker.Con
 
 	ipAddress, port := l.getAddress(spec, container)
 	labels := map[string]string{
-		"docker.io/tag":   imageTag(container.Config.Image),
-		"docker.io/image": imageName(container.Config.Image),
+		"tag":   imageTag(container.Config.Image),
+		"image": imageName(container.Config.Image),
 	}
 	for k, v := range container.Config.Labels {
 		labels[k] = v

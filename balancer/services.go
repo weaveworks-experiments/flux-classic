@@ -87,7 +87,7 @@ func (svcs *services) doUpdate(update model.ServiceUpdate) {
 
 		svcs.services[update.ServiceKey] = svc
 	} else if update.ServiceInfo != nil {
-		err := svc.update(update)
+		err := svc.update(update.ServiceInfo)
 		if err != nil {
 			log.Error("updating service ", update.ServiceKey, ": ",
 				err)
@@ -107,7 +107,7 @@ type service struct {
 
 type serviceState interface {
 	stop()
-	update(model.ServiceUpdate) (bool, error)
+	update(*model.ServiceInfo) (bool, error)
 }
 
 func (svcs *services) newService(upd model.ServiceUpdate) (*service, error) {
@@ -116,7 +116,7 @@ func (svcs *services) newService(upd model.ServiceUpdate) (*service, error) {
 		key:      upd.ServiceKey,
 	}
 
-	err := svc.update(upd)
+	err := svc.update(upd.ServiceInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -124,9 +124,9 @@ func (svcs *services) newService(upd model.ServiceUpdate) (*service, error) {
 	return svc, nil
 }
 
-func (svc *service) update(upd model.ServiceUpdate) error {
+func (svc *service) update(si *model.ServiceInfo) error {
 	if svc.state != nil {
-		ok, err := svc.state.update(upd)
+		ok, err := svc.state.update(si)
 		if err != nil || ok {
 			return err
 		}
@@ -134,12 +134,18 @@ func (svc *service) update(upd model.ServiceUpdate) error {
 
 	// start the new forwarder before stopping the old one, to
 	// avoid a window where there is no rule for the service
-	start := svc.startForwarding
-	if len(upd.Instances) == 0 {
+	start := forwardingConfig{
+		netConfig:    svc.netConfig,
+		key:          svc.key,
+		ipTables:     svc.ipTables,
+		eventHandler: svc.eventHandler,
+		fatalSink:    svc.fatalSink,
+	}.start
+	if len(si.Instances) == 0 {
 		start = svc.startRejecting
 	}
 
-	state, err := start(upd)
+	state, err := start(si)
 	if err != nil {
 		return err
 	}
@@ -159,11 +165,11 @@ func (svc *service) close() {
 
 type rejecting func()
 
-func (svc *service) startRejecting(upd model.ServiceUpdate) (serviceState, error) {
+func (svc *service) startRejecting(si *model.ServiceInfo) (serviceState, error) {
 	rule := []interface{}{
 		"-p", "tcp",
-		"-d", upd.IP(),
-		"--dport", upd.Port,
+		"-d", svc.key.IP(),
+		"--dport", svc.key.Port,
 		"-j", "REJECT",
 	}
 
@@ -181,6 +187,6 @@ func (rej rejecting) stop() {
 	rej()
 }
 
-func (rej rejecting) update(upd model.ServiceUpdate) (bool, error) {
-	return len(upd.Instances) == 0, nil
+func (rej rejecting) update(si *model.ServiceInfo) (bool, error) {
+	return len(si.Instances) == 0, nil
 }

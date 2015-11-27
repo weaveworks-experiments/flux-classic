@@ -9,11 +9,20 @@ import (
 	"sync"
 
 	"github.com/squaremo/ambergreen/balancer/events"
+	"github.com/squaremo/ambergreen/balancer/fatal"
 	"github.com/squaremo/ambergreen/balancer/model"
 )
 
+type forwardingConfig struct {
+	netConfig
+	key model.ServiceKey
+	*ipTables
+	eventHandler events.Handler
+	fatalSink    fatal.Sink
+}
+
 type forwarding struct {
-	*service
+	forwardingConfig
 	rule     []interface{}
 	listener *net.TCPListener
 	stopCh   chan struct{}
@@ -26,8 +35,8 @@ type forwarding struct {
 
 type shimFunc func(inbound, outbound *net.TCPConn, conn *events.Connection, eventHandler events.Handler) error
 
-func (svc *service) startForwarding(upd model.ServiceUpdate) (serviceState, error) {
-	ip, err := bridgeIP(svc.bridge)
+func (fc forwardingConfig) start(si *model.ServiceInfo) (serviceState, error) {
+	ip, err := bridgeIP(fc.bridge)
 	if err != nil {
 		return nil, err
 	}
@@ -46,22 +55,22 @@ func (svc *service) startForwarding(upd model.ServiceUpdate) (serviceState, erro
 
 	rule := []interface{}{
 		"-p", "tcp",
-		"-d", upd.IP(),
-		"--dport", upd.Port,
+		"-d", fc.key.IP(),
+		"--dport", fc.key.Port,
 		"-j", "DNAT",
 		"--to-destination", listener.Addr(),
 	}
-	err = svc.ipTables.addRule("nat", rule)
+	err = fc.ipTables.addRule("nat", rule)
 	if err != nil {
 		return nil, err
 	}
 
 	fwd := &forwarding{
-		service:     svc,
-		rule:        rule,
-		listener:    listener,
-		stopCh:      make(chan struct{}),
-		ServiceInfo: upd.ServiceInfo,
+		forwardingConfig: fc,
+		rule:             rule,
+		listener:         listener,
+		stopCh:           make(chan struct{}),
+		ServiceInfo:      si,
 	}
 
 	fwd.chooseShim()
@@ -110,11 +119,11 @@ func (fwd *forwarding) stop() {
 	fwd.ipTables.deleteRule("nat", fwd.rule)
 }
 
-func (fwd *forwarding) update(upd model.ServiceUpdate) (bool, error) {
-	if len(upd.Instances) > 0 {
+func (fwd *forwarding) update(si *model.ServiceInfo) (bool, error) {
+	if len(si.Instances) > 0 {
 		fwd.lock.Lock()
 		defer fwd.lock.Unlock()
-		fwd.ServiceInfo = upd.ServiceInfo
+		fwd.ServiceInfo = si
 		fwd.chooseShim()
 		return true, nil
 	}

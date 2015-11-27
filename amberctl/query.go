@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"text/template"
 
 	"github.com/spf13/cobra"
 
@@ -14,6 +16,7 @@ type queryOpts struct {
 
 	service string
 	short   bool
+	format  string
 	selector
 }
 
@@ -26,6 +29,7 @@ func (opts *queryOpts) addCommandTo(top *cobra.Command) {
 	opts.addSelectorVars(cmd)
 	cmd.Flags().StringVar(&opts.service, "service", "", "print only instances in service given")
 	cmd.Flags().BoolVar(&opts.short, "short", false, "print only instance IDs (one per line)")
+	cmd.Flags().StringVar(&opts.format, "format", "", "format each instance according to the go template given")
 	top.AddCommand(cmd)
 }
 
@@ -33,15 +37,36 @@ func printServiceHeader(name string, _ data.Service) {
 	fmt.Println(name)
 }
 
-func printInstance(name string, inst data.Instance) {
+func printInstanceFull(name string, inst data.Instance) {
 	fmt.Println(name)
-	fmt.Printf("%v\n", inst.Labels)
+	fmt.Printf("%v\n", inst)
+}
+
+type instanceInfo struct {
+	Name    string
+	Details data.Instance
 }
 
 func (opts *queryOpts) run(_ *cobra.Command, args []string) {
 	sel := opts.makeSelector()
 
 	doService := printServiceHeader
+	printInstance := printInstanceFull
+
+	if opts.format != "" {
+		tmpl := template.Must(template.New("instance").Parse(opts.format))
+		printInstance = func(name string, inst data.Instance) {
+			err := tmpl.Execute(os.Stdout, instanceInfo{
+				Name:    name,
+				Details: inst,
+			})
+			if err != nil {
+				panic(err)
+			}
+			fmt.Println()
+		}
+	}
+
 	doInstance := func(name string, instance data.Instance) {
 		if sel.Includes(instance) {
 			if opts.short {

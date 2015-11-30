@@ -25,7 +25,6 @@ type forwarding struct {
 	forwardingConfig
 	rule     []interface{}
 	listener *net.TCPListener
-	stopCh   chan struct{}
 
 	lock sync.Mutex
 	*model.ServiceInfo
@@ -69,7 +68,6 @@ func (fc forwardingConfig) start(si *model.ServiceInfo) (serviceState, error) {
 		forwardingConfig: fc,
 		rule:             rule,
 		listener:         listener,
-		stopCh:           make(chan struct{}),
 		ServiceInfo:      si,
 	}
 
@@ -115,7 +113,6 @@ func (fwd *forwarding) run() {
 
 func (fwd *forwarding) stop() {
 	fwd.listener.Close()
-	close(fwd.stopCh)
 	fwd.ipTables.deleteRule("nat", fwd.rule)
 }
 

@@ -128,20 +128,22 @@ func (fwd *forwarding) update(si *model.ServiceInfo) (bool, error) {
 	return false, nil
 }
 
+var shims = map[string]shimFunc{
+	"tcp":  tcpShim,
+	"http": httpShim,
+}
+
 func (fwd *forwarding) chooseShim() {
 	name := fwd.Protocol
-	shim := tcpShim
-
-	switch fwd.Protocol {
-	case "", "tcp":
+	if name == "" {
 		name = "tcp"
+	}
 
-	case "http":
-		shim = httpShim
-
-	default:
+	shim := shims[name]
+	if shim == nil {
 		log.Warn("service ", fwd.key, ": no support for protocol ",
 			fwd.Protocol, ", falling back to TCP forwarding")
+		shim = tcpShim
 		name = "tcp"
 	}
 

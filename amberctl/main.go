@@ -10,7 +10,7 @@ import (
 )
 
 func main() {
-	backend := backends.NewBackend([]string{})
+	backend := backends.NewBackendFromEnv()
 	var topCmd = &cobra.Command{
 		Use:   "amberctl",
 		Short: "control ambergreen",

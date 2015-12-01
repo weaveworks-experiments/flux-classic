@@ -34,7 +34,7 @@ func (l *Listener) send(serviceName string) error {
 
 func NewListener() (*Listener, error) {
 	listener := &Listener{
-		backend: backends.NewBackend([]string{}),
+		backend: backends.NewBackendFromEnv(),
 		updates: make(chan model.ServiceUpdate),
 	}
 	go listener.run()

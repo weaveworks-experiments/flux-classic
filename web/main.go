@@ -14,17 +14,12 @@ import (
 )
 
 func main() {
-	etcd := os.Getenv("ETCD_ADDRESS")
-	if etcd == "" {
-		etcd = "http://localhost:4001"
-	}
-
 	prom := os.Getenv("PROM_ADDRESS")
 	if prom == "" {
 		prom = "http://localhost:9090"
 	}
 
-	back := backends.NewBackend([]string{etcd})
+	back := backends.NewBackendFromEnv()
 	if err := back.Ping(); err != nil {
 		log.Fatal(err)
 	}

@@ -16,22 +16,19 @@ type Backend struct {
 	client *etcd.Client
 }
 
-func NewBackend(machines []string) *Backend {
-	if len(machines) == 0 {
-		etcd_address := os.Getenv("ETCD_PORT")
-		if etcd_address == "" {
-			etcd_address = os.Getenv("ETCD_ADDRESS")
-		}
-		if strings.HasPrefix(etcd_address, "tcp:") {
-			etcd_address = "http:" + etcd_address[4:]
-		}
-		if etcd_address == "" {
-			etcd_address = "http://127.0.0.1:4001"
-		}
-		machines = []string{etcd_address}
+func NewBackendFromEnv() *Backend {
+	etcd_address := os.Getenv("ETCD_PORT")
+	if etcd_address == "" {
+		etcd_address = os.Getenv("ETCD_ADDRESS")
 	}
-	backend := &Backend{client: etcd.NewClient(machines)}
-	return backend
+	if strings.HasPrefix(etcd_address, "tcp:") {
+		etcd_address = "http:" + etcd_address[4:]
+	}
+	if etcd_address == "" {
+		etcd_address = "http://127.0.0.1:4001"
+	}
+
+	return &Backend{client: etcd.NewClient([]string{etcd_address})}
 }
 
 // Check if we can talk to etcd

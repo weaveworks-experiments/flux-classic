@@ -32,7 +32,7 @@ type service struct {
 
 func NewListener(config Config, dc *docker.Client) *Listener {
 	listener := &Listener{
-		backend:    backends.NewBackend([]string{}),
+		backend:    backends.NewBackendFromEnv(),
 		dc:         dc,
 		services:   make(map[string]*service),
 		containers: make(map[string]*docker.Container),

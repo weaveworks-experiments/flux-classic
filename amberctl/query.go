@@ -35,12 +35,6 @@ func printInstanceID(name string, inst data.Instance) {
 	fmt.Println(name)
 }
 
-type instanceInfo struct {
-	Service string
-	Name    string
-	Details data.Instance
-}
-
 func (opts *queryOpts) run(_ *cobra.Command, args []string) {
 	sel := opts.makeSelector()
 
@@ -52,9 +46,9 @@ func (opts *queryOpts) run(_ *cobra.Command, args []string) {
 		tmpl := template.Must(template.New("instance").Parse(opts.format))
 		printInstance = func(name string, inst data.Instance) {
 			err := tmpl.Execute(os.Stdout, instanceInfo{
-				Service: serviceName,
-				Name:    name,
-				Details: inst,
+				Service:  serviceName,
+				Name:     name,
+				Instance: inst,
 			})
 			if err != nil {
 				panic(err)

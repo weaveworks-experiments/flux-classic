@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"net"
 	"os"
@@ -34,6 +35,13 @@ func main() {
 		log.Fatal("Error connecting to docker: ", err)
 	}
 
+	hostIpFrom := "argument"
+
+	if hostIP == "" {
+		hostIP = os.Getenv("HOST_IP")
+		hostIpFrom = `"HOST_IP" in environment`
+	}
+
 	if hostIP == "" {
 		hostname, err := os.Hostname()
 		if err != nil {
@@ -44,7 +52,10 @@ func main() {
 			log.Fatalf("Unable to determine host IP via hostname: %s", err)
 		}
 		hostIP = ip.String()
+		hostIpFrom = fmt.Sprintf(`resolving hostname "%s"`, hostname)
 	}
+
+	log.Printf("Using host IP address %s from %s\n", hostIP, hostIpFrom)
 
 	listener := NewListener(Config{
 		HostIP: hostIP,

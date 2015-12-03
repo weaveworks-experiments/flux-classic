@@ -123,6 +123,10 @@ func (l *Listener) extractInstance(spec data.InstanceSpec, container *docker.Con
 	}
 
 	ipAddress, port := l.getAddress(spec, container)
+	if port == 0 {
+		log.Printf("Cannot extract instance from container '%s', no address extractable from %+v\n", container.ID, container.NetworkSettings)
+		return data.Instance{}, false
+	}
 	labels := map[string]string{
 		"tag":   imageTag(container.Config.Image),
 		"image": imageName(container.Config.Image),
@@ -147,7 +151,7 @@ func (l *Listener) Deregister(container *docker.Container) error {
 		if l.backend.CheckRegisteredService(serviceName) == nil {
 			err := l.backend.RemoveInstance(serviceName, container.ID)
 			if err != nil {
-				log.Println("coatl: failed to deregister service:", err)
+				log.Println("ambergreen: failed to deregister service:", err)
 				return err
 			}
 			log.Printf("Deregistered %s instance %.12s", serviceName, container.ID)
@@ -171,7 +175,7 @@ func (l *Listener) mappedPortAddress(container *docker.Container, port int) (str
 	p := docker.Port(fmt.Sprintf("%d/tcp", port))
 	if bindings, found := container.NetworkSettings.Ports[p]; found {
 		for _, binding := range bindings {
-			if binding.HostIP == "" || binding.HostIP == "0.0.0.0" {
+			if binding.HostIP == l.hostIP || binding.HostIP == "" || binding.HostIP == "0.0.0.0" {
 				port, err := strconv.Atoi(binding.HostPort)
 				if err != nil {
 					return "", 0

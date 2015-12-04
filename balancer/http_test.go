@@ -189,7 +189,11 @@ func TestHttp(t *testing.T) {
 	harness := newHarness(t)
 	defer harness.stop(t)
 	test(harness, http.DefaultClient, t)
-	require.Equal(t, 1, harness.connections)
+
+	// http.DefaultTransport does connection pooling, so usually a
+	// single connection will be reused for all requests.
+	// Occassionally a couple of connections will be used.
+	require.True(t, harness.connections <= 2)
 }
 
 func noKeepAlivesClient() *http.Client {

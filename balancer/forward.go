@@ -25,6 +25,7 @@ type forwarding struct {
 	forwardingConfig
 	rule     []interface{}
 	listener *net.TCPListener
+	stopped  bool
 
 	lock sync.Mutex
 	*model.ServiceInfo
@@ -103,7 +104,9 @@ func (fwd *forwarding) run() {
 	for {
 		conn, err := fwd.listener.AcceptTCP()
 		if err != nil {
-			fwd.fatalSink.Post(err)
+			if !fwd.stopped {
+				fwd.fatalSink.Post(err)
+			}
 			return
 		}
 
@@ -112,6 +115,7 @@ func (fwd *forwarding) run() {
 }
 
 func (fwd *forwarding) stop() {
+	fwd.stopped = true
 	fwd.listener.Close()
 	fwd.ipTables.deleteRule("nat", fwd.rule)
 }

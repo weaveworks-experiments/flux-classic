@@ -28,7 +28,11 @@ func NewBackendFromEnv() *Backend {
 		etcd_address = "http://127.0.0.1:4001"
 	}
 
-	return &Backend{client: etcd.NewClient([]string{etcd_address})}
+	return NewBackend(etcd_address)
+}
+
+func NewBackend(addr string) *Backend {
+	return &Backend{client: etcd.NewClient([]string{addr})}
 }
 
 // Check if we can talk to etcd

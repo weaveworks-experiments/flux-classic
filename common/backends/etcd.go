@@ -12,6 +12,8 @@ import (
 	"github.com/coreos/go-etcd/etcd"
 )
 
+const servicePath = "/weave/service/"
+
 type Backend struct {
 	client *etcd.Client
 }
@@ -43,7 +45,7 @@ func (b *Backend) Ping() error {
 }
 
 func (b *Backend) CheckRegisteredService(serviceName string) error {
-	_, err := b.client.Get(data.ServicePath+serviceName, false, false)
+	_, err := b.client.Get(servicePath+serviceName, false, false)
 	return err
 }
 
@@ -52,23 +54,23 @@ func (b *Backend) AddService(serviceName string, details data.Service) error {
 	if err != nil {
 		return fmt.Errorf("Failed to encode: %s", err)
 	}
-	_, err = b.client.Set(data.ServicePath+serviceName+"/details", string(json), 0)
+	_, err = b.client.Set(servicePath+serviceName+"/details", string(json), 0)
 	return err
 }
 
 func (b *Backend) RemoveService(serviceName string) error {
-	_, err := b.client.Delete(data.ServicePath+serviceName, true)
+	_, err := b.client.Delete(servicePath+serviceName, true)
 	return err
 }
 
 func (b *Backend) RemoveAllServices() error {
-	_, err := b.client.Delete(data.ServicePath, true)
+	_, err := b.client.Delete(servicePath, true)
 	return err
 }
 
 func (b *Backend) GetServiceDetails(serviceName string) (data.Service, error) {
 	var service data.Service
-	details, err := b.client.Get(data.ServicePath+serviceName+"/details", false, false)
+	details, err := b.client.Get(servicePath+serviceName+"/details", false, false)
 	if err != nil {
 		return service, err
 	}
@@ -79,7 +81,7 @@ func (b *Backend) GetServiceDetails(serviceName string) (data.Service, error) {
 }
 
 func (b *Backend) ForeachServiceInstance(fs ServiceFunc, fi ServiceInstanceFunc) error {
-	r, err := b.client.Get(data.ServicePath, true, fi != nil)
+	r, err := b.client.Get(servicePath, true, fi != nil)
 	if err != nil {
 		if etcderr, ok := err.(*etcd.EtcdError); ok && etcderr.ErrorCode == etcd_errors.EcodeKeyNotFound {
 			return nil
@@ -87,7 +89,7 @@ func (b *Backend) ForeachServiceInstance(fs ServiceFunc, fi ServiceInstanceFunc)
 		return err
 	}
 	for _, node := range r.Node.Nodes {
-		serviceName := strings.TrimPrefix(node.Key, data.ServicePath)
+		serviceName := strings.TrimPrefix(node.Key, servicePath)
 		serviceData, err := b.GetServiceDetails(serviceName)
 		if err != nil {
 			return err
@@ -112,7 +114,7 @@ func (b *Backend) ForeachServiceInstance(fs ServiceFunc, fi ServiceInstanceFunc)
 }
 
 func (b *Backend) ForeachInstance(serviceName string, fi InstanceFunc) error {
-	serviceKey := data.ServicePath + serviceName + "/"
+	serviceKey := servicePath + serviceName + "/"
 	r, err := b.client.Get(serviceKey, true, false)
 	if err != nil {
 		if etcderr, ok := err.(*etcd.EtcdError); ok && etcderr.ErrorCode == etcd_errors.EcodeKeyNotFound {
@@ -138,20 +140,80 @@ func (b *Backend) AddInstance(serviceName string, instanceName string, details d
 	if err != nil {
 		return fmt.Errorf("Failed to encode: %s", err)
 	}
-	if _, err := b.client.Set(data.ServicePath+serviceName+"/"+instanceName, string(json), 0); err != nil {
+	if _, err := b.client.Set(servicePath+serviceName+"/"+instanceName, string(json), 0); err != nil {
 		return fmt.Errorf("Unable to write: %s", err)
 	}
 	return nil
 }
 
 func (b *Backend) RemoveInstance(serviceName, instanceName string) error {
-	_, err := b.client.Delete(data.ServicePath+serviceName+"/"+instanceName, true)
+	_, err := b.client.Delete(servicePath+serviceName+"/"+instanceName, true)
 	return err
 }
 
-// Needs work to make less etcd-centric
-func (b *Backend) Watch() chan *etcd.Response {
-	ch := make(chan *etcd.Response)
-	go b.client.Watch(data.ServicePath, 0, true, ch, nil)
-	return ch
+func (b *Backend) WatchServices(resCh chan<- data.ServiceChange, stopCh <-chan struct{}, withInstanceChanges bool) {
+	// XXX error handling
+
+	etcdCh := make(chan *etcd.Response, 1)
+	watchStopCh := make(chan bool, 1)
+	go b.client.Watch(servicePath, 0, true, etcdCh, nil)
+
+	svcs := make(map[string]struct{})
+
+	handleResponse := func(r *etcd.Response) {
+		path := r.Node.Key
+		switch r.Action {
+		case "delete":
+			if len(path) <= len(servicePath) {
+				// All services deleted
+				for name := range svcs {
+					resCh <- data.ServiceChange{name, true}
+				}
+				svcs = make(map[string]struct{})
+				return
+			}
+
+			p := strings.Split(path[len(servicePath):], "/")
+			if len(p) == 1 {
+				// Service deleted
+				delete(svcs, p[0])
+				resCh <- data.ServiceChange{p[0], true}
+				return
+			}
+
+			// Instance deletion
+			if withInstanceChanges {
+				resCh <- data.ServiceChange{p[0], false}
+			}
+
+		case "set":
+			if len(path) <= len(servicePath) {
+				return
+			}
+
+			p := strings.Split(path[len(servicePath):], "/")
+			svcs[p[0]] = struct{}{}
+			if withInstanceChanges ||
+				len(p) == 2 && p[1] == "details" {
+				resCh <- data.ServiceChange{p[0], false}
+			}
+		}
+	}
+
+	b.ForeachServiceInstance(func(name string, svc data.Service) {
+		svcs[name] = struct{}{}
+	}, nil)
+
+	go func() {
+		for {
+			select {
+			case <-stopCh:
+				watchStopCh <- true
+				return
+
+			case r := <-etcdCh:
+				handleResponse(r)
+			}
+		}
+	}()
 }

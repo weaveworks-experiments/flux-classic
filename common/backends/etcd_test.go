@@ -3,6 +3,7 @@ package backends
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -107,4 +108,79 @@ func TestInstances(t *testing.T) {
 	require.Nil(t, be.RemoveInstance("svc", "inst"))
 	require.Equal(t, map[string]data.Instance{}, instances())
 	require.Equal(t, map[string]data.Instance{}, serviceInstances())
+}
+
+type watcher struct {
+	changes []data.ServiceChange
+	stopCh  chan struct{}
+	done    chan struct{}
+}
+
+func newWatcher(be *Backend, withInstanceChanges bool) *watcher {
+	w := &watcher{stopCh: make(chan struct{}), done: make(chan struct{})}
+	changes := make(chan data.ServiceChange)
+	stopWatch := make(chan struct{})
+	be.WatchServices(changes, stopWatch, withInstanceChanges)
+	go func() {
+		defer close(w.done)
+		for {
+			select {
+			case change := <-changes:
+				w.changes = append(w.changes, change)
+			case <-w.stopCh:
+				close(stopWatch)
+				return
+			}
+		}
+	}()
+	return w
+}
+
+func (w *watcher) stop() {
+	close(w.stopCh)
+	<-w.done
+}
+
+func TestWatchServices(t *testing.T) {
+	etcd, be := startEtcd(t)
+	defer func() { require.Nil(t, etcd.Destroy()) }()
+
+	check := func(withInstanceChanges bool, body func(w *watcher), changes ...data.ServiceChange) {
+		w := newWatcher(be, withInstanceChanges)
+		body(w)
+		// Yuck.  There's a race between making a change in
+		// etcd, and hearing about it via the watch, and I
+		// haven't found a nicer way to avoid it.
+		time.Sleep(100 * time.Millisecond)
+		w.stop()
+		require.Equal(t, changes, w.changes)
+		require.Nil(t, be.RemoveAllServices())
+	}
+
+	check(false, func(w *watcher) {
+		require.Nil(t, be.AddService("svc", testService))
+	}, data.ServiceChange{"svc", false})
+
+	require.Nil(t, be.AddService("svc", testService))
+	check(false, func(w *watcher) {
+		require.Nil(t, be.RemoveAllServices())
+		require.Nil(t, be.AddService("svc", testService))
+		require.Nil(t, be.RemoveService("svc"))
+	}, data.ServiceChange{"svc", true}, data.ServiceChange{"svc", false},
+		data.ServiceChange{"svc", true})
+
+	// withInstanceChanges false, so adding an instance should not
+	// cause an event
+	require.Nil(t, be.AddService("svc", testService))
+	check(false, func(w *watcher) {
+		require.Nil(t, be.AddInstance("svc", "inst", testInst))
+	})
+
+	// withInstanceChanges true, so instance changes should not
+	// cause vents
+	require.Nil(t, be.AddService("svc", testService))
+	check(true, func(w *watcher) {
+		require.Nil(t, be.AddInstance("svc", "inst", testInst))
+		require.Nil(t, be.RemoveInstance("svc", "inst"))
+	}, data.ServiceChange{"svc", false}, data.ServiceChange{"svc", false})
 }

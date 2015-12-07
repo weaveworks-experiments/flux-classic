@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"strconv"
@@ -199,7 +198,14 @@ func envValue(env []string, key string) string {
 }
 
 func (l *Listener) Run(events <-chan *docker.APIEvents) {
-	backendCh := l.backend.Watch()
+	changes := make(chan data.ServiceChange)
+	l.backend.WatchServices(changes, nil, false)
+
+	// sync after we have initiated the watch
+	if err := l.Sync(); err != nil {
+		log.Fatal("Error synchronising existing containers:", err)
+	}
+
 	for {
 		select {
 		case event := <-events:
@@ -220,28 +226,20 @@ func (l *Listener) Run(events <-chan *docker.APIEvents) {
 				}
 				l.Deregister(container)
 			}
-		case r := <-backendCh:
-			serviceName, instanceName, err := data.DecodePath(r.Node.Key)
-			if err != nil {
-				log.Println(err)
-				continue
-			}
-			switch {
-			case r.Action == "delete" && serviceName == "":
-				// everything deleted
-				l.services = make(map[string]*service)
-				log.Println("All services deleted")
-			case r.Action == "delete" && instanceName == "":
-				delete(l.services, serviceName)
-				log.Println("Service deleted:", serviceName)
-			case r.Action == "set" && instanceName == "details":
-				s := &service{name: serviceName, details: data.Service{}}
-				if err := json.Unmarshal([]byte(r.Node.Value), &s.details); err != nil {
-					log.Println("Error unmarshalling: ", err)
+		case change := <-changes:
+			if change.Deleted {
+				delete(l.services, change.Name)
+				log.Println("Service deleted:", change.Name)
+			} else {
+				svc, err := l.backend.GetServiceDetails(change.Name)
+				if err != nil {
+					log.Println("Failed to retrieve service:", change.Name, err)
 					continue
 				}
-				l.services[serviceName] = s
-				log.Println("Service", s.name, "updated:", s.details)
+
+				l.services[change.Name] = &service{change.Name, svc}
+				log.Println("Service", change.Name, "updated:", svc)
+
 				// See if any containers match now.
 				l.Sync()
 			}

@@ -46,25 +46,17 @@ func (l *Listener) Updates() <-chan model.ServiceUpdate {
 }
 
 func (l *Listener) run() {
-	ch := l.backend.Watch()
+	changes := make(chan data.ServiceChange)
+	l.backend.WatchServices(changes, nil, true)
 
 	// Send initial state of each service
 	l.backend.ForeachServiceInstance(func(name string, _ data.Service) {
 		l.send(name)
 	}, nil)
 
-	for r := range ch {
-		// log.Println(r.Action, r.Node)
-		serviceName, _, err := data.DecodePath(r.Node.Key)
-		if err != nil {
-			log.Println(err)
-			continue
-		}
-		if serviceName == "" {
-			// everything deleted; can't cope
-			continue
-		}
-		l.send(serviceName)
+	for {
+		change := <-changes
+		l.send(change.Name)
 	}
 }
 

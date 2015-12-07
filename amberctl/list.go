@@ -32,7 +32,7 @@ func (opts *listOpts) addCommandTo(top *cobra.Command) {
 }
 
 func (opts *listOpts) run(_ *cobra.Command, args []string) {
-	printService := func(name string, value data.Service) { fmt.Println(name, value) }
+	printService := func(name string, _ data.Service) { fmt.Println(name) }
 	if opts.format != "" {
 		tmpl := template.Must(template.New("service").Parse(opts.format))
 		printService = func(name string, serv data.Service) {
@@ -47,9 +47,10 @@ func (opts *listOpts) run(_ *cobra.Command, args []string) {
 		}
 	}
 
-	var printInstance func(name string, service string, value data.Instance)
+	var printInstance backends.ServiceInstanceFunc
+
 	if opts.verbose {
-		printInstance = func(name string, service string, value data.Instance) { fmt.Println("  ", name) }
+		printInstance = func(service, name string, value data.Instance) { fmt.Println("  ", name) }
 	}
 	if opts.formatInstance != "" {
 		tmpl := template.Must(template.New("instance").Parse(opts.formatInstance))
@@ -66,11 +67,7 @@ func (opts *listOpts) run(_ *cobra.Command, args []string) {
 		}
 	}
 
-	err := opts.backend.ForeachServiceInstance(func(name string, serv data.Service) {
-		printService(name, serv)
-	}, func(serviceName string, name string, inst data.Instance) {
-		printInstance(name, serviceName, inst)
-	})
+	err := opts.backend.ForeachServiceInstance(printService, printInstance)
 	if err != nil {
 		exitWithErrorf("Unable to enumerate services: ", err)
 	}

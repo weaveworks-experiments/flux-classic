@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -9,12 +10,33 @@ import (
 )
 
 type selector struct {
-	image string
-	tag   string
+	env    string
+	labels string
+	image  string
+	tag    string
+}
+
+func selectorise(commaSeparatedLabels, keyPrefix string, intoSel map[string]string) {
+	for _, kv := range strings.Split(commaSeparatedLabels, ",") {
+		if kv == "" {
+			continue
+		}
+		pair := strings.SplitN(strings.TrimLeft(kv, " "), "=", 2)
+		switch len(pair) {
+		case 0:
+			continue
+		case 1:
+			intoSel[keyPrefix+pair[0]] = pair[0]
+		case 2:
+			intoSel[keyPrefix+pair[0]] = pair[1]
+		}
+	}
 }
 
 func (opts *selector) makeSelector() data.Selector {
 	sel := make(map[string]string)
+	selectorise(opts.labels, "", sel)
+	selectorise(opts.env, "env.", sel)
 	if opts.image != "" {
 		sel["image"] = opts.image
 	}
@@ -27,6 +49,8 @@ func (opts *selector) makeSelector() data.Selector {
 func (opts *selector) addSelectorVars(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&opts.image, "image", "", "filter instances for this image")
 	cmd.Flags().StringVar(&opts.tag, "tag", "", "filter instances for this tag")
+	cmd.Flags().StringVar(&opts.labels, "labels", "", "filter instances for these labels, given as comma-delimited key=value pairs")
+	cmd.Flags().StringVar(&opts.labels, "env", "", "filter instances for these environment variable values, given as comma-delimited key=value pairs")
 }
 
 type spec struct {

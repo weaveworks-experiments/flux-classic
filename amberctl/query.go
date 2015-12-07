@@ -68,7 +68,9 @@ func (opts *queryOpts) run(_ *cobra.Command, args []string) {
 	}
 
 	if opts.service == "" {
-		opts.backend.ForeachServiceInstance(doService, doInstance)
+		opts.backend.ForeachServiceInstance(doService, func(serviceName string, name string, inst data.Instance) {
+			doInstance(name, inst)
+		})
 	} else {
 		opts.backend.ForeachInstance(opts.service, doInstance)
 	}

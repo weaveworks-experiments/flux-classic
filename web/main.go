@@ -82,8 +82,7 @@ func (api *api) listServices(w http.ResponseWriter, r *http.Request) {
 			Details: details,
 		}
 		services = append(services, currentService)
-	}, func(_ string, _ data.Instance) {
-	})
+	}, nil)
 	json.NewEncoder(w).Encode(services)
 }
 

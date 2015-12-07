@@ -72,10 +72,7 @@ func (l *Listener) Sync() error {
 		l.Register(container)
 	}
 	// Remove all the ones we don't
-	var serviceName string
-	return l.backend.ForeachServiceInstance(func(name string, _ data.Service) {
-		serviceName = name
-	}, func(instanceName string, _ data.Instance) {
+	return l.backend.ForeachServiceInstance(nil, func(serviceName string, instanceName string, _ data.Instance) {
 		if _, found := l.containers[instanceName]; !found {
 			log.Printf("Removing %.12s/%.12s", serviceName, instanceName)
 			l.backend.RemoveInstance(serviceName, instanceName)

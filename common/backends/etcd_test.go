@@ -96,13 +96,13 @@ func TestInstances(t *testing.T) {
 
 	serviceInstances := func() map[string]data.Instance {
 		insts := make(map[string]data.Instance)
-		require.Nil(t, be.ForeachServiceInstance(nil, func(n string, inst data.Instance) {
-			insts[n] = inst
+		require.Nil(t, be.ForeachServiceInstance(nil, func(sn string, in string, inst data.Instance) {
+			insts[sn+" "+in] = inst
 		}))
 		return insts
 	}
 
-	require.Equal(t, map[string]data.Instance{"inst": testInst}, serviceInstances())
+	require.Equal(t, map[string]data.Instance{"svc inst": testInst}, serviceInstances())
 
 	require.Nil(t, be.RemoveInstance("svc", "inst"))
 	require.Equal(t, map[string]data.Instance{}, instances())

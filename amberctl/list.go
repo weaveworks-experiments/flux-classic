@@ -66,11 +66,9 @@ func (opts *listOpts) run(_ *cobra.Command, args []string) {
 		}
 	}
 
-	var serviceName string
 	err := opts.backend.ForeachServiceInstance(func(name string, serv data.Service) {
-		serviceName = name
 		printService(name, serv)
-	}, func(name string, inst data.Instance) {
+	}, func(serviceName string, name string, inst data.Instance) {
 		printInstance(name, serviceName, inst)
 	})
 	if err != nil {

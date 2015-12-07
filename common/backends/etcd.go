@@ -78,7 +78,7 @@ func (b *Backend) GetServiceDetails(serviceName string) (data.Service, error) {
 	return service, nil
 }
 
-func (b *Backend) ForeachServiceInstance(fs func(string, data.Service), fi func(svcName string, instName string, inst data.Instance)) error {
+func (b *Backend) ForeachServiceInstance(fs ServiceFunc, fi ServiceInstanceFunc) error {
 	r, err := b.client.Get(data.ServicePath, true, fi != nil)
 	if err != nil {
 		if etcderr, ok := err.(*etcd.EtcdError); ok && etcderr.ErrorCode == etcd_errors.EcodeKeyNotFound {
@@ -111,7 +111,7 @@ func (b *Backend) ForeachServiceInstance(fs func(string, data.Service), fi func(
 	return nil
 }
 
-func (b *Backend) ForeachInstance(serviceName string, fi func(string, data.Instance)) error {
+func (b *Backend) ForeachInstance(serviceName string, fi InstanceFunc) error {
 	serviceKey := data.ServicePath + serviceName + "/"
 	r, err := b.client.Get(serviceKey, true, false)
 	if err != nil {

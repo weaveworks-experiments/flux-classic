@@ -57,21 +57,9 @@ func (opts *queryOpts) run(_ *cobra.Command, args []string) {
 		}
 	}
 
-	doService := func(name string, _ data.Service) {
-		serviceName = name
-	}
-
-	doInstance := func(name string, instance data.Instance) {
-		if sel.Includes(instance) {
-			printInstance(name, instance)
-		}
-	}
-
 	if opts.service == "" {
-		opts.backend.ForeachServiceInstance(doService, func(serviceName string, name string, inst data.Instance) {
-			doInstance(name, inst)
-		})
+		backends.SelectInstances(opts.backend, sel, printInstance)
 	} else {
-		opts.backend.ForeachInstance(opts.service, doInstance)
+		backends.SelectServiceInstances(opts.backend, opts.service, sel, printInstance)
 	}
 }

@@ -16,7 +16,7 @@ func iptables(args []string) ([]byte, error) {
 }
 
 func main() {
-	// Catch some signals for whcih we want to clean up on exit
+	// Catch some signals for which we want to clean up on exit
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 

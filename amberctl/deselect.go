@@ -5,12 +5,12 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/squaremo/ambergreen/common/backends"
+	"github.com/squaremo/ambergreen/common/store"
 	"github.com/squaremo/ambergreen/common/data"
 )
 
 type deselectOpts struct {
-	backend *backends.Backend
+	store store.Store
 }
 
 func (opts *deselectOpts) addCommandTo(top *cobra.Command) {
@@ -26,7 +26,7 @@ func (opts *deselectOpts) run(_ *cobra.Command, args []string) {
 		exitWithErrorf("Expected <service> and <group>")
 	}
 	serviceName, group := args[0], args[1]
-	service, err := opts.backend.GetServiceDetails(serviceName)
+	service, err := opts.store.GetServiceDetails(serviceName)
 	if err != nil {
 		exitWithErrorf("Unable to update service %s: %s", serviceName, err)
 	}

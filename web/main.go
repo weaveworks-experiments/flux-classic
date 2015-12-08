@@ -7,8 +7,9 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/squaremo/ambergreen/common/backends"
 	"github.com/squaremo/ambergreen/common/data"
+	"github.com/squaremo/ambergreen/common/store"
+	"github.com/squaremo/ambergreen/common/store/etcdstore"
 
 	"github.com/gorilla/mux"
 )
@@ -19,12 +20,12 @@ func main() {
 		prom = "http://localhost:9090"
 	}
 
-	back := backends.NewBackendFromEnv()
-	if err := back.Ping(); err != nil {
+	store := etcdstore.NewFromEnv()
+	if err := store.Ping(); err != nil {
 		log.Fatal(err)
 	}
 	log.Printf("Connected to backend\n")
-	api := &api{back, prom}
+	api := &api{store, prom}
 
 	router := mux.NewRouter()
 
@@ -52,7 +53,7 @@ func homePage(w http.ResponseWriter, r *http.Request) {
 //=== API handlers
 
 type api struct {
-	backend *backends.Backend
+	store   store.Store
 	promURL string
 }
 
@@ -76,7 +77,7 @@ func (api *api) listServices(w http.ResponseWriter, r *http.Request) {
 	var currentService serviceDetails
 	services := []serviceDetails{}
 
-	api.backend.ForeachServiceInstance(func(name string, details data.Service) {
+	api.store.ForeachServiceInstance(func(name string, details data.Service) {
 		currentService = serviceDetails{
 			Name:    name,
 			Details: details,
@@ -89,12 +90,12 @@ func (api *api) listServices(w http.ResponseWriter, r *http.Request) {
 func (api *api) listInstances(w http.ResponseWriter, r *http.Request) {
 	args := mux.Vars(r)
 	serviceName := args["service"]
-	details, err := api.backend.GetServiceDetails(serviceName)
+	details, err := api.store.GetServiceDetails(serviceName)
 	if err != nil {
 		http.NotFound(w, r)
 	}
 	children := []instanceDetails{}
-	api.backend.ForeachInstance(serviceName, func(name string, details data.Instance) {
+	api.store.ForeachInstance(serviceName, func(name string, details data.Instance) {
 		instance := instanceDetails{
 			Name:    name,
 			Details: details,

@@ -4,19 +4,20 @@ import (
 	"log"
 	"net"
 
-	"github.com/squaremo/ambergreen/common/backends"
 	"github.com/squaremo/ambergreen/common/data"
+	"github.com/squaremo/ambergreen/common/store"
+	"github.com/squaremo/ambergreen/common/store/etcdstore"
 
 	"github.com/squaremo/ambergreen/balancer/model"
 )
 
 type Listener struct {
-	backend *backends.Backend
+	store   store.Store
 	updates chan model.ServiceUpdate
 }
 
 func (l *Listener) send(serviceName string) error {
-	service, err := l.backend.GetServiceDetails(serviceName)
+	service, err := l.store.GetServiceDetails(serviceName)
 	if err != nil {
 		return err
 	}
@@ -24,7 +25,7 @@ func (l *Listener) send(serviceName string) error {
 		ServiceKey:  model.MakeServiceKey("tcp", net.ParseIP(service.Address), service.Port),
 		ServiceInfo: &model.ServiceInfo{Protocol: service.Protocol},
 	}
-	l.backend.ForeachInstance(serviceName, func(name string, instance data.Instance) {
+	l.store.ForeachInstance(serviceName, func(name string, instance data.Instance) {
 		update.ServiceInfo.Instances = append(update.ServiceInfo.Instances, model.MakeInstance(name, string(instance.InstanceGroup), net.ParseIP(instance.Address), instance.Port))
 	})
 	log.Printf("Sending update for %s: %+v\n", update.ServiceKey.String(), update.ServiceInfo)
@@ -34,7 +35,7 @@ func (l *Listener) send(serviceName string) error {
 
 func NewListener() (*Listener, error) {
 	listener := &Listener{
-		backend: backends.NewBackendFromEnv(),
+		store:   etcdstore.NewFromEnv(),
 		updates: make(chan model.ServiceUpdate),
 	}
 	go listener.run()
@@ -47,10 +48,10 @@ func (l *Listener) Updates() <-chan model.ServiceUpdate {
 
 func (l *Listener) run() {
 	changes := make(chan data.ServiceChange)
-	l.backend.WatchServices(changes, nil, true)
+	l.store.WatchServices(changes, nil, true)
 
 	// Send initial state of each service
-	l.backend.ForeachServiceInstance(func(name string, _ data.Service) {
+	l.store.ForeachServiceInstance(func(name string, _ data.Service) {
 		l.send(name)
 	}, nil)
 

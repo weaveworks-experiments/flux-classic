@@ -1,4 +1,4 @@
-package backends
+package etcdstore
 
 import (
 	"fmt"
@@ -8,13 +8,14 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/squaremo/ambergreen/common/data"
+	"github.com/squaremo/ambergreen/common/store"
 	"github.com/squaremo/ambergreen/common/test/embeddedetcd"
 )
 
-func startEtcd(t *testing.T) (*embeddedetcd.SimpleEtcd, *Backend) {
+func startEtcd(t *testing.T) (*embeddedetcd.SimpleEtcd, store.Store) {
 	etcd, err := embeddedetcd.NewSimpleEtcd()
 	require.Nil(t, err)
-	be := NewBackend(fmt.Sprintf("http://localhost:%d", etcd.Port))
+	be := New(fmt.Sprintf("http://localhost:%d", etcd.Port))
 	require.Nil(t, be.Ping())
 	return etcd, be
 }
@@ -116,7 +117,7 @@ type watcher struct {
 	done    chan struct{}
 }
 
-func newWatcher(be *Backend, withInstanceChanges bool) *watcher {
+func newWatcher(be store.Store, withInstanceChanges bool) *watcher {
 	w := &watcher{stopCh: make(chan struct{}), done: make(chan struct{})}
 	changes := make(chan data.ServiceChange)
 	stopWatch := make(chan struct{})

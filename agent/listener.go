@@ -6,14 +6,15 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/squaremo/ambergreen/common/backends"
 	"github.com/squaremo/ambergreen/common/data"
+	"github.com/squaremo/ambergreen/common/store"
+	"github.com/squaremo/ambergreen/common/store/etcdstore"
 
 	docker "github.com/fsouza/go-dockerclient"
 )
 
 type Listener struct {
-	backend    *backends.Backend
+	store      store.Store
 	dc         *docker.Client
 	services   map[string]*service
 	containers map[string]*docker.Container
@@ -31,7 +32,7 @@ type service struct {
 
 func NewListener(config Config, dc *docker.Client) *Listener {
 	listener := &Listener{
-		backend:    backends.NewBackendFromEnv(),
+		store:      etcdstore.NewFromEnv(),
 		dc:         dc,
 		services:   make(map[string]*service),
 		containers: make(map[string]*docker.Container),
@@ -42,7 +43,7 @@ func NewListener(config Config, dc *docker.Client) *Listener {
 
 // Read in all info on registered services
 func (l *Listener) ReadInServices() error {
-	return l.backend.ForeachServiceInstance(func(name string, value data.Service) {
+	return l.store.ForeachServiceInstance(func(name string, value data.Service) {
 		l.services[name] = &service{name: name, details: value}
 	}, nil)
 }
@@ -71,10 +72,10 @@ func (l *Listener) Sync() error {
 		l.Register(container)
 	}
 	// Remove all the ones we don't
-	return l.backend.ForeachServiceInstance(nil, func(serviceName string, instanceName string, _ data.Instance) {
+	return l.store.ForeachServiceInstance(nil, func(serviceName string, instanceName string, _ data.Instance) {
 		if _, found := l.containers[instanceName]; !found {
 			log.Printf("Removing %.12s/%.12s", serviceName, instanceName)
-			l.backend.RemoveInstance(serviceName, instanceName)
+			l.store.RemoveInstance(serviceName, instanceName)
 		}
 	})
 }
@@ -85,7 +86,7 @@ nextService:
 		for group, spec := range service.details.InstanceSpecs {
 			if instance, ok := l.extractInstance(spec, container); ok {
 				instance.InstanceGroup = group
-				err := l.backend.AddInstance(serviceName, container.ID, instance)
+				err := l.store.AddInstance(serviceName, container.ID, instance)
 				if err != nil {
 					log.Println("ambergreen: failed to register service:", err)
 					return err
@@ -144,8 +145,8 @@ func (l *Listener) extractInstance(spec data.InstanceSpec, container *docker.Con
 
 func (l *Listener) Deregister(container *docker.Container) error {
 	for serviceName, _ := range l.services {
-		if l.backend.CheckRegisteredService(serviceName) == nil {
-			err := l.backend.RemoveInstance(serviceName, container.ID)
+		if l.store.CheckRegisteredService(serviceName) == nil {
+			err := l.store.RemoveInstance(serviceName, container.ID)
 			if err != nil {
 				log.Println("ambergreen: failed to deregister service:", err)
 				return err
@@ -199,7 +200,7 @@ func envValue(env []string, key string) string {
 
 func (l *Listener) Run(events <-chan *docker.APIEvents) {
 	changes := make(chan data.ServiceChange)
-	l.backend.WatchServices(changes, nil, false)
+	l.store.WatchServices(changes, nil, false)
 
 	// sync after we have initiated the watch
 	if err := l.Sync(); err != nil {
@@ -231,7 +232,7 @@ func (l *Listener) Run(events <-chan *docker.APIEvents) {
 				delete(l.services, change.Name)
 				log.Println("Service deleted:", change.Name)
 			} else {
-				svc, err := l.backend.GetServiceDetails(change.Name)
+				svc, err := l.store.GetServiceDetails(change.Name)
 				if err != nil {
 					log.Println("Failed to retrieve service:", change.Name, err)
 					continue

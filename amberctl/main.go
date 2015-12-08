@@ -6,17 +6,18 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/squaremo/ambergreen/common/backends"
+	"github.com/squaremo/ambergreen/common/store"
+	"github.com/squaremo/ambergreen/common/store/etcdstore"
 )
 
 func main() {
-	backend := backends.NewBackendFromEnv()
+	store := etcdstore.NewFromEnv()
 	var topCmd = &cobra.Command{
 		Use:   "amberctl",
 		Short: "control ambergreen",
 		Long:  `Create services and enrol instances in them`,
 	}
-	addSubCommands(topCmd, backend)
+	addSubCommands(topCmd, store)
 	if err := topCmd.Execute(); err != nil {
 		exitWithErrorf(err.Error())
 	}
@@ -30,13 +31,13 @@ func addSubCommand(c opts, cmd *cobra.Command) {
 	c.addCommandTo(cmd)
 }
 
-func addSubCommands(cmd *cobra.Command, backend *backends.Backend) {
-	addSubCommand(&addOpts{backend: backend}, cmd)
-	addSubCommand(&listOpts{backend: backend}, cmd)
-	addSubCommand(&queryOpts{backend: backend}, cmd)
-	addSubCommand(&rmOpts{backend: backend}, cmd)
-	addSubCommand(&selectOpts{backend: backend}, cmd)
-	addSubCommand(&deselectOpts{backend: backend}, cmd)
+func addSubCommands(cmd *cobra.Command, store store.Store) {
+	addSubCommand(&addOpts{store: store}, cmd)
+	addSubCommand(&listOpts{store: store}, cmd)
+	addSubCommand(&queryOpts{store: store}, cmd)
+	addSubCommand(&rmOpts{store: store}, cmd)
+	addSubCommand(&selectOpts{store: store}, cmd)
+	addSubCommand(&deselectOpts{store: store}, cmd)
 }
 
 func exitWithErrorf(format string, vals ...interface{}) {

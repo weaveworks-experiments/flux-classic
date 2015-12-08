@@ -1,4 +1,4 @@
-package backends
+package etcdstore
 
 import (
 	"encoding/json"
@@ -7,16 +7,17 @@ import (
 	"strings"
 
 	"github.com/squaremo/ambergreen/common/data"
+	"github.com/squaremo/ambergreen/common/store"
 
 	etcd_errors "github.com/coreos/etcd/error"
 	"github.com/coreos/go-etcd/etcd"
 )
 
-type Backend struct {
+type etcdStore struct {
 	client *etcd.Client
 }
 
-func NewBackendFromEnv() *Backend {
+func NewFromEnv() store.Store {
 	etcd_address := os.Getenv("ETCD_PORT")
 	if etcd_address == "" {
 		etcd_address = os.Getenv("ETCD_ADDRESS")
@@ -28,15 +29,15 @@ func NewBackendFromEnv() *Backend {
 		etcd_address = "http://127.0.0.1:4001"
 	}
 
-	return NewBackend(etcd_address)
+	return New(etcd_address)
 }
 
-func NewBackend(addr string) *Backend {
-	return &Backend{client: etcd.NewClient([]string{addr})}
+func New(addr string) store.Store {
+	return &etcdStore{client: etcd.NewClient([]string{addr})}
 }
 
 // Check if we can talk to etcd
-func (b *Backend) Ping() error {
+func (b *etcdStore) Ping() error {
 	rr := etcd.NewRawRequest("GET", "version", nil, nil)
 	_, err := b.client.SendRequest(rr)
 	return err
@@ -97,12 +98,12 @@ func parseKey(key string) interface{} {
 	return nil
 }
 
-func (b *Backend) CheckRegisteredService(serviceName string) error {
+func (b *etcdStore) CheckRegisteredService(serviceName string) error {
 	_, err := b.client.Get(serviceRootKey(serviceName), false, false)
 	return err
 }
 
-func (b *Backend) AddService(serviceName string, details data.Service) error {
+func (b *etcdStore) AddService(serviceName string, details data.Service) error {
 	json, err := json.Marshal(&details)
 	if err != nil {
 		return fmt.Errorf("Failed to encode: %s", err)
@@ -111,17 +112,17 @@ func (b *Backend) AddService(serviceName string, details data.Service) error {
 	return err
 }
 
-func (b *Backend) RemoveService(serviceName string) error {
+func (b *etcdStore) RemoveService(serviceName string) error {
 	_, err := b.client.Delete(serviceRootKey(serviceName), true)
 	return err
 }
 
-func (b *Backend) RemoveAllServices() error {
+func (b *etcdStore) RemoveAllServices() error {
 	_, err := b.client.Delete(ROOT, true)
 	return err
 }
 
-func (b *Backend) GetServiceDetails(serviceName string) (data.Service, error) {
+func (b *etcdStore) GetServiceDetails(serviceName string) (data.Service, error) {
 	r, err := b.client.Get(serviceKey(serviceName), false, false)
 	if err != nil {
 		return data.Service{}, err
@@ -159,7 +160,7 @@ func traverse(node *etcd.Node, f func(*etcd.Node) error) error {
 	return nil
 }
 
-func (b *Backend) traverse(key string, f func(*etcd.Node) error) error {
+func (b *etcdStore) traverse(key string, f func(*etcd.Node) error) error {
 	r, err := b.client.Get(key, false, true)
 	if err != nil {
 		if etcderr, ok := err.(*etcd.EtcdError); ok && etcderr.ErrorCode == etcd_errors.EcodeKeyNotFound {
@@ -171,7 +172,7 @@ func (b *Backend) traverse(key string, f func(*etcd.Node) error) error {
 	return traverse(r.Node, f)
 }
 
-func (b *Backend) ForeachServiceInstance(fs ServiceFunc, fi ServiceInstanceFunc) error {
+func (b *etcdStore) ForeachServiceInstance(fs store.ServiceFunc, fi store.ServiceInstanceFunc) error {
 	return b.traverse(ROOT, func(node *etcd.Node) error {
 		switch key := parseKey(node.Key).(type) {
 		case parsedServiceKey:
@@ -199,7 +200,7 @@ func (b *Backend) ForeachServiceInstance(fs ServiceFunc, fi ServiceInstanceFunc)
 	})
 }
 
-func (b *Backend) AddInstance(serviceName string, instanceName string, details data.Instance) error {
+func (b *etcdStore) AddInstance(serviceName string, instanceName string, details data.Instance) error {
 	json, err := json.Marshal(details)
 	if err != nil {
 		return fmt.Errorf("Failed to encode: %s", err)
@@ -210,12 +211,12 @@ func (b *Backend) AddInstance(serviceName string, instanceName string, details d
 	return nil
 }
 
-func (b *Backend) RemoveInstance(serviceName, instanceName string) error {
+func (b *etcdStore) RemoveInstance(serviceName, instanceName string) error {
 	_, err := b.client.Delete(instanceKey(serviceName, instanceName), true)
 	return err
 }
 
-func (b *Backend) ForeachInstance(serviceName string, fi InstanceFunc) error {
+func (b *etcdStore) ForeachInstance(serviceName string, fi store.InstanceFunc) error {
 	return b.traverse(serviceRootKey(serviceName), func(node *etcd.Node) error {
 		switch key := parseKey(node.Key).(type) {
 		case parsedInstanceKey:
@@ -233,7 +234,7 @@ func (b *Backend) ForeachInstance(serviceName string, fi InstanceFunc) error {
 	})
 }
 
-func (b *Backend) WatchServices(resCh chan<- data.ServiceChange, stopCh <-chan struct{}, withInstanceChanges bool) {
+func (b *etcdStore) WatchServices(resCh chan<- data.ServiceChange, stopCh <-chan struct{}, withInstanceChanges bool) {
 	// XXX error handling
 
 	etcdCh := make(chan *etcd.Response, 1)

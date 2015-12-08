@@ -3,11 +3,11 @@ package main
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/squaremo/ambergreen/common/backends"
+	"github.com/squaremo/ambergreen/common/store"
 )
 
 type rmOpts struct {
-	backend *backends.Backend
+	store store.Store
 
 	all bool
 }
@@ -25,9 +25,9 @@ func (opts *rmOpts) addCommandTo(top *cobra.Command) {
 func (opts *rmOpts) run(_ *cobra.Command, args []string) {
 	var err error
 	if opts.all {
-		err = opts.backend.RemoveAllServices()
+		err = opts.store.RemoveAllServices()
 	} else if len(args) == 1 {
-		err = opts.backend.RemoveService(args[0])
+		err = opts.store.RemoveService(args[0])
 	} else {
 		exitWithErrorf("Must supply service name or --all")
 	}

@@ -7,12 +7,12 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/squaremo/ambergreen/common/backends"
+	"github.com/squaremo/ambergreen/common/store"
 	"github.com/squaremo/ambergreen/common/data"
 )
 
 type listOpts struct {
-	backend *backends.Backend
+	store store.Store
 
 	format         string
 	formatInstance string
@@ -47,7 +47,7 @@ func (opts *listOpts) run(_ *cobra.Command, args []string) {
 		}
 	}
 
-	var printInstance backends.ServiceInstanceFunc
+	var printInstance store.ServiceInstanceFunc
 
 	if opts.verbose {
 		printInstance = func(service, name string, value data.Instance) { fmt.Println("  ", name) }
@@ -67,7 +67,7 @@ func (opts *listOpts) run(_ *cobra.Command, args []string) {
 		}
 	}
 
-	err := opts.backend.ForeachServiceInstance(printService, printInstance)
+	err := opts.store.ForeachServiceInstance(printService, printInstance)
 	if err != nil {
 		exitWithErrorf("Unable to enumerate services: ", err)
 	}

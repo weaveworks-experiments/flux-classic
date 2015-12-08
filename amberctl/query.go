@@ -7,12 +7,12 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/squaremo/ambergreen/common/backends"
+	"github.com/squaremo/ambergreen/common/store"
 	"github.com/squaremo/ambergreen/common/data"
 )
 
 type queryOpts struct {
-	backend *backends.Backend
+	store store.Store
 
 	service string
 	format  string
@@ -58,8 +58,8 @@ func (opts *queryOpts) run(_ *cobra.Command, args []string) {
 	}
 
 	if opts.service == "" {
-		backends.SelectInstances(opts.backend, sel, printInstance)
+		store.SelectInstances(opts.store, sel, printInstance)
 	} else {
-		backends.SelectServiceInstances(opts.backend, opts.service, sel, printInstance)
+		store.SelectServiceInstances(opts.store, opts.service, sel, printInstance)
 	}
 }

@@ -5,12 +5,12 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/squaremo/ambergreen/common/backends"
+	"github.com/squaremo/ambergreen/common/store"
 	"github.com/squaremo/ambergreen/common/data"
 )
 
 type selectOpts struct {
-	backend *backends.Backend
+	store store.Store
 	spec
 }
 
@@ -29,7 +29,7 @@ func (opts *selectOpts) run(_ *cobra.Command, args []string) {
 		exitWithErrorf("You must supply <service> and <name>")
 	}
 	serviceName, name := args[0], args[1]
-	service, err := opts.backend.GetServiceDetails(serviceName)
+	service, err := opts.store.GetServiceDetails(serviceName)
 	if err != nil {
 		exitWithErrorf("Error fetching service: ", err)
 	}
@@ -40,7 +40,7 @@ func (opts *selectOpts) run(_ *cobra.Command, args []string) {
 	}
 
 	addInstanceSpec(&service, data.InstanceGroup(name), spec)
-	if err = opts.backend.AddService(serviceName, service); err != nil {
+	if err = opts.store.AddService(serviceName, service); err != nil {
 		exitWithErrorf("Error updating service: ", err)
 	}
 	fmt.Println("Selected instance group", name, "in service", serviceName)

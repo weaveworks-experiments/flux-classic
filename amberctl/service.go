@@ -8,14 +8,14 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/squaremo/ambergreen/common/backends"
+	"github.com/squaremo/ambergreen/common/store"
 	"github.com/squaremo/ambergreen/common/data"
 )
 
 const DEFAULT_GROUP = data.InstanceGroup("default")
 
 type addOpts struct {
-	backend *backends.Backend
+	store store.Store
 
 	spec
 }
@@ -54,7 +54,7 @@ func (opts *addOpts) run(cmd *cobra.Command, args []string) {
 		exitWithErrorf("Unable to extract spec from opitions: ", err)
 	}
 
-	err = opts.backend.AddService(serviceName, data.Service{
+	err = opts.store.AddService(serviceName, data.Service{
 		Address:       args[1],
 		Port:          port,
 		Protocol:      opts.protocol,

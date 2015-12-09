@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/squaremo/ambergreen/common/data"
+	"github.com/squaremo/ambergreen/common/errorsink"
 	"github.com/squaremo/ambergreen/common/store"
 	"github.com/squaremo/ambergreen/common/test/embeddedetcd"
 )
@@ -121,7 +122,7 @@ func newWatcher(be store.Store, withInstanceChanges bool) *watcher {
 	w := &watcher{stopCh: make(chan struct{}), done: make(chan struct{})}
 	changes := make(chan data.ServiceChange)
 	stopWatch := make(chan struct{})
-	be.WatchServices(changes, stopWatch, withInstanceChanges)
+	be.WatchServices(changes, stopWatch, errorsink.New(), withInstanceChanges)
 	go func() {
 		defer close(w.done)
 		for {

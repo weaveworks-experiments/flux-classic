@@ -92,7 +92,7 @@ func (d *Daemon) start(args []string, ipTablesCmd IPTablesCmd) error {
 	if useSimpleControl {
 		d.controller, err = simplecontrol.NewServer(d.errorSink)
 	} else {
-		d.controller, err = etcdcontrol.NewListener()
+		d.controller, err = etcdcontrol.NewListener(d.errorSink)
 	}
 	if err != nil {
 		return err

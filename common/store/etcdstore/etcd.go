@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/squaremo/ambergreen/common/data"
+	"github.com/squaremo/ambergreen/common/errorsink"
 	"github.com/squaremo/ambergreen/common/store"
 
 	etcd_errors "github.com/coreos/etcd/error"
@@ -234,12 +235,15 @@ func (b *etcdStore) ForeachInstance(serviceName string, fi store.InstanceFunc) e
 	})
 }
 
-func (b *etcdStore) WatchServices(resCh chan<- data.ServiceChange, stopCh <-chan struct{}, withInstanceChanges bool) {
-	// XXX error handling
-
+func (b *etcdStore) WatchServices(resCh chan<- data.ServiceChange, stopCh <-chan struct{}, errorSink errorsink.ErrorSink, withInstanceChanges bool) {
 	etcdCh := make(chan *etcd.Response, 1)
 	watchStopCh := make(chan bool, 1)
-	go b.client.Watch(ROOT, 0, true, etcdCh, nil)
+	go func() {
+		_, err := b.client.Watch(ROOT, 0, true, etcdCh, nil)
+		if err != nil {
+			errorSink.Post(err)
+		}
+	}()
 
 	svcs := make(map[string]struct{})
 	b.ForeachServiceInstance(func(name string, svc data.Service) {
@@ -247,6 +251,11 @@ func (b *etcdStore) WatchServices(resCh chan<- data.ServiceChange, stopCh <-chan
 	}, nil)
 
 	handleResponse := func(r *etcd.Response) {
+		// r is nil on error
+		if r == nil {
+			return
+		}
+
 		switch r.Action {
 		case "delete":
 			switch key := parseKey(r.Node.Key).(type) {

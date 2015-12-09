@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/squaremo/ambergreen/common/data"
+	"github.com/squaremo/ambergreen/common/errorsink"
 	"github.com/squaremo/ambergreen/common/store"
 	"github.com/squaremo/ambergreen/common/store/etcdstore"
 
@@ -200,7 +201,7 @@ func envValue(env []string, key string) string {
 
 func (l *Listener) Run(events <-chan *docker.APIEvents) {
 	changes := make(chan data.ServiceChange)
-	l.store.WatchServices(changes, nil, false)
+	l.store.WatchServices(changes, nil, errorsink.New(), false)
 
 	// sync after we have initiated the watch
 	if err := l.Sync(); err != nil {

@@ -2,6 +2,7 @@ package store
 
 import (
 	"github.com/squaremo/ambergreen/common/data"
+	"github.com/squaremo/ambergreen/common/errorsink"
 )
 
 type ServiceFunc func(string, data.Service)
@@ -19,5 +20,5 @@ type Store interface {
 	AddInstance(serviceName string, instanceName string, details data.Instance) error
 	RemoveInstance(serviceName, instanceName string) error
 	ForeachInstance(serviceName string, fi InstanceFunc) error
-	WatchServices(resCh chan<- data.ServiceChange, stopCh <-chan struct{}, withInstanceChanges bool)
+	WatchServices(resCh chan<- data.ServiceChange, stopCh <-chan struct{}, errorSink errorsink.ErrorSink, withInstanceChanges bool)
 }

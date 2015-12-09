@@ -5,6 +5,7 @@ import (
 	"net"
 
 	"github.com/squaremo/ambergreen/common/data"
+	"github.com/squaremo/ambergreen/common/errorsink"
 	"github.com/squaremo/ambergreen/common/store"
 	"github.com/squaremo/ambergreen/common/store/etcdstore"
 
@@ -33,12 +34,12 @@ func (l *Listener) send(serviceName string) error {
 	return nil
 }
 
-func NewListener() (*Listener, error) {
+func NewListener(errorSink errorsink.ErrorSink) (*Listener, error) {
 	listener := &Listener{
 		store:   etcdstore.NewFromEnv(),
 		updates: make(chan model.ServiceUpdate),
 	}
-	go listener.run()
+	go listener.run(errorSink)
 	return listener, nil
 }
 
@@ -46,9 +47,9 @@ func (l *Listener) Updates() <-chan model.ServiceUpdate {
 	return l.updates
 }
 
-func (l *Listener) run() {
+func (l *Listener) run(errorSink errorsink.ErrorSink) {
 	changes := make(chan data.ServiceChange)
-	l.store.WatchServices(changes, nil, true)
+	l.store.WatchServices(changes, nil, errorSink, true)
 
 	// Send initial state of each service
 	l.store.ForeachServiceInstance(func(name string, _ data.Service) {

@@ -8,7 +8,6 @@ import (
 
 	"github.com/squaremo/ambergreen/common/data"
 	"github.com/squaremo/ambergreen/common/store"
-	"github.com/squaremo/ambergreen/common/store/etcdstore"
 
 	docker "github.com/fsouza/go-dockerclient"
 )
@@ -23,6 +22,7 @@ type Listener struct {
 
 type Config struct {
 	HostIP string
+	Store  store.Store
 }
 
 type service struct {
@@ -32,13 +32,27 @@ type service struct {
 
 func NewListener(config Config, dc *docker.Client) *Listener {
 	listener := &Listener{
-		store:      etcdstore.NewFromEnv(),
+		store:      config.Store,
 		dc:         dc,
 		services:   make(map[string]*service),
 		containers: make(map[string]*docker.Container),
 		hostIP:     config.HostIP,
 	}
 	return listener
+}
+
+// A host identifier so we can tell which instances belong to this
+// host when removing stale entries.
+func (l *Listener) ownerID() string {
+	return l.hostIP
+}
+
+func (l *Listener) owns(inst data.Instance) bool {
+	return l.ownerID() == inst.OwnerID
+}
+
+func instanceNameFor(c *docker.Container) string {
+	return c.ID
 }
 
 // Read in all info on registered services
@@ -60,40 +74,73 @@ func (l *Listener) ReadExistingContainers() error {
 			log.Println("Failed to inspect container:", cont.ID, err)
 			continue
 		}
-		l.containers[cont.ID] = container
+		l.containers[instanceNameFor(container)] = container
 	}
 	return nil
 }
 
-// TODO: Un-enrol ones that no longer match.  If required.
-func (l *Listener) Sync() error {
-	// Register all the ones we know about
+// Assume we know all of the services, and all of the containers, and
+// make sure the matching instances (and only the matching instances)
+// are recorded.
+func (l *Listener) reconcile() error {
+	// Register all the  we know about
 	for _, container := range l.containers {
-		l.Register(container)
+		l.matchContainer(container)
 	}
-	// Remove all the ones we don't
-	return l.store.ForeachServiceInstance(nil, func(serviceName string, instanceName string, _ data.Instance) {
-		if _, found := l.containers[instanceName]; !found {
+	// Remove instances for which there is no longer a running
+	// container
+	return l.store.ForeachServiceInstance(nil, func(serviceName string, instanceName string, inst data.Instance) {
+		if _, found := l.containers[instanceName]; !found && l.owns(inst) {
 			log.Printf("Removing %.12s/%.12s", serviceName, instanceName)
 			l.store.RemoveInstance(serviceName, instanceName)
 		}
 	})
 }
 
-func (l *Listener) Register(container *docker.Container) error {
-nextService:
-	for serviceName, service := range l.services {
-		for group, spec := range service.details.InstanceSpecs {
-			if instance, ok := l.extractInstance(spec, container); ok {
-				instance.InstanceGroup = group
-				err := l.store.AddInstance(serviceName, container.ID, instance)
-				if err != nil {
-					log.Println("ambergreen: failed to register service:", err)
-					return err
-				}
-				log.Printf("Registered %s instance %.12s at %s:%d", serviceName, container.ID, instance.Address, instance.Port)
-				continue nextService
+// The service has been changed; re-evaluate which containers belong,
+// and which don't. Assume we have a correct list of containers.
+func (l *Listener) redefineService(serviceName string, service *service) error {
+	keep := make(map[string]struct{})
+	var (
+		inService bool
+		err       error
+	)
+	for _, container := range l.containers {
+		if inService, err = l.evaluate(container, service); err != nil {
+			return err
+		}
+		if inService {
+			keep[instanceNameFor(container)] = struct{}{}
+		}
+	}
+	// remove any instances for this service that do not match
+	return l.store.ForeachInstance(serviceName, func(instanceName string, _ data.Instance) {
+		if _, found := keep[instanceName]; !found {
+			l.store.RemoveInstance(serviceName, instanceName)
+		}
+	})
+}
+
+func (l *Listener) evaluate(container *docker.Container, service *service) (bool, error) {
+	for group, spec := range service.details.InstanceSpecs {
+		if instance, ok := l.extractInstance(spec, container); ok {
+			instance.InstanceGroup = group
+			err := l.store.AddInstance(service.name, container.ID, instance)
+			if err != nil {
+				log.Println("Failed to register service:", err)
+				return false, err
 			}
+			log.Printf("Registered %s instance %.12s at %s:%d", service.name, container.ID, instance.Address, instance.Port)
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (l *Listener) matchContainer(container *docker.Container) error {
+	for _, service := range l.services {
+		if _, err := l.evaluate(container, service); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -137,18 +184,19 @@ func (l *Listener) extractInstance(spec data.InstanceSpec, container *docker.Con
 	}
 
 	return data.Instance{
+		OwnerID: l.ownerID(),
 		Address: ipAddress,
 		Port:    port,
 		Labels:  labels,
 	}, true
 }
 
-func (l *Listener) Deregister(container *docker.Container) error {
+func (l *Listener) deregister(container *docker.Container) error {
 	for serviceName, _ := range l.services {
 		if l.store.CheckRegisteredService(serviceName) == nil {
 			err := l.store.RemoveInstance(serviceName, container.ID)
 			if err != nil {
-				log.Println("ambergreen: failed to deregister service:", err)
+				log.Println("Failed to deregister service:", err)
 				return err
 			}
 			log.Printf("Deregistered %s instance %.12s", serviceName, container.ID)
@@ -203,7 +251,7 @@ func (l *Listener) Run(events <-chan *docker.APIEvents) {
 	l.store.WatchServices(changes, nil, false)
 
 	// sync after we have initiated the watch
-	if err := l.Sync(); err != nil {
+	if err := l.reconcile(); err != nil {
 		log.Fatal("Error synchronising existing containers:", err)
 	}
 
@@ -218,14 +266,14 @@ func (l *Listener) Run(events <-chan *docker.APIEvents) {
 					continue
 				}
 				l.containers[event.ID] = container
-				l.Register(container)
+				l.matchContainer(container)
 			case "die":
 				container, found := l.containers[event.ID]
 				if !found {
 					log.Println("Unknown container:", event.ID)
 					continue
 				}
-				l.Deregister(container)
+				l.deregister(container)
 			}
 		case change := <-changes:
 			if change.Deleted {
@@ -238,11 +286,12 @@ func (l *Listener) Run(events <-chan *docker.APIEvents) {
 					continue
 				}
 
-				l.services[change.Name] = &service{change.Name, svc}
+				s := &service{change.Name, svc}
+				l.services[change.Name] = s
 				log.Println("Service", change.Name, "updated:", svc)
 
-				// See if any containers match now.
-				l.Sync()
+				// See which containers match now.
+				l.redefineService(change.Name, s)
 			}
 		}
 	}

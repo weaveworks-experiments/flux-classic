@@ -8,7 +8,7 @@ import (
 	"syscall"
 
 	"github.com/squaremo/ambergreen/balancer"
-	"github.com/squaremo/ambergreen/balancer/fatal"
+	"github.com/squaremo/ambergreen/common/errorsink"
 )
 
 func iptables(args []string) ([]byte, error) {
@@ -20,14 +20,14 @@ func main() {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
-	fatalSink := fatal.New()
-	i := balancer.Start(os.Args, fatalSink, iptables)
+	errorSink := errorsink.New()
+	i := balancer.Start(os.Args, errorSink, iptables)
 
 	exitCode := 0
 	var exitSignal os.Signal
 
 	select {
-	case err := <-fatalSink:
+	case err := <-errorSink:
 		fmt.Fprintln(os.Stderr, err)
 		exitCode = 1
 	case exitSignal = <-sigs:

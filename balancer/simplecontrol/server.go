@@ -9,8 +9,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/squaremo/ambergreen/balancer/fatal"
 	"github.com/squaremo/ambergreen/balancer/model"
+	"github.com/squaremo/ambergreen/common/errorsink"
 )
 
 // A simple control mechanism for the daemon via a unix socket.
@@ -18,7 +18,7 @@ import (
 // rather than as something to be used in anger.
 
 type Server struct {
-	fatalSink fatal.Sink
+	errorSink errorsink.ErrorSink
 	listener  *net.UnixListener
 	updates   chan model.ServiceUpdate
 	lock      sync.Mutex
@@ -28,7 +28,7 @@ type Server struct {
 
 const SOCKET = "/var/run/ambergreen.sock"
 
-func NewServer(fatalSink fatal.Sink) (*Server, error) {
+func NewServer(errorSink errorsink.ErrorSink) (*Server, error) {
 	os.Remove(SOCKET)
 	listener, err := net.ListenUnix("unix", &net.UnixAddr{SOCKET, "unix"})
 	if err != nil {
@@ -36,7 +36,7 @@ func NewServer(fatalSink fatal.Sink) (*Server, error) {
 	}
 
 	srv := &Server{
-		fatalSink: fatalSink,
+		errorSink: errorSink,
 		listener:  listener,
 		updates:   make(chan model.ServiceUpdate),
 		closed:    make(chan struct{}),
@@ -68,7 +68,7 @@ func (srv *Server) run(listener *net.UnixListener) {
 	for {
 		conn, err := listener.AcceptUnix()
 		if err != nil {
-			srv.fatalSink.Post(err)
+			srv.errorSink.Post(err)
 			break
 		}
 

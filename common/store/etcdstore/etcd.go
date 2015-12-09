@@ -242,6 +242,9 @@ func (b *etcdStore) WatchServices(resCh chan<- data.ServiceChange, stopCh <-chan
 	go b.client.Watch(ROOT, 0, true, etcdCh, nil)
 
 	svcs := make(map[string]struct{})
+	b.ForeachServiceInstance(func(name string, svc data.Service) {
+		svcs[name] = struct{}{}
+	}, nil)
 
 	handleResponse := func(r *etcd.Response) {
 		switch r.Action {
@@ -276,10 +279,6 @@ func (b *etcdStore) WatchServices(resCh chan<- data.ServiceChange, stopCh <-chan
 			}
 		}
 	}
-
-	b.ForeachServiceInstance(func(name string, svc data.Service) {
-		svcs[name] = struct{}{}
-	}, nil)
 
 	go func() {
 		for {

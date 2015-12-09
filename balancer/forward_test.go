@@ -12,8 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/squaremo/ambergreen/balancer/events"
-	"github.com/squaremo/ambergreen/balancer/fatal"
 	"github.com/squaremo/ambergreen/balancer/model"
+	"github.com/squaremo/ambergreen/common/errorsink"
 )
 
 // Test that forward.go plugs everything together correctly, and
@@ -32,14 +32,14 @@ func TestForward(t *testing.T) {
 	require.Nil(t, err)
 	laddr := listener.Addr().(*net.TCPAddr)
 
-	fatalSink := fatal.New()
+	errorSink := errorsink.New()
 	key := model.MakeServiceKey("tcp", net.ParseIP("127.42.0.1"), 8888)
 	ss, err := forwardingConfig{
 		netConfig:    nc,
 		key:          key,
 		ipTables:     ipTables,
 		eventHandler: events.DiscardOthers{},
-		fatalSink:    fatalSink,
+		errorSink:    errorSink,
 	}.start(&model.ServiceInfo{Instances: []model.Instance{
 		model.MakeInstance("foo", "bar", laddr.IP, laddr.Port),
 	}})

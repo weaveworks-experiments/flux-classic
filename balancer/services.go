@@ -5,8 +5,8 @@ import (
 	"sync"
 
 	"github.com/squaremo/ambergreen/balancer/events"
-	"github.com/squaremo/ambergreen/balancer/fatal"
 	"github.com/squaremo/ambergreen/balancer/model"
+	"github.com/squaremo/ambergreen/common/errorsink"
 )
 
 type servicesConfig struct {
@@ -14,7 +14,7 @@ type servicesConfig struct {
 	updates   <-chan model.ServiceUpdate
 	*ipTables
 	eventHandler events.Handler
-	fatalSink    fatal.Sink
+	errorSink    errorsink.ErrorSink
 	done         chan<- struct{}
 }
 
@@ -139,7 +139,7 @@ func (svc *service) update(si *model.ServiceInfo) error {
 		key:          svc.key,
 		ipTables:     svc.ipTables,
 		eventHandler: svc.eventHandler,
-		fatalSink:    svc.fatalSink,
+		errorSink:    svc.errorSink,
 	}.start
 	if len(si.Instances) == 0 {
 		start = svc.startRejecting

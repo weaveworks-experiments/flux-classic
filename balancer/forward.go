@@ -9,8 +9,8 @@ import (
 	"sync"
 
 	"github.com/squaremo/ambergreen/balancer/events"
-	"github.com/squaremo/ambergreen/balancer/fatal"
 	"github.com/squaremo/ambergreen/balancer/model"
+	"github.com/squaremo/ambergreen/common/errorsink"
 )
 
 type forwardingConfig struct {
@@ -18,7 +18,7 @@ type forwardingConfig struct {
 	key model.ServiceKey
 	*ipTables
 	eventHandler events.Handler
-	fatalSink    fatal.Sink
+	errorSink    errorsink.ErrorSink
 }
 
 type forwarding struct {
@@ -105,7 +105,7 @@ func (fwd *forwarding) run() {
 		conn, err := fwd.listener.AcceptTCP()
 		if err != nil {
 			if !fwd.stopped {
-				fwd.fatalSink.Post(err)
+				fwd.errorSink.Post(err)
 			}
 			return
 		}

@@ -8,8 +8,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/squaremo/ambergreen/balancer/events"
-	"github.com/squaremo/ambergreen/balancer/fatal"
 	"github.com/squaremo/ambergreen/balancer/model"
+	"github.com/squaremo/ambergreen/common/errorsink"
 )
 
 func TestServices(t *testing.T) {
@@ -22,7 +22,7 @@ func TestServices(t *testing.T) {
 	ipTables := newIPTables(nc, mipt.cmd)
 	ipTables.start()
 
-	fatalSink := fatal.New()
+	errorSink := errorsink.New()
 	updates := make(chan model.ServiceUpdate)
 	done := make(chan struct{}, 1)
 	svcs := servicesConfig{
@@ -30,7 +30,7 @@ func TestServices(t *testing.T) {
 		updates:      updates,
 		ipTables:     ipTables,
 		eventHandler: events.DiscardOthers{},
-		fatalSink:    fatalSink,
+		errorSink:    errorSink,
 		done:         done,
 	}.new()
 

@@ -8,10 +8,10 @@ import (
 	"github.com/squaremo/ambergreen/balancer/etcdcontrol"
 	"github.com/squaremo/ambergreen/balancer/eventlogger"
 	"github.com/squaremo/ambergreen/balancer/events"
-	"github.com/squaremo/ambergreen/balancer/fatal"
 	"github.com/squaremo/ambergreen/balancer/model"
 	"github.com/squaremo/ambergreen/balancer/prometheus"
 	"github.com/squaremo/ambergreen/balancer/simplecontrol"
+	"github.com/squaremo/ambergreen/common/errorsink"
 )
 
 func logError(err error, args ...interface{}) {
@@ -31,7 +31,7 @@ type Controller interface {
 }
 
 type Daemon struct {
-	fatalSink    fatal.Sink
+	errorSink    errorsink.ErrorSink
 	ipTables     *ipTables
 	netConfig    netConfig
 	controller   Controller
@@ -39,11 +39,11 @@ type Daemon struct {
 	services     *services
 }
 
-func Start(args []string, fatalSink fatal.Sink, ipTablesCmd IPTablesCmd) *Daemon {
-	d := &Daemon{fatalSink: fatalSink}
+func Start(args []string, errorSink errorsink.ErrorSink, ipTablesCmd IPTablesCmd) *Daemon {
+	d := &Daemon{errorSink: errorSink}
 	err := d.start(args, ipTablesCmd)
 	if err != nil {
-		fatalSink.Post(err)
+		errorSink.Post(err)
 	}
 
 	return d
@@ -90,7 +90,7 @@ func (d *Daemon) start(args []string, ipTablesCmd IPTablesCmd) error {
 	}
 
 	if useSimpleControl {
-		d.controller, err = simplecontrol.NewServer(d.fatalSink)
+		d.controller, err = simplecontrol.NewServer(d.errorSink)
 	} else {
 		d.controller, err = etcdcontrol.NewListener()
 	}
@@ -103,7 +103,7 @@ func (d *Daemon) start(args []string, ipTablesCmd IPTablesCmd) error {
 		updates:      d.controller.Updates(),
 		eventHandler: d.eventHandler,
 		ipTables:     d.ipTables,
-		fatalSink:    d.fatalSink,
+		errorSink:    d.errorSink,
 	}.new()
 	return nil
 }

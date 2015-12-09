@@ -26,6 +26,7 @@ type Service struct {
 }
 
 type Instance struct {
+	OwnerID       string            `json:"ownerID"`
 	InstanceGroup InstanceGroup     `json:"instanceGroup"`
 	Address       string            `json:"address,omitempty"`
 	Port          int               `json:"port,omitempty"`

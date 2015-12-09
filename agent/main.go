@@ -7,6 +7,8 @@ import (
 	"net"
 	"os"
 
+	"github.com/squaremo/ambergreen/common/store/etcdstore"
+
 	docker "github.com/fsouza/go-dockerclient"
 )
 
@@ -58,8 +60,10 @@ func main() {
 	log.Printf("Using host IP address %s from %s\n", hostIP, hostIpFrom)
 
 	listener := NewListener(Config{
-		HostIP: hostIP,
-	}, dc)
+		HostIP:    hostIP,
+		Store:     etcdstore.NewFromEnv(),
+		Inspector: dc,
+	})
 
 	events := make(chan *docker.APIEvents)
 	if err := dc.AddEventListener(events); err != nil {

@@ -12,17 +12,25 @@ import (
 	docker "github.com/fsouza/go-dockerclient"
 )
 
+type inspector interface {
+	InspectContainer(string) (*docker.Container, error)
+	ListContainers(docker.ListContainersOptions) ([]docker.APIContainers, error)
+}
+
 type Listener struct {
-	store      store.Store
-	dc         *docker.Client
+	store     store.Store
+	inspector inspector
+
 	services   map[string]*service
 	containers map[string]*docker.Container
 	hostIP     string
+	waitCh     chan chan struct{}
 }
 
 type Config struct {
-	HostIP string
-	Store  store.Store
+	HostIP    string
+	Store     store.Store
+	Inspector inspector
 }
 
 type service struct {
@@ -30,13 +38,14 @@ type service struct {
 	details data.Service
 }
 
-func NewListener(config Config, dc *docker.Client) *Listener {
+func NewListener(config Config) *Listener {
 	listener := &Listener{
 		store:      config.Store,
-		dc:         dc,
+		inspector:  config.Inspector,
 		services:   make(map[string]*service),
 		containers: make(map[string]*docker.Container),
 		hostIP:     config.HostIP,
+		waitCh:     make(chan chan struct{}),
 	}
 	return listener
 }
@@ -55,6 +64,12 @@ func instanceNameFor(c *docker.Container) string {
 	return c.ID
 }
 
+func (l *Listener) wait() {
+	ch := make(chan struct{})
+	l.waitCh <- ch
+	<-ch
+}
+
 // Read in all info on registered services
 func (l *Listener) ReadInServices() error {
 	return l.store.ForeachServiceInstance(func(name string, value data.Service) {
@@ -64,12 +79,12 @@ func (l *Listener) ReadInServices() error {
 
 // Read details of all running containers
 func (l *Listener) ReadExistingContainers() error {
-	conts, err := l.dc.ListContainers(docker.ListContainersOptions{})
+	conts, err := l.inspector.ListContainers(docker.ListContainersOptions{})
 	if err != nil {
 		return err
 	}
 	for _, cont := range conts {
-		container, err := l.dc.InspectContainer(cont.ID)
+		container, err := l.inspector.InspectContainer(cont.ID)
 		if err != nil {
 			log.Println("Failed to inspect container:", cont.ID, err)
 			continue
@@ -255,46 +270,49 @@ func (l *Listener) Run(events <-chan *docker.APIEvents) {
 		log.Fatal("Error synchronising existing containers:", err)
 	}
 
-	for {
-		select {
-		case event := <-events:
-			switch event.Status {
-			case "start":
-				container, err := l.dc.InspectContainer(event.ID)
-				if err != nil {
-					log.Println("Failed to inspect container:", event.ID, err)
-					continue
+	go func() {
+		for {
+			select {
+			case event := <-events:
+				switch event.Status {
+				case "start":
+					container, err := l.inspector.InspectContainer(event.ID)
+					if err != nil {
+						log.Println("Failed to inspect container:", event.ID, err)
+						continue
+					}
+					l.containers[event.ID] = container
+					l.matchContainer(container)
+				case "die":
+					container, found := l.containers[event.ID]
+					if !found {
+						log.Println("Unknown container:", event.ID)
+						continue
+					}
+					l.deregister(container)
 				}
-				l.containers[event.ID] = container
-				l.matchContainer(container)
-			case "die":
-				container, found := l.containers[event.ID]
-				if !found {
-					log.Println("Unknown container:", event.ID)
-					continue
-				}
-				l.deregister(container)
-			}
-		case change := <-changes:
-			if change.Deleted {
-				delete(l.services, change.Name)
-				log.Println("Service deleted:", change.Name)
-			} else {
-				svc, err := l.store.GetServiceDetails(change.Name)
-				if err != nil {
-					log.Println("Failed to retrieve service:", change.Name, err)
-					continue
-				}
+			case change := <-changes:
+				if change.Deleted {
+					delete(l.services, change.Name)
+					log.Println("Service deleted:", change.Name)
+				} else {
+					svc, err := l.store.GetServiceDetails(change.Name)
+					if err != nil {
+						log.Println("Failed to retrieve service:", change.Name, err)
+						continue
+					}
+					s := &service{change.Name, svc}
+					l.services[change.Name] = s
+					log.Println("Service", change.Name, "updated:", svc)
 
-				s := &service{change.Name, svc}
-				l.services[change.Name] = s
-				log.Println("Service", change.Name, "updated:", svc)
-
-				// See which containers match now.
-				l.redefineService(change.Name, s)
+					// See which containers match now.
+					l.redefineService(change.Name, s)
+				}
+			case wait := <-l.waitCh:
+				wait <- struct{}{}
 			}
 		}
-	}
+	}()
 }
 
 func imageTag(image string) string {

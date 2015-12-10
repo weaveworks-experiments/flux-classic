@@ -229,11 +229,11 @@ func (l *Listener) mappedPortAddress(container *docker.Container, port int) (str
 	if bindings, found := container.NetworkSettings.Ports[p]; found {
 		for _, binding := range bindings {
 			if binding.HostIP == l.hostIP || binding.HostIP == "" || binding.HostIP == "0.0.0.0" {
-				port, err := strconv.Atoi(binding.HostPort)
+				mappedToPort, err := strconv.Atoi(binding.HostPort)
 				if err != nil {
 					return "", 0
 				}
-				return l.hostIP, port
+				return l.hostIP, mappedToPort
 			}
 		}
 	}

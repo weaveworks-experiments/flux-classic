@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/squaremo/ambergreen/common/data"
@@ -24,14 +25,22 @@ type container struct {
 	ID        string
 	IPAddress string
 	Image     string
+	Labels    map[string]string
+	Env       map[string]string
 }
 
 func (m *mockInspector) startContainers(cs ...container) {
 	for _, c := range cs {
+		env := []string{}
+		for k, v := range c.Env {
+			env = append(env, strings.Join([]string{k, v}, "="))
+		}
 		c1 := &docker.Container{
 			ID: c.ID,
 			Config: &docker.Config{
-				Image: c.Image,
+				Image:  c.Image,
+				Env:    env,
+				Labels: c.Labels,
 			},
 			NetworkSettings: &docker.NetworkSettings{
 				IPAddress: c.IPAddress,
@@ -52,6 +61,7 @@ func (m *mockInspector) ListContainers(_ docker.ListContainersOptions) ([]docker
 		cs[i] = docker.APIContainers{
 			ID: c.ID,
 		}
+		i++
 	}
 	return cs, nil
 }
@@ -74,15 +84,50 @@ func serviceFromSel(labels ...string) data.Service {
 	}
 }
 
-func TestListener(t *testing.T) {
+func setup() (*Listener, store.Store, *mockInspector) {
 	st := store.NewInmemStore()
 	dc := newMockInspector()
-	config := Config{
+	return NewListener(Config{
 		Store:     st,
 		HostIP:    "10.98.99.100",
 		Inspector: dc,
+	}), st, dc
+}
+
+func TestListenerReconcile(t *testing.T) {
+	listener, st, dc := setup()
+	st.AddService("foo-svc", serviceFromSel("tag", ":bobbins", "image", "foo-image"))
+	st.AddService("bar-svc", serviceFromSel("amber/foo-label", "blorp"))
+	st.AddService("boo-svc", serviceFromSel("env.SERVICE_NAME", "boo"))
+
+	selectedAddress := "192.168.45.67"
+
+	dc.startContainers(container{
+		ID:        "selected",
+		IPAddress: selectedAddress,
+		Image:     "foo-image:bobbins",
+		Labels:    map[string]string{"amber/foo-label": "blorp"},
+		Env:       map[string]string{"SERVICE_NAME": "boo"},
+	}, container{
+		ID:        "not",
+		IPAddress: "111.111.111.111",
+		Image:     "foo-image:not-bobbins",
+		Labels:    map[string]string{"amber/foo-label": "something-else"},
+		Env:       map[string]string{"SERVICE_NAME": "literally anything"},
+	})
+
+	listener.ReadInServices()
+	listener.ReadExistingContainers()
+	listener.reconcile()
+
+	require.Len(t, allInstances(st), 3)
+	for _, inst := range allInstances(st) {
+		require.Equal(t, selectedAddress, inst.Address)
 	}
-	listener := NewListener(config)
+}
+
+func TestListenerEvents(t *testing.T) {
+	listener, st, dc := setup()
 	// starting condition
 	require.Len(t, allInstances(st), 0)
 
@@ -115,6 +160,9 @@ func TestListener(t *testing.T) {
 	listener.containerStarted("bar")
 	listener.containerStarted("baz")
 	require.Len(t, allInstances(st), 2)
+
+	listener.containerDied("baz")
+	require.Len(t, allInstances(st), 1)
 
 	st.RemoveService("foo-svc")
 	listener.serviceRemoved("foo-svc")

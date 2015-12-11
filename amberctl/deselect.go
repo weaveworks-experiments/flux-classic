@@ -5,8 +5,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/squaremo/ambergreen/common/store"
 	"github.com/squaremo/ambergreen/common/data"
+	"github.com/squaremo/ambergreen/common/store"
 )
 
 type deselectOpts struct {
@@ -30,7 +30,7 @@ func (opts *deselectOpts) run(_ *cobra.Command, args []string) {
 	if err != nil {
 		exitWithErrorf("Unable to update service %s: %s", serviceName, err)
 	}
-	specs := service.InstanceSpecs
+	specs := service.InstanceGroupSpecs
 	if specs != nil {
 		delete(specs, data.InstanceGroup(group))
 	}

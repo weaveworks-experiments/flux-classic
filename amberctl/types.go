@@ -67,7 +67,7 @@ func (opts *spec) addSpecVars(cmd *cobra.Command) {
 	cmd.Flags().IntVar(&opts.mapped, "mapped", 0, "Use the host address mapped to the port given")
 }
 
-func (opts *spec) makeSpec() (*data.InstanceSpec, error) {
+func (opts *spec) makeSpec() (*data.InstanceGroupSpec, error) {
 	var addrSpec data.AddressSpec
 
 	sel := opts.makeSelector()
@@ -84,7 +84,7 @@ func (opts *spec) makeSpec() (*data.InstanceSpec, error) {
 			return nil, fmt.Errorf("If you supply a selector, you must supply either --fixed or --mapped")
 		}
 
-		return &data.InstanceSpec{
+		return &data.InstanceGroupSpec{
 			AddressSpec: addrSpec,
 			Selector:    sel,
 		}, nil

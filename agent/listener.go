@@ -130,7 +130,7 @@ func (l *Listener) redefineService(serviceName string, service *service) error {
 }
 
 func (l *Listener) evaluate(container *docker.Container, service *service) (bool, error) {
-	for group, spec := range service.details.InstanceSpecs {
+	for group, spec := range service.details.InstanceGroupSpecs {
 		if instance, ok := l.extractInstance(spec, container); ok {
 			instance.InstanceGroup = group
 			err := l.store.AddInstance(service.name, container.ID, instance)
@@ -169,7 +169,7 @@ func (container containerLabels) Label(label string) string {
 	}
 }
 
-func (l *Listener) extractInstance(spec data.InstanceSpec, container *docker.Container) (data.Instance, bool) {
+func (l *Listener) extractInstance(spec data.InstanceGroupSpec, container *docker.Container) (data.Instance, bool) {
 	if !spec.Includes(containerLabels{container}) {
 		return data.Instance{}, false
 	}
@@ -213,7 +213,7 @@ func (l *Listener) deregister(container *docker.Container) error {
 	return nil
 }
 
-func (l *Listener) getAddress(spec data.InstanceSpec, container *docker.Container) (string, int) {
+func (l *Listener) getAddress(spec data.InstanceGroupSpec, container *docker.Container) (string, int) {
 	addrSpec := spec.AddressSpec
 	switch addrSpec.Type {
 	case data.MAPPED:

@@ -115,8 +115,8 @@ func serviceFromSel(labels ...string) data.Service {
 		sel[labels[i]] = labels[i+1]
 	}
 	return data.Service{
-		InstanceSpecs: map[data.InstanceGroup]data.InstanceSpec{
-			GROUP: data.InstanceSpec{
+		InstanceGroupSpecs: map[data.InstanceGroup]data.InstanceGroupSpec{
+			GROUP: data.InstanceGroupSpec{
 				data.AddressSpec{"fixed", 80},
 				sel,
 			},
@@ -229,12 +229,12 @@ func TestMappedPort(t *testing.T) {
 	listener, st, dc := setup()
 
 	svc := serviceFromSel("image", "blorp-image")
-	spec := svc.InstanceSpecs[GROUP]
+	spec := svc.InstanceGroupSpecs[GROUP]
 	spec.AddressSpec = data.AddressSpec{
 		Type: data.MAPPED,
 		Port: 8080,
 	}
-	svc.InstanceSpecs[GROUP] = spec
+	svc.InstanceGroupSpecs[GROUP] = spec
 	st.AddService("blorp-svc", svc)
 	dc.startContainers(container{
 		ID:        "blorp-instance",

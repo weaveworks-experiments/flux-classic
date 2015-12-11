@@ -39,18 +39,18 @@ func (opts *selectOpts) run(_ *cobra.Command, args []string) {
 		exitWithErrorf("Unable to parse options into instance spec: ", err)
 	}
 
-	addInstanceSpec(&service, data.InstanceGroup(name), spec)
+	addInstanceGroupSpec(&service, data.InstanceGroup(name), spec)
 	if err = opts.store.AddService(serviceName, service); err != nil {
 		exitWithErrorf("Error updating service: ", err)
 	}
 	fmt.Println("Selected instance group", name, "in service", serviceName)
 }
 
-func addInstanceSpec(service *data.Service, name data.InstanceGroup, spec *data.InstanceSpec) {
-	specs := service.InstanceSpecs
+func addInstanceGroupSpec(service *data.Service, name data.InstanceGroup, spec *data.InstanceGroupSpec) {
+	specs := service.InstanceGroupSpecs
 	if specs == nil {
-		specs = make(map[data.InstanceGroup]data.InstanceSpec)
-		service.InstanceSpecs = specs
+		specs = make(map[data.InstanceGroup]data.InstanceGroupSpec)
+		service.InstanceGroupSpecs = specs
 	}
 	specs[name] = *spec
 }

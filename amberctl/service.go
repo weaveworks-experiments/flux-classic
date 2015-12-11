@@ -45,7 +45,7 @@ func (opts *addOpts) run(cmd *cobra.Command, args []string) {
 		exitWithErrorf("invalid IP address: ", args[1])
 	}
 
-	instSpecs := make(map[data.InstanceGroup]data.InstanceSpec)
+	instSpecs := make(map[data.InstanceGroup]data.InstanceGroupSpec)
 	if spec, err := opts.makeSpec(); err == nil {
 		if spec != nil {
 			instSpecs[DEFAULT_GROUP] = *spec
@@ -55,10 +55,10 @@ func (opts *addOpts) run(cmd *cobra.Command, args []string) {
 	}
 
 	err = opts.store.AddService(serviceName, data.Service{
-		Address:       args[1],
-		Port:          port,
-		Protocol:      opts.protocol,
-		InstanceSpecs: instSpecs,
+		Address:            args[1],
+		Port:               port,
+		Protocol:           opts.protocol,
+		InstanceGroupSpecs: instSpecs,
 	})
 	if err != nil {
 		log.Fatal(err)

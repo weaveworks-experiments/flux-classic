@@ -1,4 +1,4 @@
-package store
+package inmem
 
 import (
 	"fmt"
@@ -7,9 +7,10 @@ import (
 
 	"github.com/squaremo/ambergreen/common/data"
 	"github.com/squaremo/ambergreen/common/errorsink"
+	"github.com/squaremo/ambergreen/common/store"
 )
 
-func NewInMemStore() Store {
+func NewInMemStore() store.Store {
 	return &inmem{
 		services:  make(map[string]data.Service),
 		instances: make(map[string]map[string]data.Instance),
@@ -90,7 +91,7 @@ func (s *inmem) GetServiceDetails(name string) (data.Service, error) {
 	return svc, nil
 }
 
-func (s *inmem) ForeachServiceInstance(fs ServiceFunc, fi ServiceInstanceFunc) error {
+func (s *inmem) ForeachServiceInstance(fs store.ServiceFunc, fi store.ServiceInstanceFunc) error {
 	for serviceName, svc := range s.services {
 		if fs != nil {
 			fs(serviceName, svc)
@@ -116,7 +117,7 @@ func (s *inmem) RemoveInstance(serviceName string, instanceName string) error {
 	return nil
 }
 
-func (s *inmem) ForeachInstance(serviceName string, fi InstanceFunc) error {
+func (s *inmem) ForeachInstance(serviceName string, fi store.InstanceFunc) error {
 	for instanceName, inst := range s.instances[serviceName] {
 		fi(instanceName, inst)
 	}

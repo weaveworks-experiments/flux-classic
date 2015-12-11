@@ -6,6 +6,7 @@ import (
 
 	"github.com/squaremo/ambergreen/common/data"
 	"github.com/squaremo/ambergreen/common/store"
+	"github.com/squaremo/ambergreen/common/store/inmem"
 
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/stretchr/testify/require"
@@ -99,7 +100,7 @@ func serviceFromSel(labels ...string) data.Service {
 }
 
 func setup() (*Listener, store.Store, *mockInspector) {
-	st := store.NewInMemStore()
+	st := inmem.NewInMemStore()
 	dc := newMockInspector()
 	return NewListener(Config{
 		Store:     st,

@@ -1,9 +1,10 @@
-package test
+package inmem
 
 import (
 	"testing"
 
 	"github.com/squaremo/ambergreen/common/store"
+	"github.com/squaremo/ambergreen/common/store/test"
 )
 
 // Test the in-memory mock Store
@@ -13,9 +14,9 @@ type testableInMemStore struct {
 }
 
 func (tims *testableInMemStore) Reset(t *testing.T) {
-	tims.Store = store.NewInMemStore()
+	tims.Store = NewInMemStore()
 }
 
 func TestInMemStore(t *testing.T) {
-	RunStoreTestSuite(&testableInMemStore{}, t)
+	test.RunStoreTestSuite(&testableInMemStore{}, t)
 }

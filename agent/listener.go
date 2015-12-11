@@ -318,7 +318,7 @@ func (l *Listener) Run(events <-chan *docker.APIEvents) {
 					}
 				}
 			case change := <-changes:
-				if change.Deleted {
+				if change.ServiceDeleted {
 					if err := l.serviceRemoved(change.Name); err != nil {
 						log.Println("error handling service removal: ", err)
 					}

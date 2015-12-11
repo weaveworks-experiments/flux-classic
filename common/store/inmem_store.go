@@ -103,7 +103,7 @@ func (s *inmem) AddInstance(serviceName string, instanceName string, inst data.I
 
 func (s *inmem) RemoveInstance(serviceName string, instanceName string) error {
 	delete(s.instances[serviceName], instanceName)
-	s.fireEvent(data.ServiceChange{serviceName, true}, true)
+	s.fireEvent(data.ServiceChange{serviceName, false}, true)
 	return nil
 }
 

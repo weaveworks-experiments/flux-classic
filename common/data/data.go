@@ -79,6 +79,6 @@ func (spec *InstanceSpec) Includes(s Labeled) bool {
 }
 
 type ServiceChange struct {
-	Name    string
-	Deleted bool
+	Name           string
+	ServiceDeleted bool
 }

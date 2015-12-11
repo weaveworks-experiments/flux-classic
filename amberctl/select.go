@@ -5,8 +5,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/squaremo/ambergreen/common/store"
 	"github.com/squaremo/ambergreen/common/data"
+	"github.com/squaremo/ambergreen/common/store"
 )
 
 type selectOpts struct {
@@ -16,7 +16,7 @@ type selectOpts struct {
 
 func (opts *selectOpts) addCommandTo(top *cobra.Command) {
 	cmd := &cobra.Command{
-		Use:   "select <name> [options]",
+		Use:   "select <service> <name> [options]",
 		Short: "include instances in a service",
 		Run:   opts.run,
 	}

@@ -13,6 +13,9 @@ type InstanceSpec struct {
 	Selector    Selector    `json:"selector,omitempty"`
 }
 
+const MAPPED = "mapped"
+const FIXED = "fixed"
+
 type AddressSpec struct {
 	// Type is "mapped" or "fixed".
 	//

@@ -77,9 +77,9 @@ func (opts *spec) makeSpec() (*data.InstanceSpec, error) {
 			return nil, fmt.Errorf("You cannot have both fixed and mapped port for default instance spec")
 		}
 		if opts.mapped > 0 {
-			addrSpec = data.AddressSpec{Type: "mapped", Port: opts.mapped}
+			addrSpec = data.AddressSpec{Type: data.MAPPED, Port: opts.mapped}
 		} else if opts.fixed > 0 {
-			addrSpec = data.AddressSpec{Type: "fixed", Port: opts.fixed}
+			addrSpec = data.AddressSpec{Type: data.FIXED, Port: opts.fixed}
 		} else {
 			return nil, fmt.Errorf("If you supply a selector, you must supply either --fixed or --mapped")
 		}

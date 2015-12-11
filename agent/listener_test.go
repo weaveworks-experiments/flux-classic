@@ -27,6 +27,7 @@ type container struct {
 	Image     string
 	Labels    map[string]string
 	Env       map[string]string
+	Ports     map[string]string
 }
 
 func (m *mockInspector) startContainers(cs ...container) {
@@ -35,6 +36,16 @@ func (m *mockInspector) startContainers(cs ...container) {
 		for k, v := range c.Env {
 			env = append(env, strings.Join([]string{k, v}, "="))
 		}
+		ports := map[docker.Port][]docker.PortBinding{}
+		for k, v := range c.Ports {
+			ports[docker.Port(k)] = []docker.PortBinding{
+				docker.PortBinding{
+					HostIP:   "0.0.0.0",
+					HostPort: v,
+				},
+			}
+		}
+
 		c1 := &docker.Container{
 			ID: c.ID,
 			Config: &docker.Config{
@@ -44,6 +55,7 @@ func (m *mockInspector) startContainers(cs ...container) {
 			},
 			NetworkSettings: &docker.NetworkSettings{
 				IPAddress: c.IPAddress,
+				Ports:     ports,
 			},
 		}
 		m.containers[c.ID] = c1
@@ -66,6 +78,8 @@ func (m *mockInspector) ListContainers(_ docker.ListContainersOptions) ([]docker
 	return cs, nil
 }
 
+const GROUP = data.InstanceGroup("deliberately not default")
+
 func serviceFromSel(labels ...string) data.Service {
 	if len(labels)%2 != 0 {
 		panic("Expected key value ... as arguments")
@@ -76,7 +90,7 @@ func serviceFromSel(labels ...string) data.Service {
 	}
 	return data.Service{
 		InstanceSpecs: map[data.InstanceGroup]data.InstanceSpec{
-			"default": data.InstanceSpec{
+			GROUP: data.InstanceSpec{
 				data.AddressSpec{"fixed", 80},
 				sel,
 			},
@@ -175,4 +189,35 @@ func allInstances(st store.Store) []data.Instance {
 		res = append(res, inst)
 	})
 	return res
+}
+
+func TestMappedPort(t *testing.T) {
+	listener, st, dc := setup()
+
+	svc := serviceFromSel("image", "blorp-image")
+	spec := svc.InstanceSpecs[GROUP]
+	spec.AddressSpec = data.AddressSpec{
+		Type: data.MAPPED,
+		Port: 8080,
+	}
+	svc.InstanceSpecs[GROUP] = spec
+	st.AddService("blorp-svc", svc)
+	dc.startContainers(container{
+		ID:        "blorp-instance",
+		IPAddress: "10.13.14.15",
+		Image:     "blorp-image:tag",
+		Ports: map[string]string{
+			"8080/tcp": "3456",
+		},
+	})
+
+	listener.ReadInServices()
+	listener.ReadExistingContainers()
+	listener.reconcile()
+
+	require.Len(t, allInstances(st), 1)
+	st.ForeachInstance("blorp-svc", func(_ string, inst data.Instance) {
+		require.Equal(t, listener.hostIP, inst.Address)
+		require.Equal(t, 3456, inst.Port)
+	})
 }

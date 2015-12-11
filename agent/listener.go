@@ -216,9 +216,9 @@ func (l *Listener) deregister(container *docker.Container) error {
 func (l *Listener) getAddress(spec data.InstanceSpec, container *docker.Container) (string, int) {
 	addrSpec := spec.AddressSpec
 	switch addrSpec.Type {
-	case "mapped":
+	case data.MAPPED:
 		return l.mappedPortAddress(container, addrSpec.Port)
-	case "fixed":
+	case data.FIXED:
 		return l.fixedPortAddress(container, addrSpec.Port)
 	}
 	return "", 0

@@ -36,7 +36,7 @@ var testService = data.Service{
 	Address:  "1.2.3.4",
 	Port:     1234,
 	Protocol: "tcp",
-	InstanceGroupSpecs: map[data.InstanceGroup]data.InstanceGroupSpec{
+	InstanceGroupSpecs: map[string]data.InstanceGroupSpec{
 		"group": {
 			AddressSpec: data.AddressSpec{
 				Type: "foo",

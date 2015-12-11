@@ -27,7 +27,7 @@ func (l *Listener) send(serviceName string) error {
 		ServiceInfo: &model.ServiceInfo{Protocol: service.Protocol},
 	}
 	l.store.ForeachInstance(serviceName, func(name string, instance data.Instance) {
-		update.ServiceInfo.Instances = append(update.ServiceInfo.Instances, model.MakeInstance(name, string(instance.InstanceGroup), net.ParseIP(instance.Address), instance.Port))
+		update.ServiceInfo.Instances = append(update.ServiceInfo.Instances, model.MakeInstance(name, instance.InstanceGroup, net.ParseIP(instance.Address), instance.Port))
 	})
 	log.Printf("Sending update for %s: %+v\n", update.ServiceKey.String(), update.ServiceInfo)
 	l.updates <- update

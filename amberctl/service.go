@@ -12,7 +12,7 @@ import (
 	"github.com/squaremo/ambergreen/common/store"
 )
 
-const DEFAULT_GROUP = data.InstanceGroup("default")
+const DEFAULT_GROUP = string("default")
 
 type addOpts struct {
 	store store.Store
@@ -45,7 +45,7 @@ func (opts *addOpts) run(cmd *cobra.Command, args []string) {
 		exitWithErrorf("invalid IP address: ", args[1])
 	}
 
-	instSpecs := make(map[data.InstanceGroup]data.InstanceGroupSpec)
+	instSpecs := make(map[string]data.InstanceGroupSpec)
 	if spec, err := opts.makeSpec(); err == nil {
 		if spec != nil {
 			instSpecs[DEFAULT_GROUP] = *spec

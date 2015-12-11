@@ -5,7 +5,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/squaremo/ambergreen/common/data"
 	"github.com/squaremo/ambergreen/common/store"
 )
 
@@ -32,7 +31,7 @@ func (opts *deselectOpts) run(_ *cobra.Command, args []string) {
 	}
 	specs := service.InstanceGroupSpecs
 	if specs != nil {
-		delete(specs, data.InstanceGroup(group))
+		delete(specs, string(group))
 	}
 	fmt.Printf("Deselected group %s from service %s\n", group, serviceName)
 }

@@ -104,7 +104,7 @@ func (m *mockInspector) listenToEvents(events chan<- *docker.APIEvents) {
 	m.events = events
 }
 
-const GROUP = data.InstanceGroup("deliberately not default")
+const GROUP = "deliberately not default"
 
 func serviceFromSel(labels ...string) data.Service {
 	if len(labels)%2 != 0 {
@@ -115,7 +115,7 @@ func serviceFromSel(labels ...string) data.Service {
 		sel[labels[i]] = labels[i+1]
 	}
 	return data.Service{
-		InstanceGroupSpecs: map[data.InstanceGroup]data.InstanceGroupSpec{
+		InstanceGroupSpecs: map[string]data.InstanceGroupSpec{
 			GROUP: data.InstanceGroupSpec{
 				data.AddressSpec{"fixed", 80},
 				sel,

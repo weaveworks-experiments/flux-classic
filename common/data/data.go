@@ -40,18 +40,16 @@ type AddressSpec struct {
 	Port int
 }
 
-type InstanceGroup string
-
 type Service struct {
-	Address            string                              `json:"address,omitempty"`
-	Port               int                                 `json:"port,omitempty"`
-	Protocol           string                              `json:"protocol,omitempty"`
-	InstanceGroupSpecs map[InstanceGroup]InstanceGroupSpec `json:"instanceSpecs,omitempty"`
+	Address            string                       `json:"address,omitempty"`
+	Port               int                          `json:"port,omitempty"`
+	Protocol           string                       `json:"protocol,omitempty"`
+	InstanceGroupSpecs map[string]InstanceGroupSpec `json:"instanceSpecs,omitempty"`
 }
 
 type Instance struct {
 	OwnerID       string            `json:"ownerID"`
-	InstanceGroup InstanceGroup     `json:"instanceGroup"`
+	InstanceGroup string            `json:"instanceGroup"`
 	Address       string            `json:"address,omitempty"`
 	Port          int               `json:"port,omitempty"`
 	Labels        map[string]string `json:"labels"`

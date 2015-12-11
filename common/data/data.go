@@ -18,8 +18,8 @@ type AddressSpec struct {
 	//
 	// "mapped" means that the instance address is formed from the
 	// host IP (as passed to the agent), and the host port number
-	// associated with docker's port mapping with the container
-	// port given by Port.  As a consequence, it allows cross-host
+	// associated by docker's port mapping with the container port
+	// given by Port.  As a consequence, it allows cross-host
 	// operation without a multi-host container network: On a
 	// client host, a connection to the service address is
 	// directed to an instance host, and crosses the network; on

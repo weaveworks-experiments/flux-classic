@@ -6,12 +6,12 @@ import (
 	"os"
 	"strings"
 
+	etcd_errors "github.com/coreos/etcd/error"
+	"github.com/coreos/go-etcd/etcd"
+
 	"github.com/squaremo/ambergreen/common/data"
 	"github.com/squaremo/ambergreen/common/errorsink"
 	"github.com/squaremo/ambergreen/common/store"
-
-	etcd_errors "github.com/coreos/etcd/error"
-	"github.com/coreos/go-etcd/etcd"
 )
 
 type etcdStore struct {

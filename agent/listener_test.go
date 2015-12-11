@@ -99,7 +99,7 @@ func serviceFromSel(labels ...string) data.Service {
 }
 
 func setup() (*Listener, store.Store, *mockInspector) {
-	st := store.NewInmemStore()
+	st := store.NewInMemStore()
 	dc := newMockInspector()
 	return NewListener(Config{
 		Store:     st,

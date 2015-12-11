@@ -3,34 +3,43 @@ package store
 import (
 	"fmt"
 	"log"
+	"sync"
 
 	"github.com/squaremo/ambergreen/common/data"
 	"github.com/squaremo/ambergreen/common/errorsink"
 )
 
-func NewInmemStore() Store {
+func NewInMemStore() Store {
 	return &inmem{
-		make(map[string]data.Service),
-		make(map[string]map[string]data.Instance),
-		make([]watcher, 0),
+		services:  make(map[string]data.Service),
+		instances: make(map[string]map[string]data.Instance),
 	}
 }
 
 type inmem struct {
-	services  map[string]data.Service
-	instances map[string]map[string]data.Instance
-	watchers  []watcher
+	services     map[string]data.Service
+	instances    map[string]map[string]data.Instance
+	watchersLock sync.Mutex
+	watchers     []watcher
 }
 
 type watcher struct {
-	ch chan<- data.ServiceChange
-	wi bool
+	ch   chan<- data.ServiceChange
+	stop <-chan struct{}
+	wi   bool
 }
 
 func (s *inmem) fireEvent(ev data.ServiceChange, isAboutInstance bool) {
-	for _, watcher := range s.watchers {
+	s.watchersLock.Lock()
+	watchers := s.watchers
+	s.watchersLock.Unlock()
+
+	for _, watcher := range watchers {
 		if !isAboutInstance || watcher.wi {
-			watcher.ch <- ev
+			select {
+			case watcher.ch <- ev:
+			case <-watcher.stop:
+			}
 		}
 	}
 }
@@ -115,12 +124,19 @@ func (s *inmem) ForeachInstance(serviceName string, fi InstanceFunc) error {
 }
 
 func (s *inmem) WatchServices(res chan<- data.ServiceChange, stop <-chan struct{}, _ errorsink.ErrorSink, withInstances bool) {
-	s.watchers = append(s.watchers, watcher{res, withInstances})
+	s.watchersLock.Lock()
+	defer s.watchersLock.Unlock()
+	s.watchers = append(s.watchers, watcher{res, stop, withInstances})
+
 	go func() {
 		<-stop
+
+		s.watchersLock.Lock()
+		defer s.watchersLock.Unlock()
 		for i, w := range s.watchers {
 			if w.ch == res {
-				s.watchers = append(s.watchers[:i], s.watchers[i+1:]...)
+				// need to make a copy
+				s.watchers = append(append([]watcher{}, s.watchers[:i]...), s.watchers[i+1:]...)
 			}
 		}
 	}()

@@ -38,9 +38,9 @@ func New(addr string) store.Store {
 }
 
 // Check if we can talk to etcd
-func (b *etcdStore) Ping() error {
+func (es *etcdStore) Ping() error {
 	rr := etcd.NewRawRequest("GET", "version", nil, nil)
-	_, err := b.client.SendRequest(rr)
+	_, err := es.client.SendRequest(rr)
 	return err
 }
 
@@ -99,32 +99,32 @@ func parseKey(key string) interface{} {
 	return nil
 }
 
-func (b *etcdStore) CheckRegisteredService(serviceName string) error {
-	_, err := b.client.Get(serviceRootKey(serviceName), false, false)
+func (es *etcdStore) CheckRegisteredService(serviceName string) error {
+	_, err := es.client.Get(serviceRootKey(serviceName), false, false)
 	return err
 }
 
-func (b *etcdStore) AddService(serviceName string, details data.Service) error {
+func (es *etcdStore) AddService(serviceName string, details data.Service) error {
 	json, err := json.Marshal(&details)
 	if err != nil {
 		return fmt.Errorf("Failed to encode: %s", err)
 	}
-	_, err = b.client.Set(serviceKey(serviceName), string(json), 0)
+	_, err = es.client.Set(serviceKey(serviceName), string(json), 0)
 	return err
 }
 
-func (b *etcdStore) RemoveService(serviceName string) error {
-	_, err := b.client.Delete(serviceRootKey(serviceName), true)
+func (es *etcdStore) RemoveService(serviceName string) error {
+	_, err := es.client.Delete(serviceRootKey(serviceName), true)
 	return err
 }
 
-func (b *etcdStore) RemoveAllServices() error {
-	_, err := b.client.Delete(ROOT, true)
+func (es *etcdStore) RemoveAllServices() error {
+	_, err := es.client.Delete(ROOT, true)
 	return err
 }
 
-func (b *etcdStore) GetServiceDetails(serviceName string) (data.Service, error) {
-	r, err := b.client.Get(serviceKey(serviceName), false, false)
+func (es *etcdStore) GetServiceDetails(serviceName string) (data.Service, error) {
+	r, err := es.client.Get(serviceKey(serviceName), false, false)
 	if err != nil {
 		return data.Service{}, err
 	}
@@ -161,8 +161,8 @@ func traverse(node *etcd.Node, f func(*etcd.Node) error) error {
 	return nil
 }
 
-func (b *etcdStore) traverse(key string, f func(*etcd.Node) error) error {
-	r, err := b.client.Get(key, false, true)
+func (es *etcdStore) traverse(key string, f func(*etcd.Node) error) error {
+	r, err := es.client.Get(key, false, true)
 	if err != nil {
 		if etcderr, ok := err.(*etcd.EtcdError); ok && etcderr.ErrorCode == etcd_errors.EcodeKeyNotFound {
 			return nil
@@ -173,8 +173,8 @@ func (b *etcdStore) traverse(key string, f func(*etcd.Node) error) error {
 	return traverse(r.Node, f)
 }
 
-func (b *etcdStore) ForeachServiceInstance(fs store.ServiceFunc, fi store.ServiceInstanceFunc) error {
-	return b.traverse(ROOT, func(node *etcd.Node) error {
+func (es *etcdStore) ForeachServiceInstance(fs store.ServiceFunc, fi store.ServiceInstanceFunc) error {
+	return es.traverse(ROOT, func(node *etcd.Node) error {
 		switch key := parseKey(node.Key).(type) {
 		case parsedServiceKey:
 			if fs != nil {
@@ -201,24 +201,24 @@ func (b *etcdStore) ForeachServiceInstance(fs store.ServiceFunc, fi store.Servic
 	})
 }
 
-func (b *etcdStore) AddInstance(serviceName string, instanceName string, details data.Instance) error {
+func (es *etcdStore) AddInstance(serviceName string, instanceName string, details data.Instance) error {
 	json, err := json.Marshal(details)
 	if err != nil {
 		return fmt.Errorf("Failed to encode: %s", err)
 	}
-	if _, err := b.client.Set(instanceKey(serviceName, instanceName), string(json), 0); err != nil {
+	if _, err := es.client.Set(instanceKey(serviceName, instanceName), string(json), 0); err != nil {
 		return fmt.Errorf("Unable to write: %s", err)
 	}
 	return nil
 }
 
-func (b *etcdStore) RemoveInstance(serviceName, instanceName string) error {
-	_, err := b.client.Delete(instanceKey(serviceName, instanceName), true)
+func (es *etcdStore) RemoveInstance(serviceName, instanceName string) error {
+	_, err := es.client.Delete(instanceKey(serviceName, instanceName), true)
 	return err
 }
 
-func (b *etcdStore) ForeachInstance(serviceName string, fi store.InstanceFunc) error {
-	return b.traverse(serviceRootKey(serviceName), func(node *etcd.Node) error {
+func (es *etcdStore) ForeachInstance(serviceName string, fi store.InstanceFunc) error {
+	return es.traverse(serviceRootKey(serviceName), func(node *etcd.Node) error {
 		switch key := parseKey(node.Key).(type) {
 		case parsedInstanceKey:
 			if fi != nil {
@@ -235,18 +235,18 @@ func (b *etcdStore) ForeachInstance(serviceName string, fi store.InstanceFunc) e
 	})
 }
 
-func (b *etcdStore) WatchServices(resCh chan<- data.ServiceChange, stopCh <-chan struct{}, errorSink errorsink.ErrorSink, withInstanceChanges bool) {
+func (es *etcdStore) WatchServices(resCh chan<- data.ServiceChange, stopCh <-chan struct{}, errorSink errorsink.ErrorSink, withInstanceChanges bool) {
 	etcdCh := make(chan *etcd.Response, 1)
 	watchStopCh := make(chan bool, 1)
 	go func() {
-		_, err := b.client.Watch(ROOT, 0, true, etcdCh, nil)
+		_, err := es.client.Watch(ROOT, 0, true, etcdCh, nil)
 		if err != nil {
 			errorSink.Post(err)
 		}
 	}()
 
 	svcs := make(map[string]struct{})
-	b.ForeachServiceInstance(func(name string, svc data.Service) {
+	es.ForeachServiceInstance(func(name string, svc data.Service) {
 		svcs[name] = struct{}{}
 	}, nil)
 

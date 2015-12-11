@@ -16,15 +16,15 @@ import (
 func startEtcd(t *testing.T) (*embeddedetcd.SimpleEtcd, store.Store) {
 	etcd, err := embeddedetcd.NewSimpleEtcd()
 	require.Nil(t, err)
-	be := New(fmt.Sprintf("http://localhost:%d", etcd.Port))
-	require.Nil(t, be.Ping())
-	return etcd, be
+	es := New(fmt.Sprintf("http://localhost:%d", etcd.Port))
+	require.Nil(t, es.Ping())
+	return etcd, es
 }
 
 func TestEtcd(t *testing.T) {
-	etcd, be := startEtcd(t)
+	etcd, es := startEtcd(t)
 	defer func() { require.Nil(t, etcd.Destroy()) }()
-	require.Nil(t, be.Ping())
+	require.Nil(t, es.Ping())
 }
 
 var testService = data.Service{
@@ -45,19 +45,19 @@ var testService = data.Service{
 }
 
 func TestServices(t *testing.T) {
-	etcd, be := startEtcd(t)
+	etcd, es := startEtcd(t)
 	defer func() { require.Nil(t, etcd.Destroy()) }()
 
-	require.Nil(t, be.AddService("svc", testService))
-	svc2, err := be.GetServiceDetails("svc")
+	require.Nil(t, es.AddService("svc", testService))
+	svc2, err := es.GetServiceDetails("svc")
 	require.Nil(t, err)
 	require.Equal(t, testService, svc2)
 
-	require.Nil(t, be.CheckRegisteredService("svc"))
+	require.Nil(t, es.CheckRegisteredService("svc"))
 
 	services := func() map[string]data.Service {
 		svcs := make(map[string]data.Service)
-		require.Nil(t, be.ForeachServiceInstance(func(n string, s data.Service) {
+		require.Nil(t, es.ForeachServiceInstance(func(n string, s data.Service) {
 			svcs[n] = s
 		}, nil))
 		return svcs
@@ -65,11 +65,11 @@ func TestServices(t *testing.T) {
 
 	require.Equal(t, map[string]data.Service{"svc": testService}, services())
 
-	require.Nil(t, be.RemoveService("svc"))
+	require.Nil(t, es.RemoveService("svc"))
 	require.Equal(t, map[string]data.Service{}, services())
 
-	require.Nil(t, be.AddService("svc", testService))
-	require.Nil(t, be.RemoveAllServices())
+	require.Nil(t, es.AddService("svc", testService))
+	require.Nil(t, es.RemoveAllServices())
 	require.Equal(t, map[string]data.Service{}, services())
 }
 
@@ -81,15 +81,15 @@ var testInst = data.Instance{
 }
 
 func TestInstances(t *testing.T) {
-	etcd, be := startEtcd(t)
+	etcd, es := startEtcd(t)
 	defer func() { require.Nil(t, etcd.Destroy()) }()
 
-	require.Nil(t, be.AddService("svc", testService))
-	require.Nil(t, be.AddInstance("svc", "inst", testInst))
+	require.Nil(t, es.AddService("svc", testService))
+	require.Nil(t, es.AddInstance("svc", "inst", testInst))
 
 	instances := func() map[string]data.Instance {
 		insts := make(map[string]data.Instance)
-		require.Nil(t, be.ForeachInstance("svc", func(n string, inst data.Instance) {
+		require.Nil(t, es.ForeachInstance("svc", func(n string, inst data.Instance) {
 			insts[n] = inst
 		}))
 		return insts
@@ -99,7 +99,7 @@ func TestInstances(t *testing.T) {
 
 	serviceInstances := func() map[string]data.Instance {
 		insts := make(map[string]data.Instance)
-		require.Nil(t, be.ForeachServiceInstance(nil, func(sn string, in string, inst data.Instance) {
+		require.Nil(t, es.ForeachServiceInstance(nil, func(sn string, in string, inst data.Instance) {
 			insts[sn+" "+in] = inst
 		}))
 		return insts
@@ -107,7 +107,7 @@ func TestInstances(t *testing.T) {
 
 	require.Equal(t, map[string]data.Instance{"svc inst": testInst}, serviceInstances())
 
-	require.Nil(t, be.RemoveInstance("svc", "inst"))
+	require.Nil(t, es.RemoveInstance("svc", "inst"))
 	require.Equal(t, map[string]data.Instance{}, instances())
 	require.Equal(t, map[string]data.Instance{}, serviceInstances())
 }
@@ -118,11 +118,11 @@ type watcher struct {
 	done    chan struct{}
 }
 
-func newWatcher(be store.Store, withInstanceChanges bool) *watcher {
+func newWatcher(es store.Store, withInstanceChanges bool) *watcher {
 	w := &watcher{stopCh: make(chan struct{}), done: make(chan struct{})}
 	changes := make(chan data.ServiceChange)
 	stopWatch := make(chan struct{})
-	be.WatchServices(changes, stopWatch, errorsink.New(), withInstanceChanges)
+	es.WatchServices(changes, stopWatch, errorsink.New(), withInstanceChanges)
 	go func() {
 		defer close(w.done)
 		for {
@@ -144,11 +144,11 @@ func (w *watcher) stop() {
 }
 
 func TestWatchServices(t *testing.T) {
-	etcd, be := startEtcd(t)
+	etcd, es := startEtcd(t)
 	defer func() { require.Nil(t, etcd.Destroy()) }()
 
 	check := func(withInstanceChanges bool, body func(w *watcher), changes ...data.ServiceChange) {
-		w := newWatcher(be, withInstanceChanges)
+		w := newWatcher(es, withInstanceChanges)
 		body(w)
 		// Yuck.  There's a race between making a change in
 		// etcd, and hearing about it via the watch, and I
@@ -156,33 +156,33 @@ func TestWatchServices(t *testing.T) {
 		time.Sleep(100 * time.Millisecond)
 		w.stop()
 		require.Equal(t, changes, w.changes)
-		require.Nil(t, be.RemoveAllServices())
+		require.Nil(t, es.RemoveAllServices())
 	}
 
 	check(false, func(w *watcher) {
-		require.Nil(t, be.AddService("svc", testService))
+		require.Nil(t, es.AddService("svc", testService))
 	}, data.ServiceChange{"svc", false})
 
-	require.Nil(t, be.AddService("svc", testService))
+	require.Nil(t, es.AddService("svc", testService))
 	check(false, func(w *watcher) {
-		require.Nil(t, be.RemoveAllServices())
-		require.Nil(t, be.AddService("svc", testService))
-		require.Nil(t, be.RemoveService("svc"))
+		require.Nil(t, es.RemoveAllServices())
+		require.Nil(t, es.AddService("svc", testService))
+		require.Nil(t, es.RemoveService("svc"))
 	}, data.ServiceChange{"svc", true}, data.ServiceChange{"svc", false},
 		data.ServiceChange{"svc", true})
 
 	// withInstanceChanges false, so adding an instance should not
 	// cause an event
-	require.Nil(t, be.AddService("svc", testService))
+	require.Nil(t, es.AddService("svc", testService))
 	check(false, func(w *watcher) {
-		require.Nil(t, be.AddInstance("svc", "inst", testInst))
+		require.Nil(t, es.AddInstance("svc", "inst", testInst))
 	})
 
 	// withInstanceChanges true, so instance changes should not
 	// cause vents
-	require.Nil(t, be.AddService("svc", testService))
+	require.Nil(t, es.AddService("svc", testService))
 	check(true, func(w *watcher) {
-		require.Nil(t, be.AddInstance("svc", "inst", testInst))
-		require.Nil(t, be.RemoveInstance("svc", "inst"))
+		require.Nil(t, es.AddInstance("svc", "inst", testInst))
+		require.Nil(t, es.RemoveInstance("svc", "inst"))
 	}, data.ServiceChange{"svc", false}, data.ServiceChange{"svc", false})
 }

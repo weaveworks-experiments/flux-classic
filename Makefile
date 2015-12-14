@@ -1,9 +1,11 @@
+REPO:=squaremo
 PROJ:=ambergreen
-BASEPKG:=github.com/squaremo/$(PROJ)
+BASEPKG:=github.com/$(REPO)/$(PROJ)
 IMAGES=balancer agent web amberctl
 BUILD_IMAGES=build webbuild
 
 image_stamp=docker/.$1.done
+docker_tag=$(REPO)/$(PROJ)-$1
 
 .PHONY: images
 images: $(foreach i,$(IMAGES),docker/$(i).tar)
@@ -24,12 +26,12 @@ $(foreach i,$(IMAGES) $(BUILD_IMAGES),docker/.$(i).done): docker/.%.done: docker
 	rm -rf build-container
 	mkdir build-container
 	cp -pr $^ build-container/
-	docker build -t $(PROJ)/$(*F) -f build-container/$(<F) build-container
+	docker build -t $(call docker_tag,$(*F)) -f build-container/$(<F) build-container
 	rm -rf build-container
 	touch $@
 
 $(foreach i,$(IMAGES),docker/$(i).tar): docker/%.tar: docker/.%.done
-	docker save --output=$@ $(PROJ)/$(*F)
+	docker save --output=$@ $(call docker_tag,$(*F))
 
 $(foreach i,$(IMAGES),$(eval $(call image_stamp,$(i)): build/bin/$(i)))
 $(foreach i,$(IMAGES) common,$(eval $(i)_go_srcs:=$(shell find $(i) -name '*.go')))

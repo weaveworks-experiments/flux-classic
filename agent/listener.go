@@ -305,31 +305,35 @@ func (l *Listener) Run(events <-chan *docker.APIEvents) {
 
 	go func() {
 		for {
-			select {
-			case event := <-events:
-				switch event.Status {
-				case "start":
-					if err := l.containerStarted(event.ID); err != nil {
-						log.Println("error handling container start: ", err)
-					}
-				case "die":
-					if err := l.containerDied(event.ID); err != nil {
-						log.Println("error handling container die: ", err)
-					}
-				}
-			case change := <-changes:
-				if change.ServiceDeleted {
-					if err := l.serviceRemoved(change.Name); err != nil {
-						log.Println("error handling service removal: ", err)
-					}
-				} else {
-					if err := l.serviceUpdated(change.Name); err != nil {
-						log.Println("error handling service update: ", err)
-					}
-				}
-			}
+			l.step(events, changes)
 		}
 	}()
+}
+
+func (l *Listener) step(events <-chan *docker.APIEvents, changes <-chan data.ServiceChange) {
+	select {
+	case event := <-events:
+		switch event.Status {
+		case "start":
+			if err := l.containerStarted(event.ID); err != nil {
+				log.Println("error handling container start: ", err)
+			}
+		case "die":
+			if err := l.containerDied(event.ID); err != nil {
+				log.Println("error handling container die: ", err)
+			}
+		}
+	case change := <-changes:
+		if change.ServiceDeleted {
+			if err := l.serviceRemoved(change.Name); err != nil {
+				log.Println("error handling service removal: ", err)
+			}
+		} else {
+			if err := l.serviceUpdated(change.Name); err != nil {
+				log.Println("error handling service update: ", err)
+			}
+		}
+	}
 }
 
 func imageTag(image string) string {

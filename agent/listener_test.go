@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/squaremo/ambergreen/common/data"
+	"github.com/squaremo/ambergreen/common/errorsink"
 	"github.com/squaremo/ambergreen/common/store"
 	"github.com/squaremo/ambergreen/common/store/inmem"
 
@@ -14,11 +15,13 @@ import (
 
 type mockInspector struct {
 	containers map[string]*docker.Container
+	events     chan<- *docker.APIEvents
 }
 
 func newMockInspector() *mockInspector {
 	return &mockInspector{
 		containers: make(map[string]*docker.Container),
+		events:     nil,
 	}
 }
 
@@ -60,6 +63,24 @@ func (m *mockInspector) startContainers(cs ...container) {
 			},
 		}
 		m.containers[c.ID] = c1
+		if m.events != nil {
+			m.events <- &docker.APIEvents{
+				Status: "start",
+				ID:     c.ID,
+			}
+		}
+	}
+}
+
+func (m *mockInspector) stopContainer(ID string) {
+	if _, found := m.containers[ID]; found {
+		delete(m.containers, ID)
+		if m.events != nil {
+			m.events <- &docker.APIEvents{
+				Status: "die",
+				ID:     ID,
+			}
+		}
 	}
 }
 
@@ -77,6 +98,10 @@ func (m *mockInspector) ListContainers(_ docker.ListContainersOptions) ([]docker
 		i++
 	}
 	return cs, nil
+}
+
+func (m *mockInspector) listenToEvents(events chan<- *docker.APIEvents) {
+	m.events = events
 }
 
 const GROUP = data.InstanceGroup("deliberately not default")
@@ -146,21 +171,28 @@ func TestListenerEvents(t *testing.T) {
 	// starting condition
 	require.Len(t, allInstances(st), 0)
 
+	events := make(chan *docker.APIEvents, 2)
+	changes := make(chan data.ServiceChange, 1)
+
+	dc.listenToEvents(events)
+	st.WatchServices(changes, nil, errorsink.New(), false)
+
 	// no services defined
 	dc.startContainers(container{
 		ID:        "foo",
 		Image:     "foo-image:latest",
 		IPAddress: "192.168.0.67",
 	})
-	listener.containerStarted("foo")
+
+	listener.step(events, changes)
 	require.Len(t, allInstances(st), 0)
 
 	st.AddService("foo-svc", serviceFromSel("image", "foo-image"))
-	listener.serviceUpdated("foo-svc")
+	listener.step(events, changes)
 	require.Len(t, allInstances(st), 1)
 
 	st.AddService("foo-svc", serviceFromSel("image", "not-foo-image"))
-	listener.serviceUpdated("foo-svc")
+	listener.step(events, changes)
 	require.Len(t, allInstances(st), 0)
 
 	dc.startContainers(container{
@@ -172,15 +204,16 @@ func TestListenerEvents(t *testing.T) {
 		IPAddress: "192.168.34.99",
 		Image:     "not-foo-image:version2",
 	})
-	listener.containerStarted("bar")
-	listener.containerStarted("baz")
+	listener.step(events, changes)
+	listener.step(events, changes)
 	require.Len(t, allInstances(st), 2)
 
-	listener.containerDied("baz")
+	dc.stopContainer("baz")
+	listener.step(events, changes)
 	require.Len(t, allInstances(st), 1)
 
 	st.RemoveService("foo-svc")
-	listener.serviceRemoved("foo-svc")
+	listener.step(events, changes)
 	require.Len(t, allInstances(st), 0)
 }
 

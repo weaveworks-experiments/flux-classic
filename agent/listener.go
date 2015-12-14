@@ -1,4 +1,4 @@
-package main
+package agent
 
 import (
 	"fmt"
@@ -303,11 +303,9 @@ func (l *Listener) Run(events <-chan *docker.APIEvents) {
 		log.Fatal("Error synchronising existing containers:", err)
 	}
 
-	go func() {
-		for {
-			l.step(events, changes)
-		}
-	}()
+	for {
+		l.step(events, changes)
+	}
 }
 
 func (l *Listener) step(events <-chan *docker.APIEvents, changes <-chan data.ServiceChange) {

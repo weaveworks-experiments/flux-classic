@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 
+	"github.com/squaremo/ambergreen/agent"
 	"github.com/squaremo/ambergreen/common/store/etcdstore"
 
 	docker "github.com/fsouza/go-dockerclient"
@@ -59,7 +60,7 @@ func main() {
 
 	log.Printf("Using host IP address %s from %s\n", hostIP, hostIpFrom)
 
-	listener := NewListener(Config{
+	listener := agent.NewListener(agent.Config{
 		HostIP:    hostIP,
 		Store:     etcdstore.NewFromEnv(),
 		Inspector: dc,

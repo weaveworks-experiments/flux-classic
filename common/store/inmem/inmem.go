@@ -124,10 +124,10 @@ func (s *inmem) ForeachInstance(serviceName string, fi store.InstanceFunc) error
 	return nil
 }
 
-func (s *inmem) WatchServices(res chan<- data.ServiceChange, stop <-chan struct{}, _ errorsink.ErrorSink, withInstances bool) {
+func (s *inmem) WatchServices(res chan<- data.ServiceChange, stop <-chan struct{}, _ errorsink.ErrorSink, opts store.WatchServicesOptions) {
 	s.watchersLock.Lock()
 	defer s.watchersLock.Unlock()
-	s.watchers = append(s.watchers, watcher{res, stop, withInstances})
+	s.watchers = append(s.watchers, watcher{res, stop, opts.WithInstanceChanges})
 
 	go func() {
 		<-stop

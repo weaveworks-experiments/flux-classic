@@ -296,7 +296,8 @@ func (l *Listener) serviceUpdated(name string) error {
 
 func (l *Listener) Run(events <-chan *docker.APIEvents) {
 	changes := make(chan data.ServiceChange)
-	l.store.WatchServices(changes, nil, errorsink.New(), false)
+	l.store.WatchServices(changes, nil, errorsink.New(),
+		store.WatchServicesOptions{})
 
 	// sync after we have initiated the watch
 	if err := l.reconcile(); err != nil {

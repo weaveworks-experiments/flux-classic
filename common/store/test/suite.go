@@ -117,11 +117,11 @@ type watcher struct {
 	done    chan struct{}
 }
 
-func newWatcher(s store.Store, withInstanceChanges bool) *watcher {
+func newWatcher(s store.Store, opts store.WatchServicesOptions) *watcher {
 	w := &watcher{stopCh: make(chan struct{}), done: make(chan struct{})}
 	changes := make(chan data.ServiceChange)
 	stopWatch := make(chan struct{})
-	s.WatchServices(changes, stopWatch, errorsink.New(), withInstanceChanges)
+	s.WatchServices(changes, stopWatch, errorsink.New(), opts)
 	go func() {
 		defer close(w.done)
 		for {
@@ -143,8 +143,8 @@ func (w *watcher) stop() {
 }
 
 func testWatchServices(s store.Store, t *testing.T) {
-	check := func(withInstanceChanges bool, body func(w *watcher), changes ...data.ServiceChange) {
-		w := newWatcher(s, withInstanceChanges)
+	check := func(opts store.WatchServicesOptions, body func(w *watcher), changes ...data.ServiceChange) {
+		w := newWatcher(s, opts)
 		body(w)
 		// Yuck.  There's a race between making a change in
 		// etcd, and hearing about it via the watch, and I
@@ -155,12 +155,12 @@ func testWatchServices(s store.Store, t *testing.T) {
 		require.Nil(t, s.RemoveAllServices())
 	}
 
-	check(false, func(w *watcher) {
+	check(store.WatchServicesOptions{}, func(w *watcher) {
 		require.Nil(t, s.AddService("svc", testService))
 	}, data.ServiceChange{"svc", false})
 
 	require.Nil(t, s.AddService("svc", testService))
-	check(false, func(w *watcher) {
+	check(store.WatchServicesOptions{}, func(w *watcher) {
 		require.Nil(t, s.RemoveAllServices())
 		require.Nil(t, s.AddService("svc", testService))
 		require.Nil(t, s.RemoveService("svc"))
@@ -170,15 +170,17 @@ func testWatchServices(s store.Store, t *testing.T) {
 	// withInstanceChanges false, so adding an instance should not
 	// cause an event
 	require.Nil(t, s.AddService("svc", testService))
-	check(false, func(w *watcher) {
+	check(store.WatchServicesOptions{}, func(w *watcher) {
 		require.Nil(t, s.AddInstance("svc", "inst", testInst))
 	})
 
 	// withInstanceChanges true, so instance changes should not
 	// cause vents
 	require.Nil(t, s.AddService("svc", testService))
-	check(true, func(w *watcher) {
-		require.Nil(t, s.AddInstance("svc", "inst", testInst))
-		require.Nil(t, s.RemoveInstance("svc", "inst"))
-	}, data.ServiceChange{"svc", false}, data.ServiceChange{"svc", false})
+	check(store.WatchServicesOptions{WithInstanceChanges: true},
+		func(w *watcher) {
+			require.Nil(t, s.AddInstance("svc", "inst", testInst))
+			require.Nil(t, s.RemoveInstance("svc", "inst"))
+		}, data.ServiceChange{"svc", false},
+		data.ServiceChange{"svc", false})
 }

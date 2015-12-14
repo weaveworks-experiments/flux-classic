@@ -49,7 +49,8 @@ func (l *Listener) Updates() <-chan model.ServiceUpdate {
 
 func (l *Listener) run(errorSink errorsink.ErrorSink) {
 	changes := make(chan data.ServiceChange)
-	l.store.WatchServices(changes, nil, errorSink, true)
+	l.store.WatchServices(changes, nil, errorSink,
+		store.WatchServicesOptions{WithInstanceChanges: true})
 
 	// Send initial state of each service
 	l.store.ForeachServiceInstance(func(name string, _ data.Service) {

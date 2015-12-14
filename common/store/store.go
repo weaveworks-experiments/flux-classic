@@ -9,6 +9,10 @@ type ServiceFunc func(string, data.Service)
 type InstanceFunc func(string, data.Instance)
 type ServiceInstanceFunc func(string, string, data.Instance)
 
+type WatchServicesOptions struct {
+	WithInstanceChanges bool
+}
+
 type Store interface {
 	Ping() error
 	CheckRegisteredService(serviceName string) error
@@ -20,5 +24,5 @@ type Store interface {
 	AddInstance(serviceName string, instanceName string, details data.Instance) error
 	RemoveInstance(serviceName, instanceName string) error
 	ForeachInstance(serviceName string, fi InstanceFunc) error
-	WatchServices(resCh chan<- data.ServiceChange, stopCh <-chan struct{}, errorSink errorsink.ErrorSink, withInstanceChanges bool)
+	WatchServices(resCh chan<- data.ServiceChange, stopCh <-chan struct{}, errorSink errorsink.ErrorSink, opts WatchServicesOptions)
 }

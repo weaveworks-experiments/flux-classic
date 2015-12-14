@@ -235,7 +235,7 @@ func (es *etcdStore) ForeachInstance(serviceName string, fi store.InstanceFunc) 
 	})
 }
 
-func (es *etcdStore) WatchServices(resCh chan<- data.ServiceChange, stopCh <-chan struct{}, errorSink errorsink.ErrorSink, withInstanceChanges bool) {
+func (es *etcdStore) WatchServices(resCh chan<- data.ServiceChange, stopCh <-chan struct{}, errorSink errorsink.ErrorSink, opts store.WatchServicesOptions) {
 	etcdCh := make(chan *etcd.Response, 1)
 	watchStopCh := make(chan bool, 1)
 	go func() {
@@ -270,7 +270,7 @@ func (es *etcdStore) WatchServices(resCh chan<- data.ServiceChange, stopCh <-cha
 				resCh <- data.ServiceChange{key.serviceName, true}
 
 			case parsedInstanceKey:
-				if withInstanceChanges {
+				if opts.WithInstanceChanges {
 					resCh <- data.ServiceChange{key.serviceName, false}
 				}
 			}
@@ -282,7 +282,7 @@ func (es *etcdStore) WatchServices(resCh chan<- data.ServiceChange, stopCh <-cha
 				resCh <- data.ServiceChange{key.serviceName, false}
 
 			case parsedInstanceKey:
-				if withInstanceChanges {
+				if opts.WithInstanceChanges {
 					resCh <- data.ServiceChange{key.serviceName, false}
 				}
 			}

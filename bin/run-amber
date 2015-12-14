@@ -1,0 +1,43 @@
+#!/bin/sh
+
+set -eo pipefail
+
+BALANCER=squaremo/ambergreen-balancer
+AGENT=squaremo/ambergreen-agent
+
+DEFAULT_ETCD="http://127.0.0.1:4001"
+
+start() {
+    if [[ -z "$ETCD_ADDRESS" ]]; then
+        echo "WARNING: no environment entry for ETCD_ADDRESS; using $DEFAULT_ETCD"  >&2
+        ETCD_ADDRESS="$DEFAULT_ETCD"
+    fi
+
+    if [[ -z "$HOST_IP" ]]; then
+        hostip=$(hostname -i)
+        echo "WARNING: no environment entry for HOST_IP; used \`hostname -i\` to obtain $hostip" >&2
+        HOST_IP="$hostip"
+    fi
+
+    export HOST_IP ETCD_ADDRESS
+
+    docker run -d --name "amberagent" -e HOST_IP -e ETCD_ADDRESS -v "/var/run/docker.sock:/var/run/docker.sock" "$AGENT"
+    docker run -d --name "amberbalancer" -e ETCD_ADDRESS --privileged --net=host "$BALANCER"
+}
+
+stop() {
+    docker rm -f "amberagent" "amberbalancer" 2>/dev/null || true
+}
+
+case "$1" in
+    start)
+        start
+        ;;
+    stop)
+        stop
+        ;;
+    restart)
+        stop
+        start
+        ;;
+esac

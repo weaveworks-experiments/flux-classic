@@ -54,7 +54,11 @@ func serviceKey(serviceName string) string {
 	return fmt.Sprintf("%s%s/details", ROOT, serviceName)
 }
 
-func instanceKey(serviceName string, instanceName string) string {
+func groupSpecKey(serviceName, groupName string) string {
+	return fmt.Sprintf("%s%s/groupspec/%s", ROOT, serviceName, groupName)
+}
+
+func instanceKey(serviceName, instanceName string) string {
 	return fmt.Sprintf("%s%s/instance/%s", ROOT, serviceName, instanceName)
 }
 
@@ -67,6 +71,11 @@ type parsedServiceRootKey struct {
 
 type parsedServiceKey struct {
 	serviceName string
+}
+
+type parsedGroupSpecKey struct {
+	serviceName string
+	groupName   string
 }
 
 type parsedInstanceKey struct {
@@ -89,6 +98,11 @@ func parseKey(key string) interface{} {
 	switch p[1] {
 	case "details":
 		return parsedServiceKey{p[0]}
+
+	case "groupspec":
+		if len(p) == 3 {
+			return parsedGroupSpecKey{p[0], p[2]}
+		}
 
 	case "instance":
 		if len(p) == 3 {
@@ -136,6 +150,12 @@ func unmarshalService(node *etcd.Node) (data.Service, error) {
 	var service data.Service
 	err := json.Unmarshal([]byte(node.Value), &service)
 	return service, err
+}
+
+func unmarshalGroupSpec(node *etcd.Node) (data.InstanceGroupSpec, error) {
+	var gs data.InstanceGroupSpec
+	err := json.Unmarshal([]byte(node.Value), &gs)
+	return gs, err
 }
 
 func unmarshalInstance(node *etcd.Node) (data.Instance, error) {
@@ -201,6 +221,43 @@ func (es *etcdStore) ForeachServiceInstance(fs store.ServiceFunc, fi store.Servi
 	})
 }
 
+func (es *etcdStore) GetInstanceGroupSpecs(serviceName string) (map[string]data.InstanceGroupSpec, error) {
+	res := make(map[string]data.InstanceGroupSpec)
+	err := es.traverse(serviceRootKey(serviceName), func(node *etcd.Node) error {
+		switch key := parseKey(node.Key).(type) {
+		case parsedGroupSpecKey:
+			gs, err := unmarshalGroupSpec(node)
+			if err != nil {
+				return err
+			}
+
+			res[key.groupName] = gs
+		}
+
+		return nil
+	})
+
+	return res, err
+}
+
+func (es *etcdStore) SetInstanceGroupSpec(serviceName string, groupName string, spec data.InstanceGroupSpec) error {
+	json, err := json.Marshal(spec)
+	if err != nil {
+		return err
+	}
+
+	if _, err := es.client.Set(groupSpecKey(serviceName, groupName), string(json), 0); err != nil {
+		return err
+	}
+
+	return err
+}
+
+func (es *etcdStore) RemoveInstanceGroupSpec(serviceName string, groupName string) error {
+	_, err := es.client.Delete(groupSpecKey(serviceName, groupName), true)
+	return err
+}
+
 func (es *etcdStore) AddInstance(serviceName string, instanceName string, details data.Instance) error {
 	json, err := json.Marshal(details)
 	if err != nil {
@@ -221,14 +278,12 @@ func (es *etcdStore) ForeachInstance(serviceName string, fi store.InstanceFunc) 
 	return es.traverse(serviceRootKey(serviceName), func(node *etcd.Node) error {
 		switch key := parseKey(node.Key).(type) {
 		case parsedInstanceKey:
-			if fi != nil {
-				inst, err := unmarshalInstance(node)
-				if err != nil {
-					return err
-				}
-
-				fi(key.instanceName, inst)
+			inst, err := unmarshalInstance(node)
+			if err != nil {
+				return err
 			}
+
+			fi(key.instanceName, inst)
 		}
 
 		return nil

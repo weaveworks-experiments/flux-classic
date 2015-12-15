@@ -23,6 +23,8 @@ func RunStoreTestSuite(ts TestableStore, t *testing.T) {
 	ts.Reset(t)
 	testServices(ts, t)
 	ts.Reset(t)
+	testGroupSpecs(ts, t)
+	ts.Reset(t)
 	testInstances(ts, t)
 	ts.Reset(t)
 	testWatchServices(ts, t)
@@ -36,17 +38,6 @@ var testService = data.Service{
 	Address:  "1.2.3.4",
 	Port:     1234,
 	Protocol: "tcp",
-	InstanceGroupSpecs: map[string]data.InstanceGroupSpec{
-		"group": {
-			AddressSpec: data.AddressSpec{
-				Type: "foo",
-				Port: 5678,
-			},
-			Selector: data.Selector{
-				"foo": "bar",
-			},
-		},
-	},
 }
 
 func testServices(s store.Store, t *testing.T) {
@@ -73,6 +64,30 @@ func testServices(s store.Store, t *testing.T) {
 	require.Nil(t, s.AddService("svc", testService))
 	require.Nil(t, s.RemoveAllServices())
 	require.Equal(t, map[string]data.Service{}, services())
+}
+
+var testGroupSpec = data.InstanceGroupSpec{
+	AddressSpec: data.AddressSpec{
+		Type: "foo",
+		Port: 5678,
+	},
+	Selector: data.Selector{
+		"foo": "bar",
+	},
+}
+
+func testGroupSpecs(s store.Store, t *testing.T) {
+	require.Nil(t, s.AddService("svc", testService))
+	require.Nil(t, s.SetInstanceGroupSpec("svc", "group", testGroupSpec))
+
+	specs, err := s.GetInstanceGroupSpecs("svc")
+	require.Nil(t, err)
+	require.Equal(t, map[string]data.InstanceGroupSpec{"group": testGroupSpec}, specs)
+
+	require.Nil(t, s.RemoveInstanceGroupSpec("svc", "group"))
+	specs, err = s.GetInstanceGroupSpecs("svc")
+	require.Nil(t, err)
+	require.Equal(t, map[string]data.InstanceGroupSpec{}, specs)
 }
 
 var testInst = data.Instance{

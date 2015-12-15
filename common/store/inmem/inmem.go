@@ -12,13 +12,15 @@ import (
 
 func NewInMemStore() store.Store {
 	return &inmem{
-		services:  make(map[string]data.Service),
-		instances: make(map[string]map[string]data.Instance),
+		services:   make(map[string]data.Service),
+		groupSpecs: make(map[string]map[string]data.InstanceGroupSpec),
+		instances:  make(map[string]map[string]data.Instance),
 	}
 }
 
 type inmem struct {
 	services     map[string]data.Service
+	groupSpecs   map[string]map[string]data.InstanceGroupSpec
 	instances    map[string]map[string]data.Instance
 	watchersLock sync.Mutex
 	watchers     []watcher
@@ -58,9 +60,9 @@ func (s *inmem) CheckRegisteredService(name string) error {
 
 func (s *inmem) AddService(name string, svc data.Service) error {
 	s.services[name] = svc
-	if _, found := s.instances[name]; !found {
-		s.instances[name] = make(map[string]data.Instance)
-	}
+	s.groupSpecs[name] = make(map[string]data.InstanceGroupSpec)
+	s.instances[name] = make(map[string]data.Instance)
+
 	s.fireEvent(data.ServiceChange{name, false}, false)
 	log.Printf("inmem: service %s updated in store", name)
 	return nil
@@ -68,7 +70,9 @@ func (s *inmem) AddService(name string, svc data.Service) error {
 
 func (s *inmem) RemoveService(name string) error {
 	delete(s.services, name)
+	delete(s.groupSpecs, name)
 	delete(s.instances, name)
+
 	s.fireEvent(data.ServiceChange{name, true}, false)
 	log.Printf("inmem: service %s removed from store", name)
 	return nil
@@ -76,9 +80,7 @@ func (s *inmem) RemoveService(name string) error {
 
 func (s *inmem) RemoveAllServices() error {
 	for name, _ := range s.services {
-		delete(s.services, name)
-		delete(s.instances, name)
-		s.fireEvent(data.ServiceChange{name, true}, false)
+		s.RemoveService(name)
 	}
 	return nil
 }
@@ -102,6 +104,35 @@ func (s *inmem) ForeachServiceInstance(fs store.ServiceFunc, fi store.ServiceIns
 			}
 		}
 	}
+	return nil
+}
+
+func (s *inmem) GetInstanceGroupSpecs(serviceName string) (map[string]data.InstanceGroupSpec, error) {
+	res, found := s.groupSpecs[serviceName]
+	if !found {
+		return nil, fmt.Errorf(`Not found "%s"`, serviceName)
+	}
+
+	return res, nil
+}
+
+func (s *inmem) SetInstanceGroupSpec(serviceName string, groupName string, spec data.InstanceGroupSpec) error {
+	groupSpecs, found := s.groupSpecs[serviceName]
+	if !found {
+		return fmt.Errorf(`Not found "%s"`, serviceName)
+	}
+
+	groupSpecs[groupName] = spec
+	return nil
+}
+
+func (s *inmem) RemoveInstanceGroupSpec(serviceName string, groupName string) error {
+	groupSpecs, found := s.groupSpecs[serviceName]
+	if !found {
+		return fmt.Errorf(`Not found "%s"`, serviceName)
+	}
+
+	delete(groupSpecs, groupName)
 	return nil
 }
 

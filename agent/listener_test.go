@@ -106,7 +106,7 @@ func (m *mockInspector) listenToEvents(events chan<- *docker.APIEvents) {
 
 const GROUP = "deliberately not default"
 
-func serviceFromSel(labels ...string) data.Service {
+func addService(st store.Store, name string, addr *data.AddressSpec, labels ...string) {
 	if len(labels)%2 != 0 {
 		panic("Expected key value ... as arguments")
 	}
@@ -114,14 +114,13 @@ func serviceFromSel(labels ...string) data.Service {
 	for i := 0; i < len(labels); i += 2 {
 		sel[labels[i]] = labels[i+1]
 	}
-	return data.Service{
-		InstanceGroupSpecs: map[string]data.InstanceGroupSpec{
-			GROUP: data.InstanceGroupSpec{
-				data.AddressSpec{"fixed", 80},
-				sel,
-			},
-		},
+
+	if addr == nil {
+		addr = &data.AddressSpec{"fixed", 80}
 	}
+
+	st.AddService(name, data.Service{})
+	st.SetInstanceGroupSpec(name, GROUP, data.InstanceGroupSpec{*addr, sel})
 }
 
 func setup() (*Listener, store.Store, *mockInspector) {
@@ -136,9 +135,9 @@ func setup() (*Listener, store.Store, *mockInspector) {
 
 func TestListenerReconcile(t *testing.T) {
 	listener, st, dc := setup()
-	st.AddService("foo-svc", serviceFromSel("tag", ":bobbins", "image", "foo-image"))
-	st.AddService("bar-svc", serviceFromSel("amber/foo-label", "blorp"))
-	st.AddService("boo-svc", serviceFromSel("env.SERVICE_NAME", "boo"))
+	addService(st, "foo-svc", nil, "tag", ":bobbins", "image", "foo-image")
+	addService(st, "bar-svc", nil, "amber/foo-label", "blorp")
+	addService(st, "boo-svc", nil, "env.SERVICE_NAME", "boo")
 
 	selectedAddress := "192.168.45.67"
 
@@ -188,11 +187,11 @@ func TestListenerEvents(t *testing.T) {
 	listener.step(events, changes)
 	require.Len(t, allInstances(st), 0)
 
-	st.AddService("foo-svc", serviceFromSel("image", "foo-image"))
+	addService(st, "foo-svc", nil, "image", "foo-image")
 	listener.step(events, changes)
 	require.Len(t, allInstances(st), 1)
 
-	st.AddService("foo-svc", serviceFromSel("image", "not-foo-image"))
+	addService(st, "foo-svc", nil, "image", "not-foo-image")
 	listener.step(events, changes)
 	require.Len(t, allInstances(st), 0)
 
@@ -229,14 +228,10 @@ func allInstances(st store.Store) []data.Instance {
 func TestMappedPort(t *testing.T) {
 	listener, st, dc := setup()
 
-	svc := serviceFromSel("image", "blorp-image")
-	spec := svc.InstanceGroupSpecs[GROUP]
-	spec.AddressSpec = data.AddressSpec{
+	addService(st, "blorp-svc", &data.AddressSpec{
 		Type: data.MAPPED,
 		Port: 8080,
-	}
-	svc.InstanceGroupSpecs[GROUP] = spec
-	st.AddService("blorp-svc", svc)
+	}, "image", "blorp-image")
 	dc.startContainers(container{
 		ID:        "blorp-instance",
 		IPAddress: "10.13.14.15",

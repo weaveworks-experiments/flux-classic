@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"net"
 	"strconv"
 
@@ -45,23 +44,23 @@ func (opts *addOpts) run(cmd *cobra.Command, args []string) {
 		exitWithErrorf("invalid IP address: ", args[1])
 	}
 
-	instSpecs := make(map[string]data.InstanceGroupSpec)
-	if spec, err := opts.makeSpec(); err == nil {
-		if spec != nil {
-			instSpecs[DEFAULT_GROUP] = *spec
-		}
-	} else {
+	err = opts.store.AddService(serviceName, data.Service{
+		Address:  args[1],
+		Port:     port,
+		Protocol: opts.protocol,
+	})
+	if err != nil {
+		exitWithErrorf("Error updating service: ", err)
+	}
+
+	spec, err := opts.makeSpec()
+	if err != nil {
 		exitWithErrorf("Unable to extract spec from opitions: ", err)
 	}
 
-	err = opts.store.AddService(serviceName, data.Service{
-		Address:            args[1],
-		Port:               port,
-		Protocol:           opts.protocol,
-		InstanceGroupSpecs: instSpecs,
-	})
-	if err != nil {
-		log.Fatal(err)
+	if err = opts.store.SetInstanceGroupSpec(serviceName, DEFAULT_GROUP, *spec); err != nil {
+		exitWithErrorf("Error updating service: ", err)
 	}
+
 	fmt.Println("Added service:", serviceName)
 }

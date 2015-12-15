@@ -34,8 +34,9 @@ type Config struct {
 }
 
 type service struct {
-	name    string
-	details data.Service
+	name       string
+	details    data.Service
+	groupSpecs map[string]data.InstanceGroupSpec
 }
 
 func NewListener(config Config) *Listener {
@@ -65,9 +66,23 @@ func instanceNameFor(c *docker.Container) string {
 
 // Read in all info on registered services
 func (l *Listener) ReadInServices() error {
-	return l.store.ForeachServiceInstance(func(name string, value data.Service) {
+	err := l.store.ForeachServiceInstance(func(name string, value data.Service) {
 		l.services[name] = &service{name: name, details: value}
 	}, nil)
+	if err != nil {
+		return err
+	}
+
+	for name := range l.services {
+		specs, err := l.store.GetInstanceGroupSpecs(name)
+		if err != nil {
+			return err
+		}
+
+		l.services[name].groupSpecs = specs
+	}
+
+	return nil
 }
 
 // Read details of all running containers
@@ -130,7 +145,7 @@ func (l *Listener) redefineService(serviceName string, service *service) error {
 }
 
 func (l *Listener) evaluate(container *docker.Container, service *service) (bool, error) {
-	for group, spec := range service.details.InstanceGroupSpecs {
+	for group, spec := range service.groupSpecs {
 		if instance, ok := l.extractInstance(spec, container); ok {
 			instance.InstanceGroup = group
 			err := l.store.AddInstance(service.name, container.ID, instance)
@@ -287,7 +302,13 @@ func (l *Listener) serviceUpdated(name string) error {
 		log.Println("Failed to retrieve service:", name, err)
 		return err
 	}
-	s := &service{name, svc}
+
+	specs, err := l.store.GetInstanceGroupSpecs(name)
+	if err != nil {
+		return err
+	}
+
+	s := &service{name, svc, specs}
 	l.services[name] = s
 	log.Println("Service", name, "updated:", svc)
 	// See which containers match now.

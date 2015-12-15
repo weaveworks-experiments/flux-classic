@@ -25,13 +25,16 @@ func (opts *deselectOpts) run(_ *cobra.Command, args []string) {
 		exitWithErrorf("Expected <service> and <group>")
 	}
 	serviceName, group := args[0], args[1]
-	service, err := opts.store.GetServiceDetails(serviceName)
+
+	// Check that the service exists
+	_, err := opts.store.GetServiceDetails(serviceName)
 	if err != nil {
+		exitWithErrorf("Error fetching service: ", err)
+	}
+
+	if err = opts.store.RemoveInstanceGroupSpec(serviceName, group); err != nil {
 		exitWithErrorf("Unable to update service %s: %s", serviceName, err)
 	}
-	specs := service.InstanceGroupSpecs
-	if specs != nil {
-		delete(specs, string(group))
-	}
+
 	fmt.Printf("Deselected group %s from service %s\n", group, serviceName)
 }

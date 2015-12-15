@@ -41,10 +41,9 @@ type AddressSpec struct {
 }
 
 type Service struct {
-	Address            string                       `json:"address,omitempty"`
-	Port               int                          `json:"port,omitempty"`
-	Protocol           string                       `json:"protocol,omitempty"`
-	InstanceGroupSpecs map[string]InstanceGroupSpec `json:"instanceSpecs,omitempty"`
+	Address  string `json:"address,omitempty"`
+	Port     int    `json:"port,omitempty"`
+	Protocol string `json:"protocol,omitempty"`
 }
 
 type Instance struct {

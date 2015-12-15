@@ -93,6 +93,7 @@ func (api *api) listInstances(w http.ResponseWriter, r *http.Request) {
 	details, err := api.store.GetServiceDetails(serviceName)
 	if err != nil {
 		http.NotFound(w, r)
+		return
 	}
 	children := []instanceDetails{}
 	api.store.ForeachInstance(serviceName, func(name string, details data.Instance) {

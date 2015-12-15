@@ -29,16 +29,16 @@ type inmem struct {
 type watcher struct {
 	ch   chan<- data.ServiceChange
 	stop <-chan struct{}
-	wi   bool
+	opts store.WatchServicesOptions
 }
 
-func (s *inmem) fireEvent(ev data.ServiceChange, isAboutInstance bool) {
+func (s *inmem) fireEvent(ev data.ServiceChange, optsFilter func(store.WatchServicesOptions) bool) {
 	s.watchersLock.Lock()
 	watchers := s.watchers
 	s.watchersLock.Unlock()
 
 	for _, watcher := range watchers {
-		if !isAboutInstance || watcher.wi {
+		if optsFilter == nil || optsFilter(watcher.opts) {
 			select {
 			case watcher.ch <- ev:
 			case <-watcher.stop:
@@ -63,7 +63,7 @@ func (s *inmem) AddService(name string, svc data.Service) error {
 	s.groupSpecs[name] = make(map[string]data.InstanceGroupSpec)
 	s.instances[name] = make(map[string]data.Instance)
 
-	s.fireEvent(data.ServiceChange{name, false}, false)
+	s.fireEvent(data.ServiceChange{name, false}, nil)
 	log.Printf("inmem: service %s updated in store", name)
 	return nil
 }
@@ -73,7 +73,7 @@ func (s *inmem) RemoveService(name string) error {
 	delete(s.groupSpecs, name)
 	delete(s.instances, name)
 
-	s.fireEvent(data.ServiceChange{name, true}, false)
+	s.fireEvent(data.ServiceChange{name, true}, nil)
 	log.Printf("inmem: service %s removed from store", name)
 	return nil
 }
@@ -107,6 +107,10 @@ func (s *inmem) ForeachServiceInstance(fs store.ServiceFunc, fi store.ServiceIns
 	return nil
 }
 
+func withGroupSpecChanges(opts store.WatchServicesOptions) bool {
+	return opts.WithGroupSpecChanges
+}
+
 func (s *inmem) GetInstanceGroupSpecs(serviceName string) (map[string]data.InstanceGroupSpec, error) {
 	res, found := s.groupSpecs[serviceName]
 	if !found {
@@ -123,6 +127,7 @@ func (s *inmem) SetInstanceGroupSpec(serviceName string, groupName string, spec 
 	}
 
 	groupSpecs[groupName] = spec
+	s.fireEvent(data.ServiceChange{serviceName, false}, withGroupSpecChanges)
 	return nil
 }
 
@@ -133,18 +138,23 @@ func (s *inmem) RemoveInstanceGroupSpec(serviceName string, groupName string) er
 	}
 
 	delete(groupSpecs, groupName)
+	s.fireEvent(data.ServiceChange{serviceName, false}, withGroupSpecChanges)
 	return nil
+}
+
+func withInstanceChanges(opts store.WatchServicesOptions) bool {
+	return opts.WithInstanceChanges
 }
 
 func (s *inmem) AddInstance(serviceName string, instanceName string, inst data.Instance) error {
 	s.instances[serviceName][instanceName] = inst
-	s.fireEvent(data.ServiceChange{serviceName, false}, true)
+	s.fireEvent(data.ServiceChange{serviceName, false}, withInstanceChanges)
 	return nil
 }
 
 func (s *inmem) RemoveInstance(serviceName string, instanceName string) error {
 	delete(s.instances[serviceName], instanceName)
-	s.fireEvent(data.ServiceChange{serviceName, false}, true)
+	s.fireEvent(data.ServiceChange{serviceName, false}, withInstanceChanges)
 	return nil
 }
 
@@ -158,7 +168,7 @@ func (s *inmem) ForeachInstance(serviceName string, fi store.InstanceFunc) error
 func (s *inmem) WatchServices(res chan<- data.ServiceChange, stop <-chan struct{}, _ errorsink.ErrorSink, opts store.WatchServicesOptions) {
 	s.watchersLock.Lock()
 	defer s.watchersLock.Unlock()
-	s.watchers = append(s.watchers, watcher{res, stop, opts.WithInstanceChanges})
+	s.watchers = append(s.watchers, watcher{res, stop, opts})
 
 	go func() {
 		<-stop

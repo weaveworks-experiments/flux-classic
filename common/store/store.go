@@ -10,7 +10,8 @@ type InstanceFunc func(string, data.Instance)
 type ServiceInstanceFunc func(string, string, data.Instance)
 
 type WatchServicesOptions struct {
-	WithInstanceChanges bool
+	WithInstanceChanges  bool
+	WithGroupSpecChanges bool
 }
 
 type Store interface {

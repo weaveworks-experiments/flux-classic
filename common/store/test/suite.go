@@ -182,20 +182,37 @@ func testWatchServices(s store.Store, t *testing.T) {
 	}, data.ServiceChange{"svc", true}, data.ServiceChange{"svc", false},
 		data.ServiceChange{"svc", true})
 
-	// withInstanceChanges false, so adding an instance should not
+	// WithInstanceChanges false, so adding an instance should not
 	// cause an event
 	require.Nil(t, s.AddService("svc", testService))
 	check(store.WatchServicesOptions{}, func(w *watcher) {
 		require.Nil(t, s.AddInstance("svc", "inst", testInst))
 	})
 
-	// withInstanceChanges true, so instance changes should not
-	// cause vents
+	// WithInstanceChanges true, so instance changes should
+	// cause events
 	require.Nil(t, s.AddService("svc", testService))
 	check(store.WatchServicesOptions{WithInstanceChanges: true},
 		func(w *watcher) {
 			require.Nil(t, s.AddInstance("svc", "inst", testInst))
 			require.Nil(t, s.RemoveInstance("svc", "inst"))
+		}, data.ServiceChange{"svc", false},
+		data.ServiceChange{"svc", false})
+
+	// WithGroupSpecChanges false, so adding an instance should not
+	// cause an event
+	require.Nil(t, s.AddService("svc", testService))
+	check(store.WatchServicesOptions{}, func(w *watcher) {
+		require.Nil(t, s.SetInstanceGroupSpec("svc", "group", testGroupSpec))
+	})
+
+	// withGroupSpecChanges true, so instance changes should
+	// cause events
+	require.Nil(t, s.AddService("svc", testService))
+	check(store.WatchServicesOptions{WithGroupSpecChanges: true},
+		func(w *watcher) {
+			require.Nil(t, s.SetInstanceGroupSpec("svc", "group", testGroupSpec))
+			require.Nil(t, s.RemoveInstanceGroupSpec("svc", "group"))
 		}, data.ServiceChange{"svc", false},
 		data.ServiceChange{"svc", false})
 }

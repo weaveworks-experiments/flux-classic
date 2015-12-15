@@ -106,7 +106,7 @@ func (m *mockInspector) listenToEvents(events chan<- *docker.APIEvents) {
 
 const GROUP = "deliberately not default"
 
-func addService(st store.Store, name string, addr *data.AddressSpec, labels ...string) {
+func addGroup(st store.Store, serviceName string, addr *data.AddressSpec, labels ...string) {
 	if len(labels)%2 != 0 {
 		panic("Expected key value ... as arguments")
 	}
@@ -119,8 +119,7 @@ func addService(st store.Store, name string, addr *data.AddressSpec, labels ...s
 		addr = &data.AddressSpec{"fixed", 80}
 	}
 
-	st.AddService(name, data.Service{})
-	st.SetInstanceGroupSpec(name, GROUP, data.InstanceGroupSpec{*addr, sel})
+	st.SetInstanceGroupSpec(serviceName, GROUP, data.InstanceGroupSpec{*addr, sel})
 }
 
 func setup() (*Listener, store.Store, *mockInspector) {
@@ -135,9 +134,12 @@ func setup() (*Listener, store.Store, *mockInspector) {
 
 func TestListenerReconcile(t *testing.T) {
 	listener, st, dc := setup()
-	addService(st, "foo-svc", nil, "tag", ":bobbins", "image", "foo-image")
-	addService(st, "bar-svc", nil, "amber/foo-label", "blorp")
-	addService(st, "boo-svc", nil, "env.SERVICE_NAME", "boo")
+	st.AddService("foo-svc", data.Service{})
+	addGroup(st, "foo-svc", nil, "tag", ":bobbins", "image", "foo-image")
+	st.AddService("bar-svc", data.Service{})
+	addGroup(st, "bar-svc", nil, "amber/foo-label", "blorp")
+	st.AddService("boo-svc", data.Service{})
+	addGroup(st, "boo-svc", nil, "env.SERVICE_NAME", "boo")
 
 	selectedAddress := "192.168.45.67"
 
@@ -175,7 +177,7 @@ func TestListenerEvents(t *testing.T) {
 
 	dc.listenToEvents(events)
 	st.WatchServices(changes, nil, errorsink.New(),
-		store.WatchServicesOptions{})
+		store.WatchServicesOptions{WithGroupSpecChanges: true})
 
 	// no services defined
 	dc.startContainers(container{
@@ -184,15 +186,17 @@ func TestListenerEvents(t *testing.T) {
 		IPAddress: "192.168.0.67",
 	})
 
-	listener.step(events, changes)
+	listener.processDockerEvent(<-events)
 	require.Len(t, allInstances(st), 0)
 
-	addService(st, "foo-svc", nil, "image", "foo-image")
-	listener.step(events, changes)
+	st.AddService("foo-svc", data.Service{})
+	listener.processServiceChange(<-changes)
+	addGroup(st, "foo-svc", nil, "image", "foo-image")
+	listener.processServiceChange(<-changes)
 	require.Len(t, allInstances(st), 1)
 
-	addService(st, "foo-svc", nil, "image", "not-foo-image")
-	listener.step(events, changes)
+	addGroup(st, "foo-svc", nil, "image", "not-foo-image")
+	listener.processServiceChange(<-changes)
 	require.Len(t, allInstances(st), 0)
 
 	dc.startContainers(container{
@@ -204,16 +208,16 @@ func TestListenerEvents(t *testing.T) {
 		IPAddress: "192.168.34.99",
 		Image:     "not-foo-image:version2",
 	})
-	listener.step(events, changes)
-	listener.step(events, changes)
+	listener.processDockerEvent(<-events)
+	listener.processDockerEvent(<-events)
 	require.Len(t, allInstances(st), 2)
 
 	dc.stopContainer("baz")
-	listener.step(events, changes)
+	listener.processDockerEvent(<-events)
 	require.Len(t, allInstances(st), 1)
 
 	st.RemoveService("foo-svc")
-	listener.step(events, changes)
+	listener.processServiceChange(<-changes)
 	require.Len(t, allInstances(st), 0)
 }
 
@@ -228,7 +232,8 @@ func allInstances(st store.Store) []data.Instance {
 func TestMappedPort(t *testing.T) {
 	listener, st, dc := setup()
 
-	addService(st, "blorp-svc", &data.AddressSpec{
+	st.AddService("blorp-svc", data.Service{})
+	addGroup(st, "blorp-svc", &data.AddressSpec{
 		Type: data.MAPPED,
 		Port: 8080,
 	}, "image", "blorp-image")

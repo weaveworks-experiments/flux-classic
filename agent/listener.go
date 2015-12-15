@@ -318,7 +318,7 @@ func (l *Listener) serviceUpdated(name string) error {
 func (l *Listener) Run(events <-chan *docker.APIEvents) {
 	changes := make(chan data.ServiceChange)
 	l.store.WatchServices(changes, nil, errorsink.New(),
-		store.WatchServicesOptions{})
+		store.WatchServicesOptions{WithGroupSpecChanges: true})
 
 	// sync after we have initiated the watch
 	if err := l.reconcile(); err != nil {
@@ -326,32 +326,36 @@ func (l *Listener) Run(events <-chan *docker.APIEvents) {
 	}
 
 	for {
-		l.step(events, changes)
+		select {
+		case event := <-events:
+			l.processDockerEvent(event)
+		case change := <-changes:
+			l.processServiceChange(change)
+		}
 	}
 }
 
-func (l *Listener) step(events <-chan *docker.APIEvents, changes <-chan data.ServiceChange) {
-	select {
-	case event := <-events:
-		switch event.Status {
-		case "start":
-			if err := l.containerStarted(event.ID); err != nil {
-				log.Println("error handling container start: ", err)
-			}
-		case "die":
-			if err := l.containerDied(event.ID); err != nil {
-				log.Println("error handling container die: ", err)
-			}
+func (l *Listener) processDockerEvent(event *docker.APIEvents) {
+	switch event.Status {
+	case "start":
+		if err := l.containerStarted(event.ID); err != nil {
+			log.Println("error handling container start: ", err)
 		}
-	case change := <-changes:
-		if change.ServiceDeleted {
-			if err := l.serviceRemoved(change.Name); err != nil {
-				log.Println("error handling service removal: ", err)
-			}
-		} else {
-			if err := l.serviceUpdated(change.Name); err != nil {
-				log.Println("error handling service update: ", err)
-			}
+	case "die":
+		if err := l.containerDied(event.ID); err != nil {
+			log.Println("error handling container die: ", err)
+		}
+	}
+}
+
+func (l *Listener) processServiceChange(change data.ServiceChange) {
+	if change.ServiceDeleted {
+		if err := l.serviceRemoved(change.Name); err != nil {
+			log.Println("error handling service removal: ", err)
+		}
+	} else {
+		if err := l.serviceUpdated(change.Name); err != nil {
+			log.Println("error handling service update: ", err)
 		}
 	}
 }

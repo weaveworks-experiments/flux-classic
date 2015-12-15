@@ -78,9 +78,17 @@ type parsedGroupSpecKey struct {
 	groupName   string
 }
 
+func (k parsedGroupSpecKey) relevantTo(opts store.WatchServicesOptions) (bool, string) {
+	return opts.WithGroupSpecChanges, k.serviceName
+}
+
 type parsedInstanceKey struct {
 	serviceName  string
 	instanceName string
+}
+
+func (k parsedInstanceKey) relevantTo(opts store.WatchServicesOptions) (bool, string) {
+	return opts.WithInstanceChanges, k.serviceName
 }
 
 // Parse a path to find its type
@@ -324,9 +332,11 @@ func (es *etcdStore) WatchServices(resCh chan<- data.ServiceChange, stopCh <-cha
 				delete(svcs, key.serviceName)
 				resCh <- data.ServiceChange{key.serviceName, true}
 
-			case parsedInstanceKey:
-				if opts.WithInstanceChanges {
-					resCh <- data.ServiceChange{key.serviceName, false}
+			case interface {
+				relevantTo(opts store.WatchServicesOptions) (bool, string)
+			}:
+				if relevant, service := key.relevantTo(opts); relevant {
+					resCh <- data.ServiceChange{service, false}
 				}
 			}
 
@@ -336,9 +346,11 @@ func (es *etcdStore) WatchServices(resCh chan<- data.ServiceChange, stopCh <-cha
 				svcs[key.serviceName] = struct{}{}
 				resCh <- data.ServiceChange{key.serviceName, false}
 
-			case parsedInstanceKey:
-				if opts.WithInstanceChanges {
-					resCh <- data.ServiceChange{key.serviceName, false}
+			case interface {
+				relevantTo(opts store.WatchServicesOptions) (bool, string)
+			}:
+				if relevant, service := key.relevantTo(opts); relevant {
+					resCh <- data.ServiceChange{service, false}
 				}
 			}
 		}

@@ -22,7 +22,7 @@ start() {
     export HOST_IP ETCD_ADDRESS
 
     docker run -d --name "amberagent" -e HOST_IP -e ETCD_ADDRESS -v "/var/run/docker.sock:/var/run/docker.sock" "$AGENT"
-    docker run -d --name "amberbalancer" -e ETCD_ADDRESS --privileged --net=host "$BALANCER"
+    docker run -d --name "amberbalancer" -e ETCD_ADDRESS --privileged --net=host "$BALANCER" --expose-prometheus :9000
 }
 
 stop() {

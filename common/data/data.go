@@ -8,7 +8,7 @@ func (sel Selector) Empty() bool {
 
 // Specifies which containers form an instance group, and the
 // attributes of the resulting instances.
-type InstanceGroupSpec struct {
+type ContainerGroupSpec struct {
 	AddressSpec AddressSpec `json:"addressSpec,omitempty"`
 	Selector    Selector    `json:"selector,omitempty"`
 }
@@ -47,11 +47,11 @@ type Service struct {
 }
 
 type Instance struct {
-	OwnerID       string            `json:"ownerID"`
-	InstanceGroup string            `json:"instanceGroup"`
-	Address       string            `json:"address,omitempty"`
-	Port          int               `json:"port,omitempty"`
-	Labels        map[string]string `json:"labels"`
+	OwnerID        string            `json:"ownerID"`
+	ContainerGroup string            `json:"containerGroup"`
+	Address        string            `json:"address,omitempty"`
+	Port           int               `json:"port,omitempty"`
+	Labels         map[string]string `json:"labels"`
 }
 
 type Labeled interface {
@@ -71,7 +71,7 @@ func (sel Selector) Includes(s Labeled) bool {
 	return true
 }
 
-func (spec *InstanceGroupSpec) Includes(s Labeled) bool {
+func (spec *ContainerGroupSpec) Includes(s Labeled) bool {
 	return spec.Selector.Includes(s)
 }
 

@@ -119,7 +119,7 @@ func addGroup(st store.Store, serviceName string, addr *data.AddressSpec, labels
 		addr = &data.AddressSpec{"fixed", 80}
 	}
 
-	st.SetInstanceGroupSpec(serviceName, GROUP, data.InstanceGroupSpec{*addr, sel})
+	st.SetContainerGroupSpec(serviceName, GROUP, data.ContainerGroupSpec{*addr, sel})
 }
 
 func setup() (*Listener, store.Store, *mockInspector) {

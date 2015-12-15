@@ -24,9 +24,9 @@ type Store interface {
 	GetServiceDetails(serviceName string) (data.Service, error)
 	ForeachServiceInstance(fs ServiceFunc, fi ServiceInstanceFunc) error
 
-	GetInstanceGroupSpecs(serviceName string) (map[string]data.InstanceGroupSpec, error)
-	SetInstanceGroupSpec(serviceName string, groupName string, spec data.InstanceGroupSpec) error
-	RemoveInstanceGroupSpec(serviceName string, groupName string) error
+	GetContainerGroupSpecs(serviceName string) (map[string]data.ContainerGroupSpec, error)
+	SetContainerGroupSpec(serviceName string, groupName string, spec data.ContainerGroupSpec) error
+	RemoveContainerGroupSpec(serviceName string, groupName string) error
 
 	AddInstance(serviceName string, instanceName string, details data.Instance) error
 	RemoveInstance(serviceName, instanceName string) error

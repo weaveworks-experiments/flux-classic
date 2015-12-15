@@ -13,14 +13,14 @@ import (
 func NewInMemStore() store.Store {
 	return &inmem{
 		services:   make(map[string]data.Service),
-		groupSpecs: make(map[string]map[string]data.InstanceGroupSpec),
+		groupSpecs: make(map[string]map[string]data.ContainerGroupSpec),
 		instances:  make(map[string]map[string]data.Instance),
 	}
 }
 
 type inmem struct {
 	services     map[string]data.Service
-	groupSpecs   map[string]map[string]data.InstanceGroupSpec
+	groupSpecs   map[string]map[string]data.ContainerGroupSpec
 	instances    map[string]map[string]data.Instance
 	watchersLock sync.Mutex
 	watchers     []watcher
@@ -60,7 +60,7 @@ func (s *inmem) CheckRegisteredService(name string) error {
 
 func (s *inmem) AddService(name string, svc data.Service) error {
 	s.services[name] = svc
-	s.groupSpecs[name] = make(map[string]data.InstanceGroupSpec)
+	s.groupSpecs[name] = make(map[string]data.ContainerGroupSpec)
 	s.instances[name] = make(map[string]data.Instance)
 
 	s.fireEvent(data.ServiceChange{name, false}, nil)
@@ -111,7 +111,7 @@ func withGroupSpecChanges(opts store.WatchServicesOptions) bool {
 	return opts.WithGroupSpecChanges
 }
 
-func (s *inmem) GetInstanceGroupSpecs(serviceName string) (map[string]data.InstanceGroupSpec, error) {
+func (s *inmem) GetContainerGroupSpecs(serviceName string) (map[string]data.ContainerGroupSpec, error) {
 	res, found := s.groupSpecs[serviceName]
 	if !found {
 		return nil, fmt.Errorf(`Not found "%s"`, serviceName)
@@ -120,7 +120,7 @@ func (s *inmem) GetInstanceGroupSpecs(serviceName string) (map[string]data.Insta
 	return res, nil
 }
 
-func (s *inmem) SetInstanceGroupSpec(serviceName string, groupName string, spec data.InstanceGroupSpec) error {
+func (s *inmem) SetContainerGroupSpec(serviceName string, groupName string, spec data.ContainerGroupSpec) error {
 	groupSpecs, found := s.groupSpecs[serviceName]
 	if !found {
 		return fmt.Errorf(`Not found "%s"`, serviceName)
@@ -131,7 +131,7 @@ func (s *inmem) SetInstanceGroupSpec(serviceName string, groupName string, spec 
 	return nil
 }
 
-func (s *inmem) RemoveInstanceGroupSpec(serviceName string, groupName string) error {
+func (s *inmem) RemoveContainerGroupSpec(serviceName string, groupName string) error {
 	groupSpecs, found := s.groupSpecs[serviceName]
 	if !found {
 		return fmt.Errorf(`Not found "%s"`, serviceName)

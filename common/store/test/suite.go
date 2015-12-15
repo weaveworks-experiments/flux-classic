@@ -66,7 +66,7 @@ func testServices(s store.Store, t *testing.T) {
 	require.Equal(t, map[string]data.Service{}, services())
 }
 
-var testGroupSpec = data.InstanceGroupSpec{
+var testGroupSpec = data.ContainerGroupSpec{
 	AddressSpec: data.AddressSpec{
 		Type: "foo",
 		Port: 5678,
@@ -78,20 +78,20 @@ var testGroupSpec = data.InstanceGroupSpec{
 
 func testGroupSpecs(s store.Store, t *testing.T) {
 	require.Nil(t, s.AddService("svc", testService))
-	require.Nil(t, s.SetInstanceGroupSpec("svc", "group", testGroupSpec))
+	require.Nil(t, s.SetContainerGroupSpec("svc", "group", testGroupSpec))
 
-	specs, err := s.GetInstanceGroupSpecs("svc")
+	specs, err := s.GetContainerGroupSpecs("svc")
 	require.Nil(t, err)
-	require.Equal(t, map[string]data.InstanceGroupSpec{"group": testGroupSpec}, specs)
+	require.Equal(t, map[string]data.ContainerGroupSpec{"group": testGroupSpec}, specs)
 
-	require.Nil(t, s.RemoveInstanceGroupSpec("svc", "group"))
-	specs, err = s.GetInstanceGroupSpecs("svc")
+	require.Nil(t, s.RemoveContainerGroupSpec("svc", "group"))
+	specs, err = s.GetContainerGroupSpecs("svc")
 	require.Nil(t, err)
-	require.Equal(t, map[string]data.InstanceGroupSpec{}, specs)
+	require.Equal(t, map[string]data.ContainerGroupSpec{}, specs)
 }
 
 var testInst = data.Instance{
-	InstanceGroup: "group",
+	ContainerGroup: "group",
 	Address:       "1.2.3.4",
 	Port:          12345,
 	Labels:        map[string]string{"key": "val"},
@@ -203,7 +203,7 @@ func testWatchServices(s store.Store, t *testing.T) {
 	// cause an event
 	require.Nil(t, s.AddService("svc", testService))
 	check(store.WatchServicesOptions{}, func(w *watcher) {
-		require.Nil(t, s.SetInstanceGroupSpec("svc", "group", testGroupSpec))
+		require.Nil(t, s.SetContainerGroupSpec("svc", "group", testGroupSpec))
 	})
 
 	// withGroupSpecChanges true, so instance changes should
@@ -211,8 +211,8 @@ func testWatchServices(s store.Store, t *testing.T) {
 	require.Nil(t, s.AddService("svc", testService))
 	check(store.WatchServicesOptions{WithGroupSpecChanges: true},
 		func(w *watcher) {
-			require.Nil(t, s.SetInstanceGroupSpec("svc", "group", testGroupSpec))
-			require.Nil(t, s.RemoveInstanceGroupSpec("svc", "group"))
+			require.Nil(t, s.SetContainerGroupSpec("svc", "group", testGroupSpec))
+			require.Nil(t, s.RemoveContainerGroupSpec("svc", "group"))
 		}, data.ServiceChange{"svc", false},
 		data.ServiceChange{"svc", false})
 }

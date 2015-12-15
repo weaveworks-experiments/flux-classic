@@ -36,7 +36,7 @@ type Config struct {
 type service struct {
 	name       string
 	details    data.Service
-	groupSpecs map[string]data.InstanceGroupSpec
+	groupSpecs map[string]data.ContainerGroupSpec
 }
 
 func NewListener(config Config) *Listener {
@@ -74,7 +74,7 @@ func (l *Listener) ReadInServices() error {
 	}
 
 	for name := range l.services {
-		specs, err := l.store.GetInstanceGroupSpecs(name)
+		specs, err := l.store.GetContainerGroupSpecs(name)
 		if err != nil {
 			return err
 		}
@@ -147,7 +147,7 @@ func (l *Listener) redefineService(serviceName string, service *service) error {
 func (l *Listener) evaluate(container *docker.Container, service *service) (bool, error) {
 	for group, spec := range service.groupSpecs {
 		if instance, ok := l.extractInstance(spec, container); ok {
-			instance.InstanceGroup = group
+			instance.ContainerGroup = group
 			err := l.store.AddInstance(service.name, container.ID, instance)
 			if err != nil {
 				log.Println("Failed to register service:", err)
@@ -184,7 +184,7 @@ func (container containerLabels) Label(label string) string {
 	}
 }
 
-func (l *Listener) extractInstance(spec data.InstanceGroupSpec, container *docker.Container) (data.Instance, bool) {
+func (l *Listener) extractInstance(spec data.ContainerGroupSpec, container *docker.Container) (data.Instance, bool) {
 	if !spec.Includes(containerLabels{container}) {
 		return data.Instance{}, false
 	}
@@ -228,7 +228,7 @@ func (l *Listener) deregister(container *docker.Container) error {
 	return nil
 }
 
-func (l *Listener) getAddress(spec data.InstanceGroupSpec, container *docker.Container) (string, int) {
+func (l *Listener) getAddress(spec data.ContainerGroupSpec, container *docker.Container) (string, int) {
 	addrSpec := spec.AddressSpec
 	switch addrSpec.Type {
 	case data.MAPPED:
@@ -303,7 +303,7 @@ func (l *Listener) serviceUpdated(name string) error {
 		return err
 	}
 
-	specs, err := l.store.GetInstanceGroupSpecs(name)
+	specs, err := l.store.GetContainerGroupSpecs(name)
 	if err != nil {
 		return err
 	}

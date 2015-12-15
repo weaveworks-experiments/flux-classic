@@ -160,8 +160,8 @@ func unmarshalService(node *etcd.Node) (data.Service, error) {
 	return service, err
 }
 
-func unmarshalGroupSpec(node *etcd.Node) (data.InstanceGroupSpec, error) {
-	var gs data.InstanceGroupSpec
+func unmarshalGroupSpec(node *etcd.Node) (data.ContainerGroupSpec, error) {
+	var gs data.ContainerGroupSpec
 	err := json.Unmarshal([]byte(node.Value), &gs)
 	return gs, err
 }
@@ -229,8 +229,8 @@ func (es *etcdStore) ForeachServiceInstance(fs store.ServiceFunc, fi store.Servi
 	})
 }
 
-func (es *etcdStore) GetInstanceGroupSpecs(serviceName string) (map[string]data.InstanceGroupSpec, error) {
-	res := make(map[string]data.InstanceGroupSpec)
+func (es *etcdStore) GetContainerGroupSpecs(serviceName string) (map[string]data.ContainerGroupSpec, error) {
+	res := make(map[string]data.ContainerGroupSpec)
 	err := es.traverse(serviceRootKey(serviceName), func(node *etcd.Node) error {
 		switch key := parseKey(node.Key).(type) {
 		case parsedGroupSpecKey:
@@ -248,7 +248,7 @@ func (es *etcdStore) GetInstanceGroupSpecs(serviceName string) (map[string]data.
 	return res, err
 }
 
-func (es *etcdStore) SetInstanceGroupSpec(serviceName string, groupName string, spec data.InstanceGroupSpec) error {
+func (es *etcdStore) SetContainerGroupSpec(serviceName string, groupName string, spec data.ContainerGroupSpec) error {
 	json, err := json.Marshal(spec)
 	if err != nil {
 		return err
@@ -261,7 +261,7 @@ func (es *etcdStore) SetInstanceGroupSpec(serviceName string, groupName string, 
 	return err
 }
 
-func (es *etcdStore) RemoveInstanceGroupSpec(serviceName string, groupName string) error {
+func (es *etcdStore) RemoveContainerGroupSpec(serviceName string, groupName string) error {
 	_, err := es.client.Delete(groupSpecKey(serviceName, groupName), true)
 	return err
 }

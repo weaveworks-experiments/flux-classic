@@ -17,8 +17,8 @@ func toMap(vals []string) map[string]string {
 	return m
 }
 
-func makeSpec(kv ...string) InstanceGroupSpec {
-	return InstanceGroupSpec{
+func makeSpec(kv ...string) ContainerGroupSpec {
+	return ContainerGroupSpec{
 		AddressSpec{"fixed", 8080},
 		Selector(toMap(kv)),
 	}

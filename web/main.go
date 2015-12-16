@@ -27,18 +27,7 @@ func main() {
 	log.Printf("Connected to backend\n")
 	api := &api{store, prom}
 
-	router := mux.NewRouter()
-
-	router.HandleFunc("/", homePage)
-	router.HandleFunc("/index.html", homePage)
-	router.PathPrefix("/res/").HandlerFunc(handleResource)
-
-	router.HandleFunc("/api/{service}/", api.listInstances)
-	router.HandleFunc("/api/", api.listServices)
-
-	router.PathPrefix("/stats/").HandlerFunc(api.proxyStats)
-
-	http.ListenAndServe("0.0.0.0:7070", router)
+	http.ListenAndServe("0.0.0.0:7070", api.router())
 }
 
 func handleResource(w http.ResponseWriter, r *http.Request) {
@@ -58,19 +47,33 @@ type api struct {
 }
 
 type serviceDetails struct {
-	Name    string       `json:"name"`
-	Details data.Service `json:"details"`
+	Name string `json:"name"`
+	data.Service
 }
 
 type service struct {
-	Name     string            `json:"name"`
+	serviceDetails
 	Children []instanceDetails `json:"children"`
-	Details  data.Service      `json:"details"`
 }
 
 type instanceDetails struct {
-	Name    string        `json:"name"`
-	Details data.Instance `json:"details"`
+	Name string `json:"name"`
+	data.Instance
+}
+
+func (api *api) router() http.Handler {
+	router := mux.NewRouter()
+
+	router.HandleFunc("/", homePage)
+	router.HandleFunc("/index.html", homePage)
+	router.PathPrefix("/res/").HandlerFunc(handleResource)
+
+	router.HandleFunc("/api/{service}/", api.listInstances)
+	router.HandleFunc("/api/", api.listServices)
+
+	router.PathPrefix("/stats/").HandlerFunc(api.proxyStats)
+
+	return router
 }
 
 func (api *api) listServices(w http.ResponseWriter, r *http.Request) {
@@ -80,7 +83,7 @@ func (api *api) listServices(w http.ResponseWriter, r *http.Request) {
 	api.store.ForeachServiceInstance(func(name string, details data.Service) {
 		currentService = serviceDetails{
 			Name:    name,
-			Details: details,
+			Service: details,
 		}
 		services = append(services, currentService)
 	}, nil)
@@ -98,14 +101,16 @@ func (api *api) listInstances(w http.ResponseWriter, r *http.Request) {
 	children := []instanceDetails{}
 	api.store.ForeachInstance(serviceName, func(name string, details data.Instance) {
 		instance := instanceDetails{
-			Name:    name,
-			Details: details,
+			Name:     name,
+			Instance: details,
 		}
 		children = append(children, instance)
 	})
 	service := service{
-		Name:     serviceName,
-		Details:  details,
+		serviceDetails: serviceDetails{
+			Name:    serviceName,
+			Service: details,
+		},
 		Children: children,
 	}
 	json.NewEncoder(w).Encode(service)

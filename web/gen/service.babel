@@ -114,7 +114,7 @@ var ServiceView = React.createClass({
           <div>
             <strong>
               {this.props.service.name}
-              {this.props.service.details.address}:{this.props.service.details.port}
+              {this.props.service.address}:{this.props.service.port}
               ({this.state.instances.length} instances)
             </strong>
             <div><GroupingSelect available={GROUP_OPTIONS} callback={this.setFields}/></div>
@@ -148,7 +148,7 @@ function project(object, fields) {
 function groupInstancesBy(instances, labels) {
   var result = {};
   instances.forEach(function(instance) {
-    var key = JSON.stringify(project(instance.details.labels, labels));
+    var key = JSON.stringify(project(instance.labels, labels));
     if (result[key] === undefined) {
       result[key] = [instance];
     }
@@ -339,9 +339,9 @@ var RateChart = React.createClass({
 var InstanceView = React.createClass({
   render: function() {
     return (<div className="instanceView">
-              <div>{this.props.instance.details.address}:{this.props.instance.details.port}
+              <div>{this.props.instance.address}:{this.props.instance.port}
                 ({maybeTruncate(this.props.instance.name)};
-                 {labels(this.props.instance.details.labels)})
+                 {labels(this.props.instance.labels)})
               </div>
               <RateChart spec={{individual: this.props.instance.name}}/>
             </div>)

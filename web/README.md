@@ -2,19 +2,20 @@
 
 ### Prerequisites
 
-The web interface depends both on etcd (as covered in the main
-README), and on [Prometheus][prom-site].
+The web interface depends both on etcd (as covered in the
+[main README](../README.md#readme)), and on
+[Prometheus][prom-site]. Prometheus needs some configuration to be
+able to collect stats -- some help on this is given
+[below](#configuring-prometheus).
 
-The essentials:
+### Exposing stats to Prometheus
 
- * You are running etcd and Prometheus; and,
- * The Ambergreen balancers are told to expose stats to Prometheus;
-   and,
- * Prometheus knows how to connect to them.
+The `run-amber` script assumes this is what you want, and does it for
+you.
 
-To tell the balancer to expose stats for Prometheus, supply the
-`--expose-prometheus` option, with a listening address (`:9000` is
-fine). For example,
+If you're running the balancer yourself, though, to tell it to expose
+stats for Prometheus, supply the `--expose-prometheus` option, with a
+listening address (`:9000` is fine):
 
 ```bash
 docker run -d --net=host --privileged \
@@ -22,15 +23,12 @@ docker run -d --net=host --privileged \
        squaremo/ambergreen-balancer --expose-prometheus :9000
 ```
 
-(The `run-amber` script assumes this is what you want, and does it for
-you.)
-
 ### Running Prometheus
 
 It's easy to run Prometheus under Docker; however, you will need some
 way of telling Prometheus about all of the hosts running Ambergreen,
-so it knows to scrape them for stats. See just below for some ways to
-do that.
+so it knows to scrape them for stats. See below for some ways to do
+that.
 
 ### Configuring Prometheus
 
@@ -43,8 +41,8 @@ your own configuration to add there.
 #### Using hostnames or IP addresses
 
 If you can supply a static list of hostnames or host IP addresses, you
-can just put them in a stanza in a Prometheus configuration file. For
-example, using host names:
+can just put them in a stanza in the configuration file. For example,
+using host names:
 
 ```yaml
 global:
@@ -61,7 +59,8 @@ scrape_configs:
 ```
 
 Note the port numbers, which match whatever you told the balancer to
-listen on with `--expose-prometheus`.
+listen on with `--expose-prometheus` (or `9000` if you use
+`run-amber`).
 
 You can then give the Prometheus container the IP addresses (and the
 configuration, with a volume mount) when starting it:
@@ -77,11 +76,12 @@ docker run -d -p 9090:9090 \
 
 #### Using Prometheus's service discovery configs
 
-Prometheus has a [handful of "service discovery" mechanisms][prom-sd], which let
-you put a record of the hosts somewhere, which Prometheus will poll.
+Prometheus has a [handful of "service discovery" mechanisms][prom-sd],
+which let you put a record of the hosts somewhere, which Prometheus
+will poll.
 
-For example, if you happen to be running all your containers on a <a
-href="">Weave</a> network, this can be as easy as making a DNS entry
+For example, if you happen to be running all your containers on a
+[Weave][weave-site] network, this can be as easy as making a DNS entry
 for each host,
 
 ```bash
@@ -110,3 +110,4 @@ namespace.
 
 [prom-sd]: http://prometheus.io/docs/operating/configuration/#scrape-configurations-scrape_config
 [prom-site]: https://github.com/prometheus/prometheus
+[weave-site]: https://github.com/weaveworks/weave

@@ -25,25 +25,6 @@ docker run -d --net=host --privileged \
 (The `run-amber` script assumes this is what you want, and does it for
 you.)
 
-### Running the web interface
-
-The web interface needs to know how to connect to etcd (using the
-environment entry `ETCD_ADDRESS`) and to Prometheus (using the
-environment entry `PROM_ADDRESS`). To run under Docker, assuming you
-are running etcd and Prometheus as given in the examples here,
-
-```bash
-export ETCD_ADDRESS=http://192.168.99.100:4001
-export PROM_ADDRESS=http://192.168.99.100:9090
-
-docker run -d -p 7070:7070 \
-       -e ETCD_ADDRESS \
-       -e PROM_ADDRESS \
-       squaremo/ambergreen-web
-```
-
-You should now see the web interface on `http://192.168.99.100:7070/`.
-
 ### Running Prometheus
 
 It's easy to run Prometheus under Docker; however, you will need some

@@ -31,45 +31,57 @@ Interaction with the system is via a command-line tool,
 `bin/amberctl` which invokes the binary as a Docker image. Both need
 `ETCD_ADDRESS` in the environment.
 
-To define a service and select containers to enrol, you use
+To define a service, you use
 
 ```
-amberctl service <service> <IP address> <port> [--protocol=tcp|http]
-amberctl select <service> <name> <address spec> [<selector>...]
+amberctl service <service> <IP address>:<port> [--protocol=tcp|http]
 ```
 
-The `<service>` name, IP address and port are arbitrary, and supplied
-by you. They should not correspond to an address already in use. It's
-this IP address and port that clients should connect to when using the
-service, so you may also want to arrange for it to be in DNS, or
-`/etc/hosts` for client containers. The protocol option controls
-whether client connections should be treated as HTTP, or plain TCP;
-using HTTP means better statistics can be collected (but not all
-servies will use HTTP).
+The IP address and port are chosen by you. The IP address is a virtual
+IP address; it shouldn't correspond to a device, or an address already
+in use. It's best to pick an address range for your services that
+won't be used anywhere else, and give each service an IP address from
+that range.
 
-The selection `<name>` is simply a handle so you can undo the
-selection later. The `<address spec>` tells Ambergreen how to connect to an
-enrolled instance. It is either
+It's this IP address and port that clients will connect to when using
+the service, so you may also want to arrange for it to be in DNS, or
+`/etc/hosts` for client containers.
 
- * `--mapped <port>`, which means use the host's IP address, along with the host port that is mapped to the given container port; or,
+The `--protocol` option controls whether client connections should be
+treated as HTTP, or plain TCP; using HTTP means HTTP-specific metrics
+can be collected, but not all services will use HTTP.
 
- * `--fixed <port>` which means use the IP address reported by `docker
-   inspect -f '{{.NetworkSettings.IPAddress}}`, along with the given
-   port.
+To enrol containers in the service, use
 
-`--mapped` is for when you are mapping ports on the host using `-p` or
-`-P` when running containers. `--fixed` is for when your containers
-have a network connecting them (e.g., if you are using a Weave
-network) and don't need to map ports.
+```
+amberctl select <service> <group> <address spec> [<selector>...]
+```
+
+The selection `<group>` name is simply a handle so you can undo the
+selection later. The `<address spec>` tells Ambergreen how to connect
+to an enrolled instance. It is either
+
+ * `--port-mapped <port>`, which means use the host's IP address,
+   along with the host port that is mapped to the given container
+   port. This is for when you are mapping ports on the host using `-p`
+   or `-P` with `docker run ...`.
+
+ * `--port-fixed <port>` which means use the IP address reported by
+   Docker (i.e., as from `docker inspect ...`), along with the given
+   port. This is for when your containers have a network connecting
+   them (e.g., if you are using a Weave network) and don't need to map
+   ports.
 
 The selectors are a set of rules for matching containers. Some simple
 rules are `--image` and `--tag`, which match the image name and tag
 respectively (the tag is the bit after the colon in the image, which
-is often a version number). For example, a service definition could be
+is often a version number).
+
+For example, a service definition could be
 
 ```bash
-amberctl service search-svc 10.128.0.1 80
-amberctl select search-svc default --image searchapi
+amberctl service search-svc 10.128.0.1:80 --protocol http
+amberctl select search-svc default --port-mapped 8080 --image searchapi
 ```
 
 Any container using the image `searchapi` will be enrolled as an
@@ -77,8 +89,33 @@ instance of `search-svc`, and the service will be available on each
 host at 10.128.0.1:80.
 
 See the [command-line README](amberctl/README.md#readme) for details
-on defining services, selecting and deselecting containers, and
-querying the system.
+on defining services, selecting containers, and querying the system.
+
+### Running the web interface
+
+Ambergreen has a web interface that shows the statistics gathered from
+the services.
+
+The web interface needs to know how to connect to etcd (using the
+environment entry `ETCD_ADDRESS`) and to Prometheus (using the
+environment entry `PROM_ADDRESS`). Some help with running Prometheus,
+and configuring the system to use it, is given in the web interface
+[README](web/README.md#readme).
+
+To run it under Docker, assuming you are running etcd and Prometheus
+as given in the examples here,
+
+```bash
+export ETCD_ADDRESS=http://192.168.99.100:4001
+export PROM_ADDRESS=http://192.168.99.100:9090
+
+docker run -d -p 7070:7070 \
+       -e ETCD_ADDRESS \
+       -e PROM_ADDRESS \
+       squaremo/ambergreen-web
+```
+
+You should now see the web interface on `http://192.168.99.100:7070/`.
 
 ### Prerequisites
 

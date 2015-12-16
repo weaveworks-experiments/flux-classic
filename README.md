@@ -8,11 +8,13 @@ services, according to selection rules you supply.
 
 Assuming you have [the prerequisites](#prerequisites), you need to run
 the agent and the balancer on each host. `./bin/run-amber` will run
-them as Docker containers.
+them both, as Docker containers.
 
-You need to provide an etcd endpoint, and an IP address for the
-host. The IP address is used as the address for mapped ports (i.e.,
-when you use `-p or -P` when running the container).
+You need to provide the agent and the balancer with an etcd endpoint
+in an environment entry `ETCD_ADDRESS`; and, the agent with an IP
+address for the host, as `HOST_IP`. The IP address is used as the
+address for mapped ports (i.e., if you use `-p` or `-P` when running
+the container).
 
 Say I'm running everything (including etcd) on one host, with the IP
 address `192.168.99.100`:

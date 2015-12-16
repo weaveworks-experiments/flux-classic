@@ -22,7 +22,7 @@ realclean:: clean
 # Don't remove this if a subsequent step fails
 .PRECIOUS: $(call image_stamp,build)
 
-$(foreach i,$(IMAGES) $(BUILD_IMAGES),docker/.$(i).done): docker/.%.done: docker/Dockerfile.%
+$(foreach i,$(IMAGES) $(BUILD_IMAGES),$(call image_stamp,$(i))): docker/.%.done: docker/Dockerfile.%
 	rm -rf build-container
 	mkdir build-container
 	cp -pr $^ build-container/
@@ -54,6 +54,11 @@ build/bin/%: $(call image_stamp,build) docker/build-wrapper.sh $(common_go_srcs)
 	$(get_vendor_submodules)
 	rm -f $@
 	$(call run_build_container,build,-e GOPATH=/build,$(*F),go install ./...)
+
+.PHONY: $(foreach i,$(IMAGES) common,test-$(i))
+$(foreach i,$(IMAGES) common,test-$(i)): test-%: $(call image_stamp,build)
+	$(get_vendor_submodules)
+	$(call run_build_container,build,-e GOPATH=/build,,go test ./$*/...)
 
 .PHONY: test
 test:: $(call image_stamp,build)

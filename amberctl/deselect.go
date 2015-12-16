@@ -15,7 +15,8 @@ type deselectOpts struct {
 func (opts *deselectOpts) addCommandTo(top *cobra.Command) {
 	top.AddCommand(&cobra.Command{
 		Use:   "deselect <service> <group>",
-		Short: "deselect a group of instances from a service",
+		Short: "deselect a group of containers from a service",
+		Long:  "Deselect a previously selected group of containers from a service, by name.",
 		Run:   opts.run,
 	})
 }

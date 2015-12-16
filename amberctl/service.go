@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"strconv"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -17,35 +18,42 @@ type addOpts struct {
 	store store.Store
 
 	spec
+	protocol string
 }
 
 func (opts *addOpts) addCommandTo(top *cobra.Command) {
 	addCmd := &cobra.Command{
-		Use:   "service <name> <IP address> <port> [options]",
+		Use:   "service name ipaddress:port",
 		Short: "define a service",
-		Long:  "Define a service, optionally giving a default specification for instances belonging to that service.",
+		Long:  "Define a service, optionally giving a default specification for containers belonging to that service.",
 		Run:   opts.run,
 	}
+	addCmd.Flags().StringVarP(&opts.protocol, "protocol", "p", "tcp", `the protocol to assume for connections to the service; either "http" or "tcp"`)
 	opts.addSpecVars(addCmd)
 	top.AddCommand(addCmd)
 }
 
 func (opts *addOpts) run(cmd *cobra.Command, args []string) {
-	if len(args) < 3 {
-		exitWithErrorf("Expected arguments <name>, <IP address>, <port>")
+	if len(args) < 2 {
+		exitWithErrorf("Expected arguments <name> <ipaddress:port>")
 	}
 	serviceName := args[0]
-	port, err := strconv.Atoi(args[2])
-	if err != nil {
-		exitWithErrorf("Invalid port number: " + err.Error())
+	addr := strings.Split(args[1], ":")
+	if len(addr) != 2 {
+		exitWithErrorf("Expected second argument in form address:port")
 	}
-	ip := net.ParseIP(args[1])
+	port, err := strconv.Atoi(addr[1])
+	// We may later use 0 to mean "please allocate"
+	if err != nil || port < 1 || port > 65535 {
+		exitWithErrorf("Invalid port number (: " + err.Error())
+	}
+	ip := net.ParseIP(addr[0])
 	if ip == nil {
-		exitWithErrorf("invalid IP address: ", args[1])
+		exitWithErrorf("Invalid IP address: ", args[1])
 	}
 
 	err = opts.store.AddService(serviceName, data.Service{
-		Address:  args[1],
+		Address:  addr[0],
 		Port:     port,
 		Protocol: opts.protocol,
 	})

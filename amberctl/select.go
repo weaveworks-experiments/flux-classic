@@ -15,8 +15,9 @@ type selectOpts struct {
 
 func (opts *selectOpts) addCommandTo(top *cobra.Command) {
 	cmd := &cobra.Command{
-		Use:   "select <service> <name> [options]",
-		Short: "include instances in a service",
+		Use:   "select service group",
+		Short: "include containers in a service",
+		Long:  "Select containers to be instances of a service, giving the selection a name so it can be rescinded later.",
 		Run:   opts.run,
 	}
 	opts.addSpecVars(cmd)
@@ -24,8 +25,8 @@ func (opts *selectOpts) addCommandTo(top *cobra.Command) {
 }
 
 func (opts *selectOpts) run(_ *cobra.Command, args []string) {
-	if len(args) < 2 {
-		exitWithErrorf("You must supply <service> and <name>")
+	if len(args) != 2 {
+		exitWithErrorf("You must supply <service> and <group> (only)")
 	}
 	serviceName, name := args[0], args[1]
 
@@ -44,5 +45,5 @@ func (opts *selectOpts) run(_ *cobra.Command, args []string) {
 		exitWithErrorf("Error updating service: ", err)
 	}
 
-	fmt.Println("Selected instance group", name, "in service", serviceName)
+	fmt.Println("Selected containers as ", name, "into service", serviceName)
 }

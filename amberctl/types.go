@@ -54,17 +54,15 @@ func (opts *selector) addSelectorVars(cmd *cobra.Command) {
 }
 
 type spec struct {
-	protocol string
-	fixed    int
-	mapped   int
+	fixed  int
+	mapped int
 	selector
 }
 
 func (opts *spec) addSpecVars(cmd *cobra.Command) {
 	opts.addSelectorVars(cmd)
-	cmd.Flags().StringVar(&opts.protocol, "protocol", "tcp", `the protocol to assume for connections to the service; either "http" or "tcp"`)
-	cmd.Flags().IntVar(&opts.fixed, "fixed", 0, "Use a fixed port, and get the IP from docker inspect")
-	cmd.Flags().IntVar(&opts.mapped, "mapped", 0, "Use the host address mapped to the port given")
+	cmd.Flags().IntVar(&opts.fixed, "port-fixed", 0, "Use a fixed port, and get the IP address from docker inspect")
+	cmd.Flags().IntVar(&opts.mapped, "port-mapped", 0, "Use the host IP address, and the host port mapped to the given container port")
 }
 
 func (opts *spec) makeSpec() (*data.ContainerGroupSpec, error) {
@@ -74,14 +72,14 @@ func (opts *spec) makeSpec() (*data.ContainerGroupSpec, error) {
 
 	if !sel.Empty() {
 		if opts.mapped > 0 && opts.fixed > 0 {
-			return nil, fmt.Errorf("You cannot have both fixed and mapped port for default instance spec")
+			return nil, fmt.Errorf("You cannot use both fixed and mapped port for a instance spec")
 		}
 		if opts.mapped > 0 {
 			addrSpec = data.AddressSpec{Type: data.MAPPED, Port: opts.mapped}
 		} else if opts.fixed > 0 {
 			addrSpec = data.AddressSpec{Type: data.FIXED, Port: opts.fixed}
 		} else {
-			return nil, fmt.Errorf("If you supply a selector, you must supply either --fixed or --mapped")
+			return nil, fmt.Errorf("Along with selection flags, you must supply one of --port-fixed or --port-mapped")
 		}
 
 		return &data.ContainerGroupSpec{

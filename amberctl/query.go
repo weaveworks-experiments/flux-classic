@@ -23,6 +23,7 @@ func (opts *queryOpts) addCommandTo(top *cobra.Command) {
 	cmd := &cobra.Command{
 		Use:   "query [options]",
 		Short: "display instances selected by the given filter",
+		Long:  "Display instances selected using the given filter, optionally for a single service only, and optionally formatting each result with a template rather than just printing the ID.",
 		Run:   opts.run,
 	}
 	opts.addSelectorVars(cmd)

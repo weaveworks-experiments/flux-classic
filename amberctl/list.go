@@ -21,13 +21,14 @@ type listOpts struct {
 
 func (opts *listOpts) addCommandTo(top *cobra.Command) {
 	cmd := &cobra.Command{
-		Use:   "list [options]",
+		Use:   "list",
 		Short: "list the services defined",
+		Long:  "List the services currently defined, optionally including instances enrolled, and optionally formatting each result with a template rather than just printing the ID.",
 		Run:   opts.run,
 	}
-	cmd.Flags().StringVar(&opts.format, "format", "", "format each service with the go template expression given")
-	cmd.Flags().StringVar(&opts.formatInstance, "format-instance", "", "format each instance with the go template expression given (implies verbose)")
-	cmd.Flags().BoolVar(&opts.verbose, "verbose", false, "show the list of instances for each service")
+	cmd.Flags().StringVarP(&opts.format, "format", "f", "", "format each service with the go template expression given")
+	cmd.Flags().StringVarP(&opts.formatInstance, "format-instance", "i", "", "format each instance with the go template expression given (implies verbose)")
+	cmd.Flags().BoolVarP(&opts.verbose, "verbose", "v", false, "show the list of instances for each service")
 	top.AddCommand(cmd)
 }
 

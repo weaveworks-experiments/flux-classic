@@ -8,7 +8,8 @@ README), and on [Prometheus][prom-site].
 The essentials:
 
  * You are running etcd and Prometheus; and,
- * The Amber balancers are told to expose stats to Prometheus; and,
+ * The Ambergreen balancers are told to expose stats to Prometheus;
+   and,
  * Prometheus knows how to connect to them.
 
 To tell the balancer to expose stats for Prometheus, supply the
@@ -46,9 +47,9 @@ You should now see the web interface on `http://192.168.99.100:7070/`.
 ### Running Prometheus
 
 It's easy to run Prometheus under Docker; however, you will need some
-way of telling Prometheus about all of the hosts running Amber, so it
-knows to scrape them for stats. See just below for some ways to do
-that.
+way of telling Prometheus about all of the hosts running Ambergreen,
+so it knows to scrape them for stats. See just below for some ways to
+do that.
 
 ### Configuring Prometheus
 

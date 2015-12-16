@@ -1,7 +1,7 @@
 ## Service controller for containers
 
-Amber lets you define _services_ which are load-balanced over a set of
-Docker containers. The containers are automatically enrolled in
+Ambergreen lets you define _services_ which are load-balanced over a
+set of Docker containers. The containers are automatically enrolled in
 services, according to selection rules you supply.
 
 ### How to run it
@@ -48,7 +48,7 @@ using HTTP means better statistics can be collected (but not all
 servies will use HTTP).
 
 The selection `<name>` is simply a handle so you can undo the
-selection later. The `<address spec>` tells Amber how to connect to an
+selection later. The `<address spec>` tells Ambergreen how to connect to an
 enrolled instance. It is either
 
  * `--mapped <port>`, which means use the host's IP address, along with the host port that is mapped to the given container port; or,
@@ -82,8 +82,8 @@ querying the system.
 
 ### Prerequisites
 
-Amber assumes you have an etcd installation handy. If you don't, it's
-easy to run one under Docker for the purpose of kicking the
+Ambergreen assumes you have an etcd installation handy. If you don't,
+it's easy to run one under Docker for the purpose of kicking the
 tires. Assuming you have a host with Docker running and accessible on
 `HOST_IP`, do
 
@@ -102,5 +102,5 @@ details.
 
 ### Disclaimer
 
-Amber is a work in progress. There are rough edges, and areas where
-expedience has driven the design.
+Ambergreen is a work in progress. There are rough edges, and areas
+where expedience has driven the design.

@@ -1,8 +1,9 @@
 ## Service controller for containers
 
-Ambergreen lets you define _services_ which are load-balanced over a
-set of Docker containers. The containers are automatically enrolled in
-services, according to selection rules you supply.
+Ambergreen lets you define _services_ which are accessed on the same
+IP address and port everywhere, and load-balanced over a set of Docker
+containers. The containers are automatically enrolled in services
+according to selection rules you supply.
 
 ### How to run it
 
@@ -60,8 +61,11 @@ amberctl select <service> <group> <address spec> [<selector>...]
 ```
 
 The selection `<group>` name is simply a handle so you can undo the
-selection later. The `<address spec>` tells Ambergreen how to connect
-to an enrolled instance. It is either
+selection later.
+
+The `<address spec>` tells Ambergreen how to reach a container. There
+are two alternatives: using mapped ports, or assuming a common
+network. The corresponding options are:
 
  * `--port-mapped <port>`, which means use the host's IP address,
    along with the host port that is mapped to the given container

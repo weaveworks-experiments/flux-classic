@@ -30,7 +30,7 @@ type Controller interface {
 	Close()
 }
 
-type Daemon struct {
+type BalancerDaemon struct {
 	errorSink    errorsink.ErrorSink
 	ipTables     *ipTables
 	netConfig    netConfig
@@ -39,8 +39,8 @@ type Daemon struct {
 	services     *services
 }
 
-func Start(args []string, errorSink errorsink.ErrorSink, ipTablesCmd IPTablesCmd) *Daemon {
-	d := &Daemon{errorSink: errorSink}
+func Start(args []string, errorSink errorsink.ErrorSink, ipTablesCmd IPTablesCmd) *BalancerDaemon {
+	d := &BalancerDaemon{errorSink: errorSink}
 	err := d.start(args, ipTablesCmd)
 	if err != nil {
 		errorSink.Post(err)
@@ -49,7 +49,7 @@ func Start(args []string, errorSink errorsink.ErrorSink, ipTablesCmd IPTablesCmd
 	return d
 }
 
-func (d *Daemon) start(args []string, ipTablesCmd IPTablesCmd) error {
+func (d *BalancerDaemon) start(args []string, ipTablesCmd IPTablesCmd) error {
 	fs := flag.NewFlagSet(args[0], flag.ExitOnError)
 
 	var useSimpleControl bool
@@ -108,7 +108,7 @@ func (d *Daemon) start(args []string, ipTablesCmd IPTablesCmd) error {
 	return nil
 }
 
-func (d *Daemon) Stop() {
+func (d *BalancerDaemon) Stop() {
 	if d.controller != nil {
 		d.controller.Close()
 	}

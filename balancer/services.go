@@ -24,7 +24,7 @@ type services struct {
 	lock     sync.Mutex
 	closed   chan struct{}
 	finished chan struct{}
-	services map[model.ServiceKey]*service
+	services map[string]*service
 }
 
 func (cf servicesConfig) new() *services {
@@ -33,7 +33,7 @@ func (cf servicesConfig) new() *services {
 
 		closed:   make(chan struct{}),
 		finished: make(chan struct{}),
-		services: make(map[model.ServiceKey]*service),
+		services: make(map[string]*service),
 	}
 	go svcs.run()
 	return svcs
@@ -72,61 +72,55 @@ func (svcs *services) run() {
 }
 
 func (svcs *services) doUpdate(update model.ServiceUpdate) {
-	svc := svcs.services[update.ServiceKey]
+	svc := svcs.services[update.Name]
 	if svc == nil {
-		if update.ServiceInfo == nil {
+		if update.Delete {
 			return
 		}
 
-		svc, err := svcs.newService(update)
+		svc, err := svcs.newService(&update.Service)
 		if err != nil {
-			log.Error("adding service ", update.ServiceKey, ": ",
+			log.Error("adding service ", update.Name, ": ",
 				err)
 			return
 		}
 
-		svcs.services[update.ServiceKey] = svc
-	} else if update.ServiceInfo != nil {
-		err := svc.update(update.ServiceInfo)
+		svcs.services[update.Name] = svc
+	} else if !update.Delete {
+		err := svc.update(&update.Service)
 		if err != nil {
-			log.Error("updating service ", update.ServiceKey, ": ",
+			log.Error("updating service ", update.Name, ": ",
 				err)
 			return
 		}
 	} else {
-		delete(svcs.services, update.ServiceKey)
+		delete(svcs.services, update.Name)
 		svc.close()
 	}
 }
 
 type service struct {
 	*services
-	key   model.ServiceKey
 	state serviceState
 }
 
 type serviceState interface {
 	stop()
-	update(*model.ServiceInfo) (bool, error)
+	update(*model.Service) (bool, error)
 }
 
-func (svcs *services) newService(upd model.ServiceUpdate) (*service, error) {
-	svc := &service{
-		services: svcs,
-		key:      upd.ServiceKey,
-	}
-
-	err := svc.update(upd.ServiceInfo)
-	if err != nil {
+func (svcs *services) newService(update *model.Service) (*service, error) {
+	svc := &service{services: svcs}
+	if err := svc.update(update); err != nil {
 		return nil, err
 	}
 
 	return svc, nil
 }
 
-func (svc *service) update(si *model.ServiceInfo) error {
+func (svc *service) update(update *model.Service) error {
 	if svc.state != nil {
-		ok, err := svc.state.update(si)
+		ok, err := svc.state.update(update)
 		if err != nil || ok {
 			return err
 		}
@@ -136,16 +130,15 @@ func (svc *service) update(si *model.ServiceInfo) error {
 	// avoid a window where there is no rule for the service
 	start := forwardingConfig{
 		netConfig:    svc.netConfig,
-		key:          svc.key,
 		ipTables:     svc.ipTables,
 		eventHandler: svc.eventHandler,
 		errorSink:    svc.errorSink,
 	}.start
-	if len(si.Instances) == 0 {
+	if len(update.Instances) == 0 {
 		start = svc.startRejecting
 	}
 
-	state, err := start(si)
+	state, err := start(update)
 	if err != nil {
 		return err
 	}
@@ -165,11 +158,11 @@ func (svc *service) close() {
 
 type rejecting func()
 
-func (svc *service) startRejecting(si *model.ServiceInfo) (serviceState, error) {
+func (svc *service) startRejecting(s *model.Service) (serviceState, error) {
 	rule := []interface{}{
 		"-p", "tcp",
-		"-d", svc.key.IP(),
-		"--dport", svc.key.Port,
+		"-d", s.IP,
+		"--dport", s.Port,
 		"-j", "REJECT",
 	}
 
@@ -187,6 +180,6 @@ func (rej rejecting) stop() {
 	rej()
 }
 
-func (rej rejecting) update(si *model.ServiceInfo) (bool, error) {
-	return len(si.Instances) == 0, nil
+func (rej rejecting) update(s *model.Service) (bool, error) {
+	return len(s.Instances) == 0, nil
 }

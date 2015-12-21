@@ -11,11 +11,11 @@ type EventLogger struct {
 }
 
 func (EventLogger) Connection(ev *events.Connection) {
-	log.Infoln("Connection", ev.Inbound, ev.Outbound)
+	log.Infoln("Connection", ev.Inbound, ev.Instance.TCPAddr())
 }
 
 func (EventLogger) HttpExchange(ev *events.HttpExchange) {
-	log.Infoln("Http exchange", ev.Inbound, ev.Outbound,
+	log.Infoln("Http exchange", ev.Inbound, ev.Instance.TCPAddr(),
 		ev.Request.Method, ev.Request.URL, ev.Response.StatusCode,
 		ev.RoundTrip, ev.TotalTime)
 }

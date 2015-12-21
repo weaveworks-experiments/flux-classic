@@ -103,26 +103,34 @@ func (srv *Server) doRequest(conn *net.UnixConn) error {
 		return fmt.Errorf("service specification should begin with port:ip-address")
 	}
 
-	addr, err := net.ResolveTCPAddr("tcp", parts[0])
+	name := parts[0]
+	proto := parts[1]
+	addr, err := net.ResolveTCPAddr("tcp", parts[2])
 	if err != nil {
 		return err
 	}
 
 	var insts []model.Instance
-	for _, inst := range parts[2:] {
+	for i, inst := range parts[3:] {
 		addr, err := net.ResolveTCPAddr("tcp", inst)
 		if err != nil {
 			return err
 		}
-		insts = append(insts, model.MakeInstance(inst, "default", addr.IP, addr.Port))
+		insts = append(insts, model.Instance{
+			Name:  fmt.Sprintf("inst%d", i+1),
+			Group: "group",
+			IP:    addr.IP,
+			Port:  addr.Port,
+		})
 	}
 
-	var update model.ServiceUpdate
-	update.ServiceKey = model.MakeServiceKey("tcp", addr.IP, addr.Port)
-	update.ServiceInfo = &model.ServiceInfo{
-		Protocol:  parts[1],
+	update := model.ServiceUpdate{Service: model.Service{
+		Name:      name,
+		Protocol:  proto,
+		IP:        addr.IP,
+		Port:      addr.Port,
 		Instances: insts,
-	}
+	}}
 
 	select {
 	case srv.updates <- update:

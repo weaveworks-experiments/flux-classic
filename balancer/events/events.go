@@ -14,10 +14,9 @@ type Handler interface {
 }
 
 type Connection struct {
-	model.Ident
+	Service  *model.Service
+	Instance *model.Instance
 	Inbound  *net.TCPAddr
-	Outbound *net.TCPAddr
-	Protocol string
 }
 
 type HttpExchange struct {

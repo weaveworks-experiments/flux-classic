@@ -15,7 +15,6 @@ import (
 
 type forwardingConfig struct {
 	netConfig
-	key model.ServiceKey
 	*ipTables
 	eventHandler events.Handler
 	errorSink    errorsink.ErrorSink
@@ -28,14 +27,13 @@ type forwarding struct {
 	stopped  bool
 
 	lock sync.Mutex
-	*model.ServiceInfo
-	shim     shimFunc
-	shimName string
+	*model.Service
+	shim shimFunc
 }
 
 type shimFunc func(inbound, outbound *net.TCPConn, conn *events.Connection, eventHandler events.Handler) error
 
-func (fc forwardingConfig) start(si *model.ServiceInfo) (serviceState, error) {
+func (fc forwardingConfig) start(svc *model.Service) (serviceState, error) {
 	ip, err := bridgeIP(fc.bridge)
 	if err != nil {
 		return nil, err
@@ -55,8 +53,8 @@ func (fc forwardingConfig) start(si *model.ServiceInfo) (serviceState, error) {
 
 	rule := []interface{}{
 		"-p", "tcp",
-		"-d", fc.key.IP(),
-		"--dport", fc.key.Port,
+		"-d", svc.IP,
+		"--dport", svc.Port,
 		"-j", "DNAT",
 		"--to-destination", listener.Addr(),
 	}
@@ -69,7 +67,7 @@ func (fc forwardingConfig) start(si *model.ServiceInfo) (serviceState, error) {
 		forwardingConfig: fc,
 		rule:             rule,
 		listener:         listener,
-		ServiceInfo:      si,
+		Service:          svc,
 	}
 
 	fwd.chooseShim()
@@ -120,16 +118,21 @@ func (fwd *forwarding) stop() {
 	fwd.ipTables.deleteRule("nat", fwd.rule)
 }
 
-func (fwd *forwarding) update(si *model.ServiceInfo) (bool, error) {
-	if len(si.Instances) > 0 {
-		fwd.lock.Lock()
-		defer fwd.lock.Unlock()
-		fwd.ServiceInfo = si
-		fwd.chooseShim()
-		return true, nil
+func (fwd *forwarding) update(svc *model.Service) (bool, error) {
+	if len(svc.Instances) == 0 {
+		return false, nil
 	}
 
-	return false, nil
+	fwd.lock.Lock()
+	defer fwd.lock.Unlock()
+
+	if !svc.IP.Equal(fwd.Service.IP) || svc.Port != fwd.Service.Port {
+		return false, nil
+	}
+
+	fwd.Service = svc
+	fwd.chooseShim()
+	return true, nil
 }
 
 var shims = map[string]shimFunc{
@@ -138,39 +141,32 @@ var shims = map[string]shimFunc{
 }
 
 func (fwd *forwarding) chooseShim() {
-	name := fwd.Protocol
-	if name == "" {
-		name = "tcp"
-	}
-
-	shim := shims[name]
+	shim := shims[fwd.Protocol]
 	if shim == nil {
-		log.Warn("service ", fwd.key, ": no support for protocol ",
-			fwd.Protocol, ", falling back to TCP forwarding")
+		log.Warn("service ", fwd.Service.Name,
+			": no support for protocol ", fwd.Protocol,
+			", falling back to TCP forwarding")
 		shim = tcpShim
-		name = "tcp"
 	}
 
 	fwd.shim = shim
-	fwd.shimName = name
 }
 
 func (fwd *forwarding) forward(inbound *net.TCPConn) {
-	inst, shim, shimName := fwd.pickInstanceAndShim()
+	inst, shim := fwd.pickInstanceAndShim()
 	inAddr := inbound.RemoteAddr().(*net.TCPAddr)
 	outAddr := inst.TCPAddr()
 
-	outbound, err := net.DialTCP("tcp", nil, outAddr)
+	outbound, err := net.DialTCP("tcp", nil, &outAddr)
 	if err != nil {
 		log.Error("connecting to ", outAddr, ": ", err)
 		return
 	}
 
 	connEvent := &events.Connection{
-		Ident:    inst.Ident,
+		Service:  fwd.Service,
+		Instance: inst,
 		Inbound:  inAddr,
-		Outbound: outAddr,
-		Protocol: shimName,
 	}
 	err = shim(inbound, outbound, connEvent, fwd.eventHandler)
 	if err != nil {
@@ -179,10 +175,11 @@ func (fwd *forwarding) forward(inbound *net.TCPConn) {
 	}
 }
 
-func (fwd *forwarding) pickInstanceAndShim() (model.Instance, shimFunc, string) {
+func (fwd *forwarding) pickInstanceAndShim() (*model.Instance, shimFunc) {
 	fwd.lock.Lock()
 	defer fwd.lock.Unlock()
-	return fwd.Instances[rand.Intn(len(fwd.Instances))], fwd.shim, fwd.shimName
+	inst := &fwd.Instances[rand.Intn(len(fwd.Instances))]
+	return inst, fwd.shim
 }
 
 func tcpShim(inbound, outbound *net.TCPConn, connEvent *events.Connection, eh events.Handler) error {

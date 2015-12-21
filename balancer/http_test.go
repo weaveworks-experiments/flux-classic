@@ -28,12 +28,12 @@ type shimWrapper struct {
 func wrapShim(shim shimFunc, target *net.TCPAddr, t *testing.T) *shimWrapper {
 	listener, err := net.ListenTCP("tcp", nil)
 	require.Nil(t, err)
+	laddr := listener.Addr().(*net.TCPAddr)
 
 	w := &shimWrapper{
 		listener:  listener,
 		exchanges: make(chan *events.HttpExchange, 100),
-		baseUrl: fmt.Sprintf("http://localhost:%d/",
-			listener.Addr().(*net.TCPAddr).Port),
+		baseUrl:   fmt.Sprintf("http://localhost:%d/", laddr.Port),
 	}
 
 	go func() {
@@ -50,10 +50,19 @@ func wrapShim(shim shimFunc, target *net.TCPAddr, t *testing.T) *shimWrapper {
 				outbound, err := net.DialTCP("tcp", nil, target)
 				require.Nil(t, err)
 				cevent := &events.Connection{
-					Ident:    model.Ident{target.String(), "default"},
-					Inbound:  inbound.RemoteAddr().(*net.TCPAddr),
-					Outbound: target,
-					Protocol: "http",
+					Service: &model.Service{
+						Name:     "service",
+						Protocol: "http",
+						IP:       net.ParseIP("127.42.0.1"),
+						Port:     8888,
+					},
+					Instance: &model.Instance{
+						Name:  "inst",
+						Group: "default",
+						IP:    laddr.IP,
+						Port:  laddr.Port,
+					},
+					Inbound: inbound.RemoteAddr().(*net.TCPAddr),
 				}
 				require.Nil(t, shim(inbound, outbound, cevent, w))
 			}()

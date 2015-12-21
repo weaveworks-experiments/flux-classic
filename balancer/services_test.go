@@ -35,16 +35,21 @@ func TestServices(t *testing.T) {
 	}.new()
 
 	// Add a service
-	key := model.MakeServiceKey("tcp", net.ParseIP("127.42.0.1"), 8888)
-	updates <- model.ServiceUpdate{
-		ServiceKey: key,
-		ServiceInfo: &model.ServiceInfo{
-			Instances: []model.Instance{
-				model.MakeInstance("foo", "bar",
-					net.ParseIP("127.0.0.1"), 10000),
+	svc := model.Service{
+		Name:     "service",
+		Protocol: "tcp",
+		IP:       net.ParseIP("127.42.0.1"),
+		Port:     8888,
+		Instances: []model.Instance{
+			{
+				Name:  "foo",
+				Group: "bar",
+				IP:    net.ParseIP("127.0.0.1"),
+				Port:  10000,
 			},
 		},
 	}
+	updates <- model.ServiceUpdate{Service: svc}
 	<-done
 
 	require.Len(t, mipt.chains["nat AMBERGREEN"], 1)
@@ -52,15 +57,15 @@ func TestServices(t *testing.T) {
 	require.Regexp(t, "^-p tcp -d 127\\.42\\.0\\.1 --dport 8888 -j DNAT --to-destination 127\\.0\\.0\\.1:\\d+$", strings.Join(mipt.chains["nat AMBERGREEN"][0], " "))
 
 	// Update it
-	updates <- model.ServiceUpdate{
-		ServiceKey: key,
-		ServiceInfo: &model.ServiceInfo{
-			Instances: []model.Instance{
-				model.MakeInstance("foo", "bar",
-					net.ParseIP("127.0.0.1"), 10001),
-			},
+	svc.Instances = []model.Instance{
+		{
+			Name:  "foo",
+			Group: "bar",
+			IP:    net.ParseIP("127.0.0.1"),
+			Port:  10001,
 		},
 	}
+	updates <- model.ServiceUpdate{Service: svc}
 	<-done
 
 	require.Len(t, mipt.chains["nat AMBERGREEN"], 1)
@@ -68,10 +73,8 @@ func TestServices(t *testing.T) {
 	require.Regexp(t, "^-p tcp -d 127\\.42\\.0\\.1 --dport 8888 -j DNAT --to-destination 127\\.0\\.0\\.1:\\d+$", strings.Join(mipt.chains["nat AMBERGREEN"][0], " "))
 
 	// Update with no instances
-	updates <- model.ServiceUpdate{
-		ServiceKey:  key,
-		ServiceInfo: &model.ServiceInfo{},
-	}
+	svc.Instances = nil
+	updates <- model.ServiceUpdate{Service: svc}
 	<-done
 
 	require.Len(t, mipt.chains["nat AMBERGREEN"], 0)
@@ -80,10 +83,7 @@ func TestServices(t *testing.T) {
 		strings.Join(mipt.chains["filter AMBERGREEN"][0], " "))
 
 	// And once more for luck:
-	updates <- model.ServiceUpdate{
-		ServiceKey:  key,
-		ServiceInfo: &model.ServiceInfo{},
-	}
+	updates <- model.ServiceUpdate{Service: svc}
 	<-done
 
 	require.Len(t, mipt.chains["nat AMBERGREEN"], 0)
@@ -92,18 +92,14 @@ func TestServices(t *testing.T) {
 		strings.Join(mipt.chains["filter AMBERGREEN"][0], " "))
 
 	// Delete it
-	updates <- model.ServiceUpdate{
-		ServiceKey: key,
-	}
+	updates <- model.ServiceUpdate{Service: svc, Delete: true}
 	<-done
 
 	require.Len(t, mipt.chains["nat AMBERGREEN"], 0)
 	require.Len(t, mipt.chains["filter AMBERGREEN"], 0)
 
 	// Delete it, even though it doesn't exist
-	updates <- model.ServiceUpdate{
-		ServiceKey: key,
-	}
+	updates <- model.ServiceUpdate{Service: svc, Delete: true}
 	<-done
 
 	svcs.close()

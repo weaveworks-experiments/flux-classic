@@ -1,8 +1,9 @@
 package etcdcontrol
 
 import (
-	"log"
 	"net"
+
+	log "github.com/Sirupsen/logrus"
 
 	"github.com/squaremo/ambergreen/common/data"
 	"github.com/squaremo/ambergreen/common/errorsink"
@@ -17,21 +18,46 @@ type Listener struct {
 	updates chan model.ServiceUpdate
 }
 
-func (l *Listener) send(serviceName string) error {
+func (l *Listener) send(serviceName string) {
 	service, err := l.store.GetServiceDetails(serviceName)
 	if err != nil {
-		return err
+		log.Error(err)
+		return
 	}
-	update := model.ServiceUpdate{
-		ServiceKey:  model.MakeServiceKey("tcp", net.ParseIP(service.Address), service.Port),
-		ServiceInfo: &model.ServiceInfo{Protocol: service.Protocol},
+
+	ip := net.ParseIP(service.Address)
+	if ip == nil {
+		log.Errorf("Bad address \"%s\" for service %s",
+			service.Address, serviceName)
+		return
 	}
+
+	var insts []model.Instance
 	l.store.ForeachInstance(serviceName, func(name string, instance data.Instance) {
-		update.ServiceInfo.Instances = append(update.ServiceInfo.Instances, model.MakeInstance(name, instance.ContainerGroup, net.ParseIP(instance.Address), instance.Port))
+		ip := net.ParseIP(instance.Address)
+		if ip == nil {
+			log.Errorf("Bad address \"%s\" for instance %s/%s",
+				instance.Address, serviceName, name)
+			return
+		}
+
+		insts = append(insts, model.Instance{
+			Name:  name,
+			Group: instance.ContainerGroup,
+			IP:    ip,
+			Port:  instance.Port,
+		})
 	})
-	log.Printf("Sending update for %s: %+v\n", update.ServiceKey.String(), update.ServiceInfo)
-	l.updates <- update
-	return nil
+
+	l.updates <- model.ServiceUpdate{
+		Service: model.Service{
+			Name:      serviceName,
+			Protocol:  service.Protocol,
+			IP:        ip,
+			Port:      service.Port,
+			Instances: insts,
+		},
+	}
 }
 
 func NewListener(errorSink errorsink.ErrorSink) (*Listener, error) {
@@ -59,7 +85,14 @@ func (l *Listener) run(errorSink errorsink.ErrorSink) {
 
 	for {
 		change := <-changes
-		l.send(change.Name)
+		if change.ServiceDeleted {
+			l.updates <- model.ServiceUpdate{
+				Service: model.Service{Name: change.Name},
+				Delete:  true,
+			}
+		} else {
+			l.send(change.Name)
+		}
 	}
 }
 

@@ -68,17 +68,17 @@ func NewEventHandler(address string) (events.Handler, error) {
 }
 
 func (h *handler) Connection(ev *events.Connection) {
-	h.connections.WithLabelValues(ev.Individual, ev.Group, ev.Inbound.IP.String(), ev.Outbound.IP.String(), ev.Protocol).Inc()
+	h.connections.WithLabelValues(ev.Instance.Name, ev.Instance.Group, ev.Inbound.IP.String(), ev.Instance.IP.String(), ev.Service.Protocol).Inc()
 }
 
 func (h *handler) HttpExchange(ev *events.HttpExchange) {
-	indy := ev.Individual
-	group := ev.Group
+	instName := ev.Instance.Name
+	group := ev.Instance.Group
 	src := ev.Inbound.IP.String()
-	dst := ev.Outbound.IP.String()
+	dst := ev.Instance.IP.String()
 	method := ev.Request.Method
 	code := strconv.Itoa(ev.Response.StatusCode)
-	h.http.WithLabelValues(indy, group, src, dst, method, code).Inc()
-	h.httpRoundtrip.WithLabelValues(indy, group, src, dst, method, code).Observe(float64(ev.RoundTrip / time.Microsecond))
-	h.httpTotal.WithLabelValues(indy, group, src, dst, method, code).Observe(float64(ev.TotalTime / time.Microsecond))
+	h.http.WithLabelValues(instName, group, src, dst, method, code).Inc()
+	h.httpRoundtrip.WithLabelValues(instName, group, src, dst, method, code).Observe(float64(ev.RoundTrip / time.Microsecond))
+	h.httpTotal.WithLabelValues(instName, group, src, dst, method, code).Observe(float64(ev.TotalTime / time.Microsecond))
 }

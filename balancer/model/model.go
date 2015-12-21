@@ -1,59 +1,34 @@
 package model
 
 import (
-	"fmt"
 	"net"
 )
 
-type IPPort struct {
-	// stringified form of the IP bytes, to be used as a map key
-	ip   string
-	Port int
-}
-
-func (ipport IPPort) IP() net.IP {
-	return net.IP(([]byte)(ipport.ip))
-}
-
-func (ipport IPPort) TCPAddr() *net.TCPAddr {
-	return &net.TCPAddr{IP: ipport.IP(), Port: ipport.Port}
-}
-
-type Ident struct {
-	Individual string
-	Group      string
-}
-
 type Instance struct {
-	Ident
-	IPPort
+	Name  string
+	Group string
+	IP    net.IP
+	Port  int
 }
 
-func MakeInstance(indy, group string, ip net.IP, port int) Instance {
-	return Instance{Ident{indy, group}, IPPort{string(ip), port}}
+func (inst *Instance) TCPAddr() net.TCPAddr {
+	return net.TCPAddr{IP: inst.IP, Port: inst.Port}
 }
 
-type ServiceKey struct {
-	// Type of the service, e.g. "tcp" or "udp"
-	Type string
-	IPPort
-}
-
-func (s ServiceKey) String() string {
-	return fmt.Sprintf("%s:%s", s.Type, s.IPPort.TCPAddr().String())
-}
-
-func MakeServiceKey(typ string, ip net.IP, port int) ServiceKey {
-	return ServiceKey{typ, IPPort{string(ip), port}}
-}
-
-type ServiceInfo struct {
+type Service struct {
+	Name string
 	// Protocol, e.g. "http".  "" for simple tcp forwarding.
 	Protocol  string
+	IP        net.IP
+	Port      int
 	Instances []Instance
 }
 
+func (svc *Service) TCPAddr() net.TCPAddr {
+	return net.TCPAddr{IP: svc.IP, Port: svc.Port}
+}
+
 type ServiceUpdate struct {
-	ServiceKey
-	*ServiceInfo
+	Service
+	Delete bool
 }

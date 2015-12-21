@@ -33,16 +33,25 @@ func TestForward(t *testing.T) {
 	laddr := listener.Addr().(*net.TCPAddr)
 
 	errorSink := errorsink.New()
-	key := model.MakeServiceKey("tcp", net.ParseIP("127.42.0.1"), 8888)
 	ss, err := forwardingConfig{
 		netConfig:    nc,
-		key:          key,
 		ipTables:     ipTables,
 		eventHandler: events.DiscardOthers{},
 		errorSink:    errorSink,
-	}.start(&model.ServiceInfo{Instances: []model.Instance{
-		model.MakeInstance("foo", "bar", laddr.IP, laddr.Port),
-	}})
+	}.start(&model.Service{
+		Name:     "service",
+		Protocol: "tcp",
+		IP:       net.ParseIP("127.42.0.1"),
+		Port:     8888,
+		Instances: []model.Instance{
+			{
+				Name:  "inst",
+				Group: "group",
+				IP:    laddr.IP,
+				Port:  laddr.Port,
+			},
+		},
+	})
 	require.Nil(t, err)
 
 	require.Len(t, mipt.chains["nat AMBERGREEN"], 1)
@@ -68,6 +77,7 @@ func TestForward(t *testing.T) {
 	}()
 
 	faddr, err := net.ResolveTCPAddr("tcp", rule[len(rule)-1])
+	require.Nil(t, err)
 	conn, err := net.DialTCP("tcp", nil, faddr)
 	require.Nil(t, err)
 	_, err = conn.Write([]byte(expect))

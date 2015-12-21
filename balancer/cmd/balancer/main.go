@@ -13,6 +13,6 @@ func iptables(args []string) ([]byte, error) {
 
 func main() {
 	daemon.Main(func(args []string, errs daemon.ErrorSink) daemon.Daemon {
-		return balancer.Start(args, errs, iptables)
+		return balancer.StartBalancer(args, errs, iptables)
 	})
 }

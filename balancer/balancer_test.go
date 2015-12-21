@@ -8,10 +8,10 @@ import (
 	"github.com/squaremo/ambergreen/common/daemon"
 )
 
-func TestDaemon(t *testing.T) {
+func TestBalancer(t *testing.T) {
 	ipTables := newMockIPTables(t)
 	errorSink := daemon.NewErrorSink()
-	i := Start([]string{"balancer"}, errorSink, ipTables.cmd)
+	b := StartBalancer([]string{"balancer"}, errorSink, ipTables.cmd)
 
 	select {
 	case err := <-errorSink:
@@ -19,7 +19,7 @@ func TestDaemon(t *testing.T) {
 	default:
 	}
 
-	i.Stop()
+	b.Stop()
 
 	// check that iptables was cleaned up
 	for c, _ := range ipTables.chains {

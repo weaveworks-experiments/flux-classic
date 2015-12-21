@@ -10,7 +10,6 @@ import (
 	"github.com/squaremo/ambergreen/balancer/events"
 	"github.com/squaremo/ambergreen/balancer/model"
 	"github.com/squaremo/ambergreen/balancer/prometheus"
-	"github.com/squaremo/ambergreen/balancer/simplecontrol"
 	"github.com/squaremo/ambergreen/common/daemon"
 )
 
@@ -39,7 +38,7 @@ type BalancerDaemon struct {
 	services     *services
 }
 
-func Start(args []string, errorSink daemon.ErrorSink, ipTablesCmd IPTablesCmd) *BalancerDaemon {
+func StartBalancer(args []string, errorSink daemon.ErrorSink, ipTablesCmd IPTablesCmd) *BalancerDaemon {
 	d := &BalancerDaemon{errorSink: errorSink}
 	err := d.start(args, ipTablesCmd)
 	if err != nil {
@@ -52,7 +51,6 @@ func Start(args []string, errorSink daemon.ErrorSink, ipTablesCmd IPTablesCmd) *
 func (d *BalancerDaemon) start(args []string, ipTablesCmd IPTablesCmd) error {
 	fs := flag.NewFlagSet(args[0], flag.ExitOnError)
 
-	var useSimpleControl bool
 	var exposePrometheus string
 
 	// The bridge specified should be the one where packets sent
@@ -65,8 +63,6 @@ func (d *BalancerDaemon) start(args []string, ipTablesCmd IPTablesCmd) error {
 	fs.StringVar(&exposePrometheus,
 		"expose-prometheus", "",
 		"expose stats to Prometheus on this IPaddress and port; e.g., :9000")
-	fs.BoolVar(&useSimpleControl,
-		"s", false, "use the unix socket controller")
 	fs.Parse(args[1:])
 
 	if fs.NArg() > 0 {
@@ -89,11 +85,7 @@ func (d *BalancerDaemon) start(args []string, ipTablesCmd IPTablesCmd) error {
 		d.eventHandler = handler
 	}
 
-	if useSimpleControl {
-		d.controller, err = simplecontrol.NewServer(d.errorSink)
-	} else {
-		d.controller, err = etcdcontrol.NewListener(d.errorSink)
-	}
+	d.controller, err = etcdcontrol.NewListener(d.errorSink)
 	if err != nil {
 		return err
 	}

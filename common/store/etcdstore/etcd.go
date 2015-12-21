@@ -9,8 +9,8 @@ import (
 	etcd_errors "github.com/coreos/etcd/error"
 	"github.com/coreos/go-etcd/etcd"
 
+	"github.com/squaremo/ambergreen/common/daemon"
 	"github.com/squaremo/ambergreen/common/data"
-	"github.com/squaremo/ambergreen/common/errorsink"
 	"github.com/squaremo/ambergreen/common/store"
 )
 
@@ -298,7 +298,7 @@ func (es *etcdStore) ForeachInstance(serviceName string, fi store.InstanceFunc) 
 	})
 }
 
-func (es *etcdStore) WatchServices(resCh chan<- data.ServiceChange, stopCh <-chan struct{}, errorSink errorsink.ErrorSink, opts store.WatchServicesOptions) {
+func (es *etcdStore) WatchServices(resCh chan<- data.ServiceChange, stopCh <-chan struct{}, errorSink daemon.ErrorSink, opts store.WatchServicesOptions) {
 	etcdCh := make(chan *etcd.Response, 1)
 	watchStopCh := make(chan bool, 1)
 	go func() {

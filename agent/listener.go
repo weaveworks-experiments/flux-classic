@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/squaremo/ambergreen/common/daemon"
 	"github.com/squaremo/ambergreen/common/data"
-	"github.com/squaremo/ambergreen/common/errorsink"
 	"github.com/squaremo/ambergreen/common/store"
 
 	docker "github.com/fsouza/go-dockerclient"
@@ -317,7 +317,7 @@ func (l *Listener) serviceUpdated(name string) error {
 
 func (l *Listener) Run(events <-chan *docker.APIEvents) {
 	changes := make(chan data.ServiceChange)
-	l.store.WatchServices(changes, nil, errorsink.New(),
+	l.store.WatchServices(changes, nil, daemon.NewErrorSink(),
 		store.WatchServicesOptions{WithGroupSpecChanges: true})
 
 	// sync after we have initiated the watch

@@ -5,8 +5,8 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 
+	"github.com/squaremo/ambergreen/common/daemon"
 	"github.com/squaremo/ambergreen/common/data"
-	"github.com/squaremo/ambergreen/common/errorsink"
 	"github.com/squaremo/ambergreen/common/store"
 	"github.com/squaremo/ambergreen/common/store/etcdstore"
 
@@ -60,7 +60,7 @@ func (l *Listener) send(serviceName string) {
 	}
 }
 
-func NewListener(errorSink errorsink.ErrorSink) (*Listener, error) {
+func NewListener(errorSink daemon.ErrorSink) (*Listener, error) {
 	listener := &Listener{
 		store:   etcdstore.NewFromEnv(),
 		updates: make(chan model.ServiceUpdate),
@@ -73,7 +73,7 @@ func (l *Listener) Updates() <-chan model.ServiceUpdate {
 	return l.updates
 }
 
-func (l *Listener) run(errorSink errorsink.ErrorSink) {
+func (l *Listener) run(errorSink daemon.ErrorSink) {
 	changes := make(chan data.ServiceChange)
 	l.store.WatchServices(changes, nil, errorSink,
 		store.WatchServicesOptions{WithInstanceChanges: true})

@@ -1,8 +1,8 @@
-package errorsink
+package daemon
 
 type ErrorSink chan error
 
-func New() ErrorSink {
+func NewErrorSink() ErrorSink {
 	return ErrorSink(make(chan error, 1))
 }
 

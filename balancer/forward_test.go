@@ -13,7 +13,7 @@ import (
 
 	"github.com/squaremo/ambergreen/balancer/events"
 	"github.com/squaremo/ambergreen/balancer/model"
-	"github.com/squaremo/ambergreen/common/errorsink"
+	"github.com/squaremo/ambergreen/common/daemon"
 )
 
 // Test that forward.go plugs everything together correctly, and
@@ -32,7 +32,7 @@ func TestForward(t *testing.T) {
 	require.Nil(t, err)
 	laddr := listener.Addr().(*net.TCPAddr)
 
-	errorSink := errorsink.New()
+	errorSink := daemon.NewErrorSink()
 	ss, err := forwardingConfig{
 		netConfig:    nc,
 		ipTables:     ipTables,

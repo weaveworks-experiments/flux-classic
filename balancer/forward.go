@@ -10,14 +10,14 @@ import (
 
 	"github.com/squaremo/ambergreen/balancer/events"
 	"github.com/squaremo/ambergreen/balancer/model"
-	"github.com/squaremo/ambergreen/common/errorsink"
+	"github.com/squaremo/ambergreen/common/daemon"
 )
 
 type forwardingConfig struct {
 	netConfig
 	*ipTables
 	eventHandler events.Handler
-	errorSink    errorsink.ErrorSink
+	errorSink    daemon.ErrorSink
 }
 
 type forwarding struct {

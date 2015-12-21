@@ -8,7 +8,7 @@ import (
 	"syscall"
 
 	"github.com/squaremo/ambergreen/balancer"
-	"github.com/squaremo/ambergreen/common/errorsink"
+	"github.com/squaremo/ambergreen/common/daemon"
 )
 
 func iptables(args []string) ([]byte, error) {
@@ -20,7 +20,7 @@ func main() {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
-	errorSink := errorsink.New()
+	errorSink := daemon.New()
 	bal := balancer.Start(os.Args, errorSink, iptables)
 
 	exitCode := 0

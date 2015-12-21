@@ -5,8 +5,8 @@ import (
 	"log"
 	"sync"
 
+	"github.com/squaremo/ambergreen/common/daemon"
 	"github.com/squaremo/ambergreen/common/data"
-	"github.com/squaremo/ambergreen/common/errorsink"
 	"github.com/squaremo/ambergreen/common/store"
 )
 
@@ -165,7 +165,7 @@ func (s *inmem) ForeachInstance(serviceName string, fi store.InstanceFunc) error
 	return nil
 }
 
-func (s *inmem) WatchServices(res chan<- data.ServiceChange, stop <-chan struct{}, _ errorsink.ErrorSink, opts store.WatchServicesOptions) {
+func (s *inmem) WatchServices(res chan<- data.ServiceChange, stop <-chan struct{}, _ daemon.ErrorSink, opts store.WatchServicesOptions) {
 	s.watchersLock.Lock()
 	defer s.watchersLock.Unlock()
 	s.watchers = append(s.watchers, watcher{res, stop, opts})

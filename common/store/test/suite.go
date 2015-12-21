@@ -6,8 +6,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/squaremo/ambergreen/common/daemon"
 	"github.com/squaremo/ambergreen/common/data"
-	"github.com/squaremo/ambergreen/common/errorsink"
 	"github.com/squaremo/ambergreen/common/store"
 )
 
@@ -92,9 +92,9 @@ func testGroupSpecs(s store.Store, t *testing.T) {
 
 var testInst = data.Instance{
 	ContainerGroup: "group",
-	Address:       "1.2.3.4",
-	Port:          12345,
-	Labels:        map[string]string{"key": "val"},
+	Address:        "1.2.3.4",
+	Port:           12345,
+	Labels:         map[string]string{"key": "val"},
 }
 
 func testInstances(s store.Store, t *testing.T) {
@@ -136,7 +136,7 @@ func newWatcher(s store.Store, opts store.WatchServicesOptions) *watcher {
 	w := &watcher{stopCh: make(chan struct{}), done: make(chan struct{})}
 	changes := make(chan data.ServiceChange)
 	stopWatch := make(chan struct{})
-	s.WatchServices(changes, stopWatch, errorsink.New(), opts)
+	s.WatchServices(changes, stopWatch, daemon.NewErrorSink(), opts)
 	go func() {
 		defer close(w.done)
 		for {

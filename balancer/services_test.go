@@ -9,7 +9,7 @@ import (
 
 	"github.com/squaremo/ambergreen/balancer/events"
 	"github.com/squaremo/ambergreen/balancer/model"
-	"github.com/squaremo/ambergreen/common/errorsink"
+	"github.com/squaremo/ambergreen/common/daemon"
 )
 
 func TestServices(t *testing.T) {
@@ -22,7 +22,7 @@ func TestServices(t *testing.T) {
 	ipTables := newIPTables(nc, mipt.cmd)
 	ipTables.start()
 
-	errorSink := errorsink.New()
+	errorSink := daemon.NewErrorSink()
 	updates := make(chan model.ServiceUpdate)
 	done := make(chan struct{}, 1)
 	svcs := servicesConfig{

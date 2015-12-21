@@ -11,7 +11,7 @@ import (
 	"github.com/squaremo/ambergreen/balancer/model"
 	"github.com/squaremo/ambergreen/balancer/prometheus"
 	"github.com/squaremo/ambergreen/balancer/simplecontrol"
-	"github.com/squaremo/ambergreen/common/errorsink"
+	"github.com/squaremo/ambergreen/common/daemon"
 )
 
 func logError(err error, args ...interface{}) {
@@ -31,7 +31,7 @@ type Controller interface {
 }
 
 type BalancerDaemon struct {
-	errorSink    errorsink.ErrorSink
+	errorSink    daemon.ErrorSink
 	ipTables     *ipTables
 	netConfig    netConfig
 	controller   Controller
@@ -39,7 +39,7 @@ type BalancerDaemon struct {
 	services     *services
 }
 
-func Start(args []string, errorSink errorsink.ErrorSink, ipTablesCmd IPTablesCmd) *BalancerDaemon {
+func Start(args []string, errorSink daemon.ErrorSink, ipTablesCmd IPTablesCmd) *BalancerDaemon {
 	d := &BalancerDaemon{errorSink: errorSink}
 	err := d.start(args, ipTablesCmd)
 	if err != nil {

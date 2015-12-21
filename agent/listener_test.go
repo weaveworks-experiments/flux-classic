@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/squaremo/ambergreen/common/daemon"
 	"github.com/squaremo/ambergreen/common/data"
-	"github.com/squaremo/ambergreen/common/errorsink"
 	"github.com/squaremo/ambergreen/common/store"
 	"github.com/squaremo/ambergreen/common/store/inmem"
 
@@ -176,7 +176,7 @@ func TestListenerEvents(t *testing.T) {
 	changes := make(chan data.ServiceChange, 1)
 
 	dc.listenToEvents(events)
-	st.WatchServices(changes, nil, errorsink.New(),
+	st.WatchServices(changes, nil, daemon.NewErrorSink(),
 		store.WatchServicesOptions{WithGroupSpecChanges: true})
 
 	// no services defined

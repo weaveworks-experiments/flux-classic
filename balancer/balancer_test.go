@@ -5,12 +5,12 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/squaremo/ambergreen/common/errorsink"
+	"github.com/squaremo/ambergreen/common/daemon"
 )
 
 func TestDaemon(t *testing.T) {
 	ipTables := newMockIPTables(t)
-	errorSink := errorsink.New()
+	errorSink := daemon.NewErrorSink()
 	i := Start([]string{"balancer"}, errorSink, ipTables.cmd)
 
 	select {

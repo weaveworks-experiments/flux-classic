@@ -6,7 +6,7 @@ import (
 
 	"github.com/squaremo/ambergreen/balancer/events"
 	"github.com/squaremo/ambergreen/balancer/model"
-	"github.com/squaremo/ambergreen/common/errorsink"
+	"github.com/squaremo/ambergreen/common/daemon"
 )
 
 type servicesConfig struct {
@@ -14,7 +14,7 @@ type servicesConfig struct {
 	updates   <-chan model.ServiceUpdate
 	*ipTables
 	eventHandler events.Handler
-	errorSink    errorsink.ErrorSink
+	errorSink    daemon.ErrorSink
 	done         chan<- struct{}
 }
 

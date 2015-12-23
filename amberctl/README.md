@@ -115,8 +115,8 @@ Usage:
 
 ### List services and query instances
 
-You can list the currently configured services, and optionally the
-instances enrolled in them, using `amberctl list`.
+You can list the currently configured services, and optionally their
+selection rules, using `amberctl list`.
 
 ```
 Usage:
@@ -124,9 +124,9 @@ Usage:
 
 Flags:
   -f, --format="": format each service with the go template expression given
-  -i, --format-instance="": format each instance with the go template expression given (implies --verbose)
-  -v, --verbose[=false]: show the list of instances for each service
-```
+      --format-rule="": format each rule with the go template expression given (implies --verbose)
+  -v, --verbose[=false]: show the list of selection rules for each service
+  ```
 
 You can also query for instances, of a particular service of of any
 service, using `amberctl query`.

@@ -44,7 +44,7 @@ func (opts *queryOpts) run(_ *cobra.Command, args []string) {
 	var serviceName = opts.service
 
 	if opts.format != "" {
-		tmpl := template.Must(template.New("instance").Parse(opts.format))
+		tmpl := template.Must(template.New("instance").Funcs(extraTemplateFuncs).Parse(opts.format))
 		printInstance = func(name string, inst data.Instance) {
 			err := tmpl.Execute(os.Stdout, instanceInfo{
 				Service:  serviceName,

@@ -21,14 +21,14 @@ type queryOpts struct {
 
 func (opts *queryOpts) addCommandTo(top *cobra.Command) {
 	cmd := &cobra.Command{
-		Use:   "query [options]",
+		Use:   "query",
 		Short: "display instances selected by the given filter",
 		Long:  "Display instances selected using the given filter, optionally for a single service only, and optionally formatting each result with a template rather than just printing the ID.",
 		Run:   opts.run,
 	}
 	opts.addSelectorVars(cmd)
-	cmd.Flags().StringVar(&opts.service, "service", "", "print only instances in <service>")
-	cmd.Flags().StringVar(&opts.format, "format", "", "format each instance according to the go template given")
+	cmd.Flags().StringVarP(&opts.service, "service", "s", "", "print only instances in <service>")
+	cmd.Flags().StringVarP(&opts.format, "format", "f", "", "format each instance according to the go template given")
 	top.AddCommand(cmd)
 }
 

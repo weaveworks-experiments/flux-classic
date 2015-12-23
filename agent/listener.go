@@ -365,7 +365,7 @@ func imageTag(image string) string {
 	if colon == -1 {
 		return "latest"
 	}
-	return image[colon:]
+	return image[colon+1:]
 }
 
 func imageName(image string) string {

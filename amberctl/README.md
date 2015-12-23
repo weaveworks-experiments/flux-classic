@@ -1,6 +1,8 @@
 # amberctl
 
-Command-line interface to set up services and enrol service instances.
+`amberctl` is the command-line interface to Ambergreen. It has
+subcommands for defining services, selecting containers, and querying
+the state of the system.
 
 Synopsis:
 
@@ -20,72 +22,124 @@ Flags:
   -h, --help[=false]: help for amberctl
 ```
 
-### Define service
+### Define and remove services
+
+`amberctl service` is the subcommand to define a service. It needs a
+name, and the address on which the service should listen. You can
+optionally specify the protocol for the service -- whether it should
+be treated as HTTP or plain TCP. (Using HTTP means you get extra,
+HTTP-specific metrics.)
+
+There are also options for selecting containers to be instances, as a
+shortcut to using a subsequent `amberctl select ...` command.
 
 ```
 Usage:
-  amberctl service <name> <IP address> <port> [options] [flags]
+  amberctl service <name> <ipaddress>:<port> [flags]
 
 Flags:
       --env="": filter instances for these environment variable values, given as comma-delimited key=value pairs
-      --fixed=0: Use a fixed port, and get the IP from docker inspect
       --image="": filter instances for this image
       --labels="": filter instances for these labels, given as comma-delimited key=value pairs
-      --mapped=0: Use the host address mapped to the port given
-      --protocol="tcp": the protocol to assume for connections to the service; either "http" or "tcp"
+      --port-fixed=0: Use a fixed port, and get the IP address from docker inspect
+      --port-mapped=0: Use the host IP address, and the host port mapped to the given container port
+  -p, --protocol="tcp": the protocol to assume for connections to the service; either "http" or "tcp"
       --tag="": filter instances for this tag
 ```
 
+You can remove a service, or all services, with `amberctl rm`:
+
 ```
 Usage:
-  amberctl rm <service>|--all [flags]
-
-Flags:
-      --all[=false]: remove all service definitions
+  amberctl rm <service>|--all
 ```
 
 ### Select and deselect instances
 
+Once you have a service defined, you can select containers to be
+enrolled as instances of the service. Ambergreen will load-balance
+connections to the service address amongst the instances.
+
+Selecting containers is done by giving a rule for matching properties
+of a given container; the container is enrolled if _all_ the
+properties match. For example, if the rule is
+`image=foo-api,tag=v0.3`, then a container must have both the image
+`foo-api` and the tag `v0.3` to be included.
+
+In general the rules match labels (`--labels`) and environment entries
+(`--env`) of the container. The special labels `image` and `tag` match
+the image name and image tag respectively (`foo-api` and `v0.3` of the
+image `foo-api:v0.3`). These have their own options `--image` and
+`--tag`.
+
+When you select containers, you must also say how to connect to
+them. There are two alternatives: using mapped ports, or assuming a
+common network. The corresponding flags are:
+
+ * `--port-mapped <port>`, which means use the host's IP address,
+   along with the host port that is mapped to the given container
+   port. This is for when you are mapping ports on the host using `-p`
+   or `-P` with `docker run ...`.
+
+ * `--port-fixed <port>` which means use the IP address reported by
+   Docker (i.e., as from `docker inspect ...`), along with the given
+   port. This is for when your containers have a network connecting
+   them (e.g., if you are using a Weave network) and don't need to map
+   ports.
+
+A service may have several rules, e.g., from more than one invocation
+of `amberctl select`; a container will be enrolled if it matches _any_
+of the rules.
+
 ```
 Usage:
-  amberctl select <name> [options] [flags]
+  amberctl select <service> <rule> [flags]
 
 Flags:
       --env="": filter instances for these environment variable values, given as comma-delimited key=value pairs
-      --fixed=0: Use a fixed port, and get the IP from docker inspect
       --image="": filter instances for this image
       --labels="": filter instances for these labels, given as comma-delimited key=value pairs
-      --mapped=0: Use the host address mapped to the port given
-      --protocol="tcp": the protocol to assume for connections to the service; either "http" or "tcp"
+      --port-fixed=0: Use a fixed port, and get the IP address from docker inspect
+      --port-mapped=0: Use the host IP address, and the host port mapped to the given container port
       --tag="": filter instances for this tag
 ```
 
+When you use `amberctl select ...`, you give the rule a name. The name
+can be used to remove that rule later. A container may remain enrolled
+if it matches another rule.
+
 ```
 Usage:
-  amberctl deselect <service> <group> [flags]
+  amberctl deselect <service> <rule>
 ```
 
 ### List services and query instances
 
+You can list the currently configured services, and optionally the
+instances enrolled in them, using `amberctl list`.
+
 ```
 Usage:
-  amberctl list [options] [flags]
+  amberctl list [flags]
 
 Flags:
-      --format="": format each service with the go template expression given
-      --format-instance="": format each instance with the go template expression given (implies verbose)
-      --verbose[=false]: show the list of instances for each service
+  -f, --format="": format each service with the go template expression given
+  -i, --format-instance="": format each instance with the go template expression given (implies --verbose)
+  -v, --verbose[=false]: show the list of instances for each service
 ```
+
+You can also query for instances, of a particular service of of any
+service, using `amberctl query`.
 
 ```
 Usage:
-  amberctl query [options] [flags]
+  amberctl query [flags]
 
 Flags:
       --env="": filter instances for these environment variable values, given as comma-delimited key=value pairs
-      --format="": format each instance according to the go template given
+  -f, --format="": format each instance according to the go template given
       --image="": filter instances for this image
       --labels="": filter instances for these labels, given as comma-delimited key=value pairs
-      --service="": print only instances in <service>
+  -s, --service="": print only instances in <service>
       --tag="": filter instances for this tag
 ```

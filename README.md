@@ -57,10 +57,10 @@ can be collected, but not all services will use HTTP.
 To enrol containers in the service, use
 
 ```
-amberctl select <service> <group> <address spec> [<selector>...]
+amberctl select <service> <rule> <address spec> [<selector>...]
 ```
 
-The selection `<group>` name is simply a handle so you can undo the
+The selection `<rule>` name is simply a handle so you can undo the
 selection later.
 
 The `<address spec>` tells Ambergreen how to reach a container. There

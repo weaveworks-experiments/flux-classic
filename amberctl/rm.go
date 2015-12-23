@@ -12,9 +12,9 @@ type rmOpts struct {
 
 func (opts *rmOpts) addCommandTo(top *cobra.Command) {
 	cmd := &cobra.Command{
-		Use:   "rm service|--all",
+		Use:   "rm <service>|--all",
 		Short: "remove service definition(s)",
-		Long:  "Remove a single service, or all services.",
+		Long:  "Remove the service named <service>, or all services.",
 		Run:   opts.run,
 	}
 	top.AddCommand(cmd)

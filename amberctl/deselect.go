@@ -14,16 +14,16 @@ type deselectOpts struct {
 
 func (opts *deselectOpts) addCommandTo(top *cobra.Command) {
 	top.AddCommand(&cobra.Command{
-		Use:   "deselect <service> <group>",
-		Short: "deselect a group of containers from a service",
-		Long:  "Deselect a previously selected group of containers from a service, by name.",
+		Use:   "deselect <service> <rule>",
+		Short: "remove a selection rule from a service",
+		Long:  "Remove selection rule <rule> from <service>. Containers may still be selected by other rules.",
 		Run:   opts.run,
 	})
 }
 
 func (opts *deselectOpts) run(_ *cobra.Command, args []string) {
 	if len(args) != 2 {
-		exitWithErrorf("Expected <service> and <group>")
+		exitWithErrorf("Expected <service> and <rule>")
 	}
 	serviceName, group := args[0], args[1]
 
@@ -37,5 +37,5 @@ func (opts *deselectOpts) run(_ *cobra.Command, args []string) {
 		exitWithErrorf("Unable to update service %s: %s", serviceName, err)
 	}
 
-	fmt.Printf("Deselected group %s from service %s\n", group, serviceName)
+	fmt.Printf("Removed rule %s from service %s\n", group, serviceName)
 }

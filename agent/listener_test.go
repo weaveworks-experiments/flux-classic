@@ -135,7 +135,7 @@ func setup() (*Listener, store.Store, *mockInspector) {
 func TestListenerReconcile(t *testing.T) {
 	listener, st, dc := setup()
 	st.AddService("foo-svc", data.Service{})
-	addGroup(st, "foo-svc", nil, "tag", ":bobbins", "image", "foo-image")
+	addGroup(st, "foo-svc", nil, "tag", "bobbins", "image", "foo-image")
 	st.AddService("bar-svc", data.Service{})
 	addGroup(st, "bar-svc", nil, "amber/foo-label", "blorp")
 	st.AddService("boo-svc", data.Service{})

@@ -27,7 +27,7 @@ func (opts *listOpts) addCommandTo(top *cobra.Command) {
 		Run:   opts.run,
 	}
 	cmd.Flags().StringVarP(&opts.format, "format", "f", "", "format each service with the go template expression given")
-	cmd.Flags().StringVarP(&opts.formatInstance, "format-instance", "i", "", "format each instance with the go template expression given (implies verbose)")
+	cmd.Flags().StringVarP(&opts.formatInstance, "format-instance", "i", "", "format each instance with the go template expression given (implies --verbose)")
 	cmd.Flags().BoolVarP(&opts.verbose, "verbose", "v", false, "show the list of instances for each service")
 	top.AddCommand(cmd)
 }

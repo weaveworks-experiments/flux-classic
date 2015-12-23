@@ -15,9 +15,9 @@ type selectOpts struct {
 
 func (opts *selectOpts) addCommandTo(top *cobra.Command) {
 	cmd := &cobra.Command{
-		Use:   "select service group",
+		Use:   "select <service> <rule>",
 		Short: "include containers in a service",
-		Long:  "Select containers to be instances of a service, giving the selection a name so it can be rescinded later.",
+		Long:  "Select containers to be instances of <service>, giving the selection a name <rule> so it can be rescinded later, and the properties to match (via the flags).",
 		Run:   opts.run,
 	}
 	opts.addSpecVars(cmd)
@@ -26,7 +26,7 @@ func (opts *selectOpts) addCommandTo(top *cobra.Command) {
 
 func (opts *selectOpts) run(_ *cobra.Command, args []string) {
 	if len(args) != 2 {
-		exitWithErrorf("You must supply <service> and <group> (only)")
+		exitWithErrorf("You must supply <service> and <rule>")
 	}
 	serviceName, name := args[0], args[1]
 

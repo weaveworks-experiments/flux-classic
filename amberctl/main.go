@@ -15,7 +15,7 @@ func main() {
 	var topCmd = &cobra.Command{
 		Use:   "amberctl",
 		Short: "control ambergreen",
-		Long:  `Create services and enrol instances in them`,
+		Long:  `Define services and enrol instances in them`,
 	}
 	addSubCommands(topCmd, store)
 	if err := topCmd.Execute(); err != nil {

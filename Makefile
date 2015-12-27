@@ -50,10 +50,17 @@ run_build_container=mkdir -p build/src/$(BASEPKG) && docker run --rm $2 \
 
 get_vendor_submodules=@if [ -z "$$(find vendor -type f -print -quit)" ] ; then git submodule update --init ; fi
 
+# Where the main package for each command lives
+cmd_dir_agent:=agent/cmd/agent
+cmd_dir_web:=web
+cmd_dir_amberctl:=amberctl
+cmd_dir_balancer:=balancer/cmd/balancer
+cmd_dir_balagent:=balancer/cmd/balagent
+
 build/bin/%: $(call image_stamp,build) docker/build-wrapper.sh $(common_go_srcs)
 	$(get_vendor_submodules)
 	rm -f $@
-	$(call run_build_container,build,-e GOPATH=/build,$(*F),go install ./...)
+	$(call run_build_container,build,-e GOPATH=/build,$(cmd_dir_$(*F)),go install .)
 
 .PHONY: $(foreach i,$(IMAGES) common,test-$(i))
 $(foreach i,$(IMAGES) common,test-$(i)): test-%: $(call image_stamp,build)

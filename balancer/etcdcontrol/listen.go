@@ -8,7 +8,6 @@ import (
 	"github.com/squaremo/ambergreen/common/daemon"
 	"github.com/squaremo/ambergreen/common/data"
 	"github.com/squaremo/ambergreen/common/store"
-	"github.com/squaremo/ambergreen/common/store/etcdstore"
 
 	"github.com/squaremo/ambergreen/balancer/model"
 )
@@ -60,9 +59,9 @@ func (l *Listener) send(serviceName string) {
 	}
 }
 
-func NewListener(errorSink daemon.ErrorSink) (*Listener, error) {
+func NewListener(store store.Store, errorSink daemon.ErrorSink) (*Listener, error) {
 	listener := &Listener{
-		store:   etcdstore.NewFromEnv(),
+		store:   store,
 		updates: make(chan model.ServiceUpdate),
 	}
 	go listener.run(errorSink)

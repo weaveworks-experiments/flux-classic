@@ -32,3 +32,8 @@ type ServiceUpdate struct {
 	Service
 	Delete bool
 }
+
+type Controller interface {
+	Updates() <-chan ServiceUpdate
+	Close()
+}

@@ -11,6 +11,7 @@ import (
 	"github.com/squaremo/ambergreen/balancer/model"
 	"github.com/squaremo/ambergreen/balancer/prometheus"
 	"github.com/squaremo/ambergreen/common/daemon"
+	"github.com/squaremo/ambergreen/common/store/etcdstore"
 )
 
 func logError(err error, args ...interface{}) {
@@ -24,16 +25,11 @@ type netConfig struct {
 	bridge string
 }
 
-type Controller interface {
-	Updates() <-chan model.ServiceUpdate
-	Close()
-}
-
 type BalancerDaemon struct {
 	errorSink    daemon.ErrorSink
 	ipTables     *ipTables
 	netConfig    netConfig
-	controller   Controller
+	controller   model.Controller
 	eventHandler events.Handler
 	services     *services
 }
@@ -49,7 +45,7 @@ func StartBalancer(args []string, errorSink daemon.ErrorSink, ipTablesCmd IPTabl
 }
 
 func (d *BalancerDaemon) start(args []string, ipTablesCmd IPTablesCmd) error {
-	fs := flag.NewFlagSet(args[0], flag.ExitOnError)
+	fs := flag.NewFlagSet(args[0], flag.ContinueOnError)
 
 	var exposePrometheus string
 
@@ -63,7 +59,9 @@ func (d *BalancerDaemon) start(args []string, ipTablesCmd IPTablesCmd) error {
 	fs.StringVar(&exposePrometheus,
 		"expose-prometheus", "",
 		"expose stats to Prometheus on this IPaddress and port; e.g., :9000")
-	fs.Parse(args[1:])
+	if err := fs.Parse(args[1:]); err != nil {
+		return err
+	}
 
 	if fs.NArg() > 0 {
 		return fmt.Errorf("excess command line arguments")
@@ -85,7 +83,8 @@ func (d *BalancerDaemon) start(args []string, ipTablesCmd IPTablesCmd) error {
 		d.eventHandler = handler
 	}
 
-	d.controller, err = etcdcontrol.NewListener(d.errorSink)
+	d.controller, err = etcdcontrol.NewListener(etcdstore.NewFromEnv(),
+		d.errorSink)
 	if err != nil {
 		return err
 	}

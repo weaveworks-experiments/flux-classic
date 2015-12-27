@@ -1,6 +1,7 @@
 package daemon
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"os/signal"
@@ -23,8 +24,10 @@ func Main(start func(args []string, errorSink ErrorSink) Daemon) {
 
 	select {
 	case err := <-errorSink:
-		fmt.Fprintln(os.Stderr, err)
-		exitCode = 1
+		if err != flag.ErrHelp {
+			fmt.Fprintln(os.Stderr, err)
+			exitCode = 1
+		}
 	case exitSignal = <-sigs:
 	}
 

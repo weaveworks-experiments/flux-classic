@@ -1,7 +1,9 @@
 REPO:=squaremo
 PROJ:=ambergreen
 BASEPKG:=github.com/$(REPO)/$(PROJ)
-IMAGES=balancer agent web amberctl
+BIN_IMAGES=balancer agent web amberctl
+BAKE_IMAGES=edgebal
+IMAGES=$(BIN_IMAGES) $(BAKE_IMAGES)
 BUILD_IMAGES=build webbuild
 
 image_stamp=docker/.$1.done
@@ -33,9 +35,9 @@ $(foreach i,$(IMAGES) $(BUILD_IMAGES),$(call image_stamp,$(i))): docker/.%.done:
 $(foreach i,$(IMAGES),docker/$(i).tar): docker/%.tar: docker/.%.done
 	docker save --output=$@ $(call docker_tag,$(*F))
 
-$(foreach i,$(IMAGES),$(eval $(call image_stamp,$(i)): build/bin/$(i)))
-$(foreach i,$(IMAGES) common,$(eval $(i)_go_srcs:=$(shell find $(i) -name '*.go')))
-$(foreach i,$(IMAGES),$(eval build/bin/$(i): $($(i)_go_srcs)))
+$(foreach i,$(BIN_IMAGES),$(eval $(call image_stamp,$(i)): build/bin/$(i)))
+$(foreach i,$(BIN_IMAGES) common,$(eval $(i)_go_srcs:=$(shell find $(i) -name '*.go')))
+$(foreach i,$(BIN_IMAGES),$(eval build/bin/$(i): $($(i)_go_srcs)))
 
 # $1: build image
 # $2: extra docker run args

@@ -122,18 +122,18 @@ func addGroup(st store.Store, serviceName string, addr *data.AddressSpec, labels
 	st.SetContainerGroupSpec(serviceName, GROUP, data.ContainerGroupSpec{*addr, sel})
 }
 
-func setup() (*Listener, store.Store, *mockInspector) {
+func setup(hostIP string) (*Listener, store.Store, *mockInspector) {
 	st := inmem.NewInMemStore()
 	dc := newMockInspector()
 	return NewListener(Config{
 		Store:     st,
-		HostIP:    "10.98.99.100",
+		HostIP:    hostIP,
 		Inspector: dc,
 	}), st, dc
 }
 
 func TestListenerReconcile(t *testing.T) {
-	listener, st, dc := setup()
+	listener, st, dc := setup("10.98.99.100")
 	st.AddService("foo-svc", data.Service{})
 	addGroup(st, "foo-svc", nil, "tag", "bobbins", "image", "foo-image")
 	st.AddService("bar-svc", data.Service{})
@@ -168,7 +168,7 @@ func TestListenerReconcile(t *testing.T) {
 }
 
 func TestListenerEvents(t *testing.T) {
-	listener, st, dc := setup()
+	listener, st, dc := setup("10.98.90.111")
 	// starting condition
 	require.Len(t, allInstances(st), 0)
 
@@ -230,7 +230,7 @@ func allInstances(st store.Store) []data.Instance {
 }
 
 func TestMappedPort(t *testing.T) {
-	listener, st, dc := setup()
+	listener, st, dc := setup("11.98.99.98")
 
 	st.AddService("blorp-svc", data.Service{})
 	addGroup(st, "blorp-svc", &data.AddressSpec{
@@ -255,4 +255,64 @@ func TestMappedPort(t *testing.T) {
 		require.Equal(t, listener.hostIP, inst.Address)
 		require.Equal(t, 3456, inst.Port)
 	})
+}
+
+func TestOtherHostsEntries(t *testing.T) {
+	listener1, st, dc1 := setup("192.168.11.34")
+	dc2 := newMockInspector()
+	listener2 := NewListener(Config{
+		Store:     st,
+		HostIP:    "192.168.11.5",
+		Inspector: dc2,
+	})
+
+	st.AddService("foo-svc", data.Service{})
+	addGroup(st, "foo-svc", nil, "image", "foo-image")
+	dc1.startContainers(container{
+		ID:        "bar1",
+		IPAddress: "192.168.34.1",
+		Image:     "foo-image:version",
+	}, container{
+		ID:        "baz1",
+		IPAddress: "192.168.34.2",
+		Image:     "foo-image:version2",
+	})
+	dc2.startContainers(container{
+		ID:        "bar2",
+		IPAddress: "192.168.34.3",
+		Image:     "foo-image:version",
+	}, container{
+		ID:        "baz2",
+		IPAddress: "192.168.34.4",
+		Image:     "foo-image:version2",
+	})
+	// let listener on the first host add its instances
+	listener1.ReadInServices()
+	listener1.ReadExistingContainers()
+	listener1.reconcile()
+
+	require.Len(t, allInstances(st), 2)
+
+	// let listener on the second host add its instances
+	listener2.ReadInServices()
+	listener2.ReadExistingContainers()
+	listener2.reconcile()
+
+	require.Len(t, allInstances(st), 4)
+
+	// simulate an agent restart; in the meantime, a container has
+	// stopped.
+	dc2.stopContainer("baz2")
+
+	// NB: the Read* methods assume once-only execution, on startup.
+	listener2 = NewListener(Config{
+		Store:     st,
+		HostIP:    "192.168.11.5",
+		Inspector: dc2,
+	})
+	listener2.ReadInServices()
+	listener2.ReadExistingContainers()
+	listener2.reconcile()
+
+	require.Len(t, allInstances(st), 3)
 }

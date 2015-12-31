@@ -68,8 +68,10 @@ func (opts *addOpts) run(cmd *cobra.Command, args []string) {
 		exitWithErrorf("Unable to extract spec from options: ", err)
 	}
 
-	if err = opts.store.SetContainerGroupSpec(serviceName, DEFAULT_GROUP, *spec); err != nil {
-		exitWithErrorf("Error updating service: ", err)
+	if spec != nil {
+		if err = opts.store.SetContainerGroupSpec(serviceName, DEFAULT_GROUP, *spec); err != nil {
+			exitWithErrorf("Error updating service: ", err)
+		}
 	}
 
 	fmt.Println("Added service:", serviceName)

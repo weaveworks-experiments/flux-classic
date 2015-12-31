@@ -48,7 +48,7 @@ run_build_container=mkdir -p build/src/$(BASEPKG) && docker run --rm $2 \
     -v $$PWD:/build/src/$(BASEPKG) \
     -v $$PWD/docker/build-wrapper.sh:/build-wrapper.sh \
     --workdir=/build/src/$(BASEPKG)$(and $3,/$3) \
-    $(PROJ)/$1 sh /build-wrapper.sh '$(subst ','"'"',$4)'
+    $(call docker_tag,$1) sh /build-wrapper.sh '$(subst ','"'"',$4)'
 
 get_vendor_submodules=@if [ -z "$$(find vendor -type f -print -quit)" ] ; then git submodule update --init ; fi
 

@@ -3,6 +3,7 @@ package balagent
 import (
 	"flag"
 	"fmt"
+	"text/template"
 
 	"github.com/squaremo/ambergreen/balancer/etcdcontrol"
 	"github.com/squaremo/ambergreen/balancer/model"
@@ -15,6 +16,7 @@ type BalancerAgent struct {
 	errorSink  daemon.ErrorSink
 	store      store.Store
 	filename   string
+	template   *template.Template
 	controller model.Controller
 	stop       chan struct{}
 
@@ -24,7 +26,6 @@ type BalancerAgent struct {
 func StartBalancerAgent(args []string, errorSink daemon.ErrorSink) *BalancerAgent {
 	a := &BalancerAgent{
 		errorSink: errorSink,
-		store:     etcdstore.NewFromEnv(),
 	}
 
 	if err := a.parseArgs(args); err != nil {
@@ -42,9 +43,14 @@ func StartBalancerAgent(args []string, errorSink daemon.ErrorSink) *BalancerAgen
 func (a *BalancerAgent) parseArgs(args []string) error {
 	fs := flag.NewFlagSet(args[0], flag.ContinueOnError)
 
-	fs.StringVar(&a.filename, "f", "/tmp/services",
+	fs.StringVar(&a.filename, "o", "/tmp/services",
 		"name of file to generate")
-	if err := fs.Parse(args[1:]); err != nil {
+	var templateFile string
+	fs.StringVar(&templateFile, "i", "nginx.tmpl",
+		"name of template file with which to generate the output file")
+
+	var err error
+	if err = fs.Parse(args[1:]); err != nil {
 		return err
 	}
 
@@ -52,10 +58,16 @@ func (a *BalancerAgent) parseArgs(args []string) error {
 		return fmt.Errorf("excess command line arguments")
 	}
 
+	a.template, err = template.ParseFiles(templateFile)
+	if err != nil {
+		return fmt.Errorf(`unable to parse file "%s": %s`, templateFile, err)
+	}
+
 	return nil
 }
 
 func (a *BalancerAgent) start() error {
+	a.store = etcdstore.NewFromEnv()
 	controller, err := etcdcontrol.NewListener(a.store, a.errorSink)
 	if err != nil {
 		return err
@@ -94,6 +106,7 @@ func (a *BalancerAgent) run() {
 }
 
 func (a *BalancerAgent) handleUpdate(u *model.ServiceUpdate) {
+	fmt.Println(u)
 	if u.Delete {
 		delete(a.services, u.Name)
 	} else {

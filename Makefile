@@ -1,13 +1,22 @@
 REPO:=squaremo
-PROJ:=ambergreen
-BASEPKG:=github.com/$(REPO)/$(PROJ)
-BIN_IMAGES=balancer agent web amberctl
-BAKE_IMAGES=edgebal
-IMAGES=$(BIN_IMAGES) $(BAKE_IMAGES)
+PROJECT:=$(REPO)/ambergreen
+BASEPKG:=github.com/$(PROJECT)
+
 BUILD_IMAGES=build webbuild
+COMPONENTS:=balancer agent web amberctl
+IMAGES:=$(COMPONENTS) edgebal
+GODIRS:=$(COMPONENTS) common
+CMDS:=$(COMPONENTS) balagent
 
 image_stamp=docker/.$1.done
-docker_tag=$(REPO)/$(PROJ)-$1
+docker_tag=$(PROJECT)-$1
+
+# Where the main package for each command lives
+CMD_DIR_agent:=agent/cmd/agent
+CMD_DIR_web:=web
+CMD_DIR_amberctl:=amberctl
+CMD_DIR_balancer:=balancer/cmd/balancer
+CMD_DIR_balagent:=balancer/cmd/balagent
 
 .PHONY: images
 images: $(foreach i,$(IMAGES),docker/$(i).tar)
@@ -35,9 +44,12 @@ $(foreach i,$(IMAGES) $(BUILD_IMAGES),$(call image_stamp,$(i))): docker/.%.done:
 $(foreach i,$(IMAGES),docker/$(i).tar): docker/%.tar: docker/.%.done
 	docker save --output=$@ $(call docker_tag,$(*F))
 
-$(foreach i,$(BIN_IMAGES),$(eval $(call image_stamp,$(i)): build/bin/$(i)))
-$(foreach i,$(BIN_IMAGES) common,$(eval $(i)_go_srcs:=$(shell find $(i) -name '*.go')))
-$(foreach i,$(BIN_IMAGES),$(eval build/bin/$(i): $($(i)_go_srcs)))
+# To help catch errors below:
+GO_SRCS_:=!!!BAD GO_SRCS_ USE!!!
+
+$(foreach i,$(COMPONENTS),$(eval $(call image_stamp,$(i)): build/bin/$(i)))
+$(foreach i,$(GODIRS),$(eval GO_SRCS_$(i):=$(shell find $(i) -name '*.go')))
+$(foreach i,$(CMDS),$(eval build/bin/$(i): $(GO_SRCS_$(firstword $(subst /, ,$(CMD_DIR_$(i)))))))
 
 # $1: build image
 # $2: extra docker run args
@@ -52,20 +64,13 @@ run_build_container=mkdir -p build/src/$(BASEPKG) && docker run --rm $2 \
 
 get_vendor_submodules=@if [ -z "$$(find vendor -type f -print -quit)" ] ; then git submodule update --init ; fi
 
-# Where the main package for each command lives
-cmd_dir_agent:=agent/cmd/agent
-cmd_dir_web:=web
-cmd_dir_amberctl:=amberctl
-cmd_dir_balancer:=balancer/cmd/balancer
-cmd_dir_balagent:=balancer/cmd/balagent
-
-build/bin/%: $(call image_stamp,build) docker/build-wrapper.sh $(common_go_srcs)
+build/bin/%: $(call image_stamp,build) docker/build-wrapper.sh $(GO_SRCS_common)
 	$(get_vendor_submodules)
 	rm -f $@
-	$(call run_build_container,build,-e GOPATH=/build,$(cmd_dir_$(*F)),go install .)
+	$(call run_build_container,build,-e GOPATH=/build,$(CMD_DIR_$(*F)),go install .)
 
-.PHONY: $(foreach i,$(IMAGES) common,test-$(i))
-$(foreach i,$(IMAGES) common,test-$(i)): test-%: $(call image_stamp,build)
+.PHONY: $(foreach i,$(GODIRS),test-$(i))
+$(foreach i,$(GODIRS),test-$(i)): test-%: $(call image_stamp,build)
 	$(get_vendor_submodules)
 	$(call run_build_container,build,-e GOPATH=/build,,go test ./$*/...)
 

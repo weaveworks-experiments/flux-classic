@@ -1,0 +1,27 @@
+http {
+
+     server {
+         listen unix:/home/ambergreen/unavailable.sock;
+         location / {
+                  try_files /home/ambergreen/unavailable.html =503;
+         }
+     }
+
+     upstream service {
+         {{range .Service.Instances}}server {{.IP}}:{{.Port}};{{end}}
+         server unix:/home/ambergreen/unavailable.sock{{if len .Service.Instances}} backup{{end}};
+     }
+
+     server {
+            listen 80;
+            location / {
+                     proxy_pass http://service;
+            }
+     }
+
+}
+
+events {
+}
+
+

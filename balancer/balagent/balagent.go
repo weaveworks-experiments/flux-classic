@@ -27,6 +27,7 @@ type BalancerAgent struct {
 func StartBalancerAgent(args []string, errorSink daemon.ErrorSink) *BalancerAgent {
 	a := &BalancerAgent{
 		errorSink: errorSink,
+		store:     etcdstore.NewFromEnv(),
 	}
 
 	if err := a.parseArgs(args); err != nil {
@@ -34,7 +35,7 @@ func StartBalancerAgent(args []string, errorSink daemon.ErrorSink) *BalancerAgen
 		return a
 	}
 
-	if err := a.start(); err != nil {
+	if err := a.start(nil); err != nil {
 		errorSink.Post(err)
 	}
 
@@ -68,8 +69,7 @@ func (a *BalancerAgent) parseArgs(args []string) error {
 	return nil
 }
 
-func (a *BalancerAgent) start() error {
-	a.store = etcdstore.NewFromEnv()
+func (a *BalancerAgent) start(tick chan<- struct{}) error {
 	controller, err := etcdcontrol.NewListener(a.store, a.errorSink)
 	if err != nil {
 		return err
@@ -77,7 +77,7 @@ func (a *BalancerAgent) start() error {
 
 	a.controller = controller
 	a.stop = make(chan struct{})
-	go a.run()
+	go a.run(tick)
 	return nil
 }
 
@@ -92,20 +92,29 @@ func (a *BalancerAgent) Stop() {
 	}
 }
 
-func (a *BalancerAgent) run() {
+func maybeWait(tick chan<- struct{}) {
+	if tick != nil {
+		tick <- struct{}{}
+	}
+}
+
+func (a *BalancerAgent) run(tick chan<- struct{}) {
 	updates := a.controller.Updates()
 
 	for {
 		select {
 		case <-a.stop:
-			return
+			maybeWait(tick)
+			break
 
 		case u := <-updates:
 			if err := a.handleUpdate(&u); err != nil {
 				a.errorSink.Post(err)
-				return
+				maybeWait(tick)
+				break
 			}
 		}
+		maybeWait(tick)
 	}
 }
 

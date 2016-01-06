@@ -16,12 +16,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func requireFileContents(t *testing.T, filename string, contents string) {
+func fileContentsEqual(t *testing.T, filename, contents string) bool {
 	bytes, err := ioutil.ReadFile(filename)
 	if err != nil {
 		t.Fatal(err)
 	}
-	require.Equal(t, contents, string(bytes))
+	return contents == string(bytes)
+}
+
+func requireFileContents(t *testing.T, filename, contents string) {
+	require.True(t, fileContentsEqual(t, filename, contents))
 }
 
 func requireNoError(t *testing.T, a *BalancerAgent) {
@@ -41,7 +45,7 @@ func requireError(t *testing.T, a *BalancerAgent) {
 	}
 }
 
-type testcase func(*testing.T, *BalancerAgent, <-chan struct{})
+type testcase func(*BalancerAgent, <-chan struct{})
 
 func testCase(t *testing.T, tc testcase) {
 	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
@@ -56,7 +60,7 @@ func testCase(t *testing.T, tc testcase) {
 	tick := make(chan struct{})
 	a.start(tick)
 
-	tc(t, a, tick)
+	tc(a, tick)
 	a.Stop()
 }
 
@@ -68,11 +72,14 @@ func trivialFixture(a *BalancerAgent, tmpl string) {
 		Port:     8000,
 		Protocol: "http",
 	})
-	a.store.AddInstance("test-svc", "test-instance", data.Instance{})
+	a.store.AddInstance("test-svc", "test-instance", data.Instance{
+		Address: "192.168.66.77",
+		Port:    7000,
+	})
 }
 
 func TestTrivialSuccess(t *testing.T) {
-	testCase(t, func(t *testing.T, a *BalancerAgent, tick <-chan struct{}) {
+	testCase(t, func(a *BalancerAgent, tick <-chan struct{}) {
 		trivialFixture(a, "{{.Name}}")
 		<-tick
 		requireFileContents(t, a.filename, "test-svc")
@@ -81,9 +88,25 @@ func TestTrivialSuccess(t *testing.T) {
 }
 
 func TestBadTemplate(t *testing.T) {
-	testCase(t, func(t *testing.T, a *BalancerAgent, tick <-chan struct{}) {
+	testCase(t, func(a *BalancerAgent, tick <-chan struct{}) {
 		trivialFixture(a, "{{.wut}}")
 		<-tick
 		requireError(t, a)
+	})
+}
+
+func TestInstanceUpdate(t *testing.T) {
+	testCase(t, func(a *BalancerAgent, tick <-chan struct{}) {
+		trivialFixture(a, "{{range .Service.Instances}}|{{.Name}}{{end}}")
+		<-tick
+		requireFileContents(t, a.filename, "|test-instance")
+		a.store.AddInstance("test-svc", "test-instance2", data.Instance{
+			Address: "192.168.99.100",
+			Port:    9000,
+		})
+		<-tick
+		require.True(t, fileContentsEqual(t, a.filename, "|test-instance|test-instance2") ||
+			fileContentsEqual(t, a.filename, "|test-instance2|test-instance"))
+		requireNoError(t, a)
 	})
 }

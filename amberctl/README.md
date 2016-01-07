@@ -25,25 +25,31 @@ Flags:
 ### Define and remove services
 
 `amberctl service` is the subcommand to define a service. It needs a
-name, and the address on which the service should listen. You can
-optionally specify the protocol for the service -- whether it should
-be treated as HTTP or plain TCP. (Using HTTP means you get extra,
-HTTP-specific metrics.)
+name, and usually you'll supply the address on which the service
+should listen. You can specify the protocol for the service -- whether
+it should be treated as HTTP or plain TCP -- in the address, or with
+another option. (Using HTTP means you get extra, HTTP-specific
+metrics.)
+
+It's possible to create a service that has no address. You might do
+this if you were going to use it only to control an external load
+balancer (like [the edgebal image](../edgebal/README.md)).
 
 There are also options for selecting containers to be instances, as a
 shortcut to using a subsequent `amberctl select ...` command.
 
 ```
 Usage:
-  amberctl service <name> <ipaddress>:<port> [flags]
+  amberctl service <name> [flags]
 
 Flags:
+      --address="": in the format <ipaddr>:<port>[/<protocol>], an IP address and port at which the service should be made available on each host; optionally, the protocol to assume.
       --env="": filter instances for these environment variable values, given as comma-delimited key=value pairs
       --image="": filter instances for this image
       --labels="": filter instances for these labels, given as comma-delimited key=value pairs
       --port-fixed=0: Use a fixed port, and get the IP address from docker inspect
       --port-mapped=0: Use the host IP address, and the host port mapped to the given container port
-  -p, --protocol="tcp": the protocol to assume for connections to the service; either "http" or "tcp"
+  -p, --protocol="": the protocol to assume for connections to the service; either "http" or "tcp". Overrides the protocol given in --address if present.
       --tag="": filter instances for this tag
 ```
 

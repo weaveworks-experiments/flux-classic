@@ -22,6 +22,15 @@ type BalancerAgent struct {
 	service    string
 	controller model.Controller
 	stop       chan struct{}
+	tick       chan struct{}
+
+	services Services
+}
+
+type Services map[string]*model.Service
+
+func (Services) Getenv(name string) string {
+	return os.Getenv(name)
 }
 
 func StartBalancerAgent(args []string, errorSink daemon.ErrorSink) *BalancerAgent {
@@ -35,7 +44,7 @@ func StartBalancerAgent(args []string, errorSink daemon.ErrorSink) *BalancerAgen
 		return a
 	}
 
-	if err := a.start(nil); err != nil {
+	if err := a.start(); err != nil {
 		errorSink.Post(err)
 	}
 
@@ -56,20 +65,16 @@ func (a *BalancerAgent) parseArgs(args []string) error {
 		return err
 	}
 
-	if fs.NArg() != 1 {
-		return fmt.Errorf("expected <service> argument")
-	}
-	a.service = fs.Arg(0)
-
 	a.template, err = template.ParseFiles(templateFile)
 	if err != nil {
 		return fmt.Errorf(`unable to parse file "%s": %s`, templateFile, err)
 	}
 
+	a.store = etcdstore.NewFromEnv()
 	return nil
 }
 
-func (a *BalancerAgent) start(tick chan<- struct{}) error {
+func (a *BalancerAgent) start() error {
 	controller, err := etcdcontrol.NewListener(a.store, a.errorSink)
 	if err != nil {
 		return err
@@ -77,7 +82,7 @@ func (a *BalancerAgent) start(tick chan<- struct{}) error {
 
 	a.controller = controller
 	a.stop = make(chan struct{})
-	go a.run(tick)
+	go a.run()
 	return nil
 }
 
@@ -92,55 +97,58 @@ func (a *BalancerAgent) Stop() {
 	}
 }
 
-func maybeWait(tick chan<- struct{}) {
-	if tick != nil {
-		tick <- struct{}{}
-	}
-}
-
-func (a *BalancerAgent) run(tick chan<- struct{}) {
+func (a *BalancerAgent) run() {
+	a.services = make(map[string]*model.Service)
 	updates := a.controller.Updates()
 
 	for {
 		select {
 		case <-a.stop:
-			maybeWait(tick)
-			break
+			if a.tick != nil {
+				a.tick <- struct{}{}
+			}
+			return
 
 		case u := <-updates:
-			if err := a.handleUpdate(&u); err != nil {
-				a.errorSink.Post(err)
-				maybeWait(tick)
-				break
+			a.handleUpdate(&u)
+			if a.tick != nil {
+				a.tick <- struct{}{}
 			}
 		}
-		maybeWait(tick)
 	}
 }
 
-func (a *BalancerAgent) handleUpdate(u *model.ServiceUpdate) error {
-	if u.Name == a.service {
-		if err := a.runTemplate(u); err != nil {
-			return err
-		}
+func (a *BalancerAgent) handleUpdate(u *model.ServiceUpdate) {
+	if u.Delete {
+		delete(a.services, u.Name)
+	} else {
+		a.services[u.Name] = &u.Service
 	}
-	return nil
+
+	if err := a.runTemplate(); err != nil {
+		a.errorSink.Post(err)
+	}
 }
 
-func (a *BalancerAgent) runTemplate(u *model.ServiceUpdate) error {
+func (a *BalancerAgent) runTemplate() error {
 	output := new(bytes.Buffer)
-	var (
-		outfile *os.File
-		err     error
-	)
-	if err = a.template.Execute(output, u); err != nil {
+	err := a.template.Execute(output, a.services)
+	if err != nil {
 		return err
 	}
-	if outfile, err = os.Create(a.filename); err != nil {
+
+	outfile, err := os.Create(a.filename)
+	if err != nil {
 		return err
 	}
+
 	if _, err = outfile.Write(output.Bytes()); err != nil {
 		return err
 	}
+
+	if err = outfile.Close(); err != nil {
+		return err
+	}
+
 	return nil
 }

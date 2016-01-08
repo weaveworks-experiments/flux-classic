@@ -24,8 +24,10 @@ func (l *Listener) send(serviceName string) {
 		return
 	}
 
+	// It is OK to have an empty Address, but not to have a malformed
+	// address
 	ip := net.ParseIP(service.Address)
-	if ip == nil {
+	if service.Address != "" && ip == nil {
 		log.Errorf("Bad address \"%s\" for service %s",
 			service.Address, serviceName)
 		return

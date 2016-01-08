@@ -9,8 +9,12 @@ http {
 
      {{$service := index . (.Getenv "SERVICE")}}
      upstream service {
-         {{range $service.Instances}}server {{.IP}}:{{.Port}};{{end}}
-         server unix:/home/ambergreen/unavailable.sock{{if len $service.Instances}} backup{{end}};
+       {{if $service}}
+         {{range $service.Instances}}server {{.IP}}:{{.Port}};
+         {{end}}
+       {{end}}
+         server unix:/home/ambergreen/unavailable.sock
+         {{if $service}}{{if len $service.Instances}} backup{{end}}{{end}};
      }
 
      server {

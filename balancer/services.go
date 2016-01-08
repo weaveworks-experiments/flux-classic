@@ -161,7 +161,7 @@ func (svc *service) close() {
 }
 
 // If there's no address, don't forward. We will want more
-// sophistocated rules later, if e.g., there are different kinds of
+// sophisticated rules later, if e.g., there are different kinds of
 // forwarding.
 func shouldForward(s *model.Service) bool {
 	return s.IP != nil && s.Port > 0
@@ -170,7 +170,8 @@ func shouldForward(s *model.Service) bool {
 // When a service shouldn't be forwarded
 type notforwarding struct{}
 
-func notForwarding(_ *model.Service) (serviceState, error) {
+func notForwarding(s *model.Service) (serviceState, error) {
+	log.Debugf("moving service %s to state 'notForwarding'", s.Name)
 	return notforwarding(struct{}{}), nil
 }
 
@@ -185,6 +186,7 @@ func (_ notforwarding) update(s *model.Service) (bool, error) {
 type rejecting func()
 
 func (svc *service) startRejecting(s *model.Service) (serviceState, error) {
+	log.Debugf("moving service %s to state 'rejecting'", s.Name)
 	rule := []interface{}{
 		"-p", "tcp",
 		"-d", s.IP,

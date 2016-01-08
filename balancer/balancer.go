@@ -48,6 +48,7 @@ func (d *BalancerDaemon) start(args []string, ipTablesCmd IPTablesCmd) error {
 	fs := flag.NewFlagSet(args[0], flag.ContinueOnError)
 
 	var exposePrometheus string
+	var debug bool
 
 	// The bridge specified should be the one where packets sent
 	// to service IP addresses go.  So even with weave, that's
@@ -59,12 +60,17 @@ func (d *BalancerDaemon) start(args []string, ipTablesCmd IPTablesCmd) error {
 	fs.StringVar(&exposePrometheus,
 		"expose-prometheus", "",
 		"expose stats to Prometheus on this IPaddress and port; e.g., :9000")
+	fs.BoolVar(&debug, "debug", false, "output debugging logs")
 	if err := fs.Parse(args[1:]); err != nil {
 		return err
 	}
 
 	if fs.NArg() > 0 {
 		return fmt.Errorf("excess command line arguments")
+	}
+
+	if debug {
+		log.SetLevel(log.DebugLevel)
 	}
 
 	d.ipTables = newIPTables(d.netConfig, ipTablesCmd)

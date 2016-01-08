@@ -34,6 +34,7 @@ type forwarding struct {
 type shimFunc func(inbound, outbound *net.TCPConn, conn *events.Connection, eventHandler events.Handler) error
 
 func (fc forwardingConfig) start(svc *model.Service) (serviceState, error) {
+	log.Debugf("moving service %s to state 'forwarding'", svc.Name)
 	ip, err := bridgeIP(fc.bridge)
 	if err != nil {
 		return nil, err

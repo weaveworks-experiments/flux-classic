@@ -7,8 +7,8 @@ import (
 	"net"
 	"os"
 
-	"github.com/squaremo/ambergreen/agent"
-	"github.com/squaremo/ambergreen/common/store/etcdstore"
+	"github.com/squaremo/flux/agent"
+	"github.com/squaremo/flux/common/store/etcdstore"
 
 	docker "github.com/fsouza/go-dockerclient"
 )

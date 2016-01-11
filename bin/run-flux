@@ -2,8 +2,8 @@
 
 set -eo pipefail
 
-BALANCER=squaremo/ambergreen-balancer
-AGENT=squaremo/ambergreen-agent
+BALANCER=squaremo/flux-balancer
+AGENT=squaremo/flux-agent
 
 DEFAULT_ETCD="http://127.0.0.1:4001"
 
@@ -21,12 +21,12 @@ start() {
 
     export HOST_IP ETCD_ADDRESS
 
-    docker run -d --name "amberagent" -e HOST_IP -e ETCD_ADDRESS -v "/var/run/docker.sock:/var/run/docker.sock" "$AGENT"
-    docker run -d --name "amberbalancer" -e ETCD_ADDRESS --privileged --net=host "$BALANCER" --expose-prometheus :9000
+    docker run -d --name "fluxagent" -e HOST_IP -e ETCD_ADDRESS -v "/var/run/docker.sock:/var/run/docker.sock" "$AGENT"
+    docker run -d --name "fluxbalancer" -e ETCD_ADDRESS --privileged --net=host "$BALANCER" --expose-prometheus :9000
 }
 
 stop() {
-    docker rm -f "amberagent" "amberbalancer" 2>/dev/null || true
+    docker rm -f "fluxagent" "fluxbalancer" 2>/dev/null || true
 }
 
 case "$1" in

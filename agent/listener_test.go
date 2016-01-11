@@ -4,10 +4,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/squaremo/ambergreen/common/daemon"
-	"github.com/squaremo/ambergreen/common/data"
-	"github.com/squaremo/ambergreen/common/store"
-	"github.com/squaremo/ambergreen/common/store/inmem"
+	"github.com/squaremo/flux/common/daemon"
+	"github.com/squaremo/flux/common/data"
+	"github.com/squaremo/flux/common/store"
+	"github.com/squaremo/flux/common/store/inmem"
 
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/stretchr/testify/require"
@@ -137,7 +137,7 @@ func TestListenerReconcile(t *testing.T) {
 	st.AddService("foo-svc", data.Service{})
 	addGroup(st, "foo-svc", nil, "tag", "bobbins", "image", "foo-image")
 	st.AddService("bar-svc", data.Service{})
-	addGroup(st, "bar-svc", nil, "amber/foo-label", "blorp")
+	addGroup(st, "bar-svc", nil, "flux/foo-label", "blorp")
 	st.AddService("boo-svc", data.Service{})
 	addGroup(st, "boo-svc", nil, "env.SERVICE_NAME", "boo")
 
@@ -147,13 +147,13 @@ func TestListenerReconcile(t *testing.T) {
 		ID:        "selected",
 		IPAddress: selectedAddress,
 		Image:     "foo-image:bobbins",
-		Labels:    map[string]string{"amber/foo-label": "blorp"},
+		Labels:    map[string]string{"flux/foo-label": "blorp"},
 		Env:       map[string]string{"SERVICE_NAME": "boo"},
 	}, container{
 		ID:        "not",
 		IPAddress: "111.111.111.111",
 		Image:     "foo-image:not-bobbins",
-		Labels:    map[string]string{"amber/foo-label": "something-else"},
+		Labels:    map[string]string{"flux/foo-label": "something-else"},
 		Env:       map[string]string{"SERVICE_NAME": "literally anything"},
 	})
 

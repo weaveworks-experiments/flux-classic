@@ -7,33 +7,33 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/squaremo/ambergreen/balancer/events"
-	"github.com/squaremo/ambergreen/balancer/model"
-	"github.com/squaremo/ambergreen/common/daemon"
+	"github.com/squaremo/flux/balancer/events"
+	"github.com/squaremo/flux/balancer/model"
+	"github.com/squaremo/flux/common/daemon"
 )
 
 func requireForwarding(t *testing.T, mipt *mockIPTables) {
-	require.Len(t, mipt.chains["nat AMBERGREEN"], 1)
-	require.Len(t, mipt.chains["filter AMBERGREEN"], 0)
+	require.Len(t, mipt.chains["nat FLUX"], 1)
+	require.Len(t, mipt.chains["filter FLUX"], 0)
 	// NB regexp related to service IP and port given in test case
-	require.Regexp(t, "^-p tcp -d 127\\.42\\.0\\.1 --dport 8888 -j DNAT --to-destination 127\\.0\\.0\\.1:\\d+$", strings.Join(mipt.chains["nat AMBERGREEN"][0], " "))
+	require.Regexp(t, "^-p tcp -d 127\\.42\\.0\\.1 --dport 8888 -j DNAT --to-destination 127\\.0\\.0\\.1:\\d+$", strings.Join(mipt.chains["nat FLUX"][0], " "))
 }
 
 func requireRejecting(t *testing.T, mipt *mockIPTables) {
-	require.Len(t, mipt.chains["nat AMBERGREEN"], 0)
-	require.Len(t, mipt.chains["filter AMBERGREEN"], 1)
+	require.Len(t, mipt.chains["nat FLUX"], 0)
+	require.Len(t, mipt.chains["filter FLUX"], 1)
 	require.Equal(t, "-p tcp -d 127.42.0.1 --dport 8888 -j REJECT",
-		strings.Join(mipt.chains["filter AMBERGREEN"][0], " "))
+		strings.Join(mipt.chains["filter FLUX"][0], " "))
 }
 
 func requireNotForwarding(t *testing.T, mipt *mockIPTables) {
-	require.Len(t, mipt.chains["nat AMBERGREEN"], 0)
-	require.Len(t, mipt.chains["filter AMBERGREEN"], 0)
+	require.Len(t, mipt.chains["nat FLUX"], 0)
+	require.Len(t, mipt.chains["filter FLUX"], 0)
 }
 
 func TestServices(t *testing.T) {
 	nc := netConfig{
-		chain:  "AMBERGREEN",
+		chain:  "FLUX",
 		bridge: "lo",
 	}
 

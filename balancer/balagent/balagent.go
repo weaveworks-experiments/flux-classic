@@ -7,11 +7,11 @@ import (
 	"os"
 	"text/template"
 
-	"github.com/squaremo/ambergreen/balancer/etcdcontrol"
-	"github.com/squaremo/ambergreen/balancer/model"
-	"github.com/squaremo/ambergreen/common/daemon"
-	"github.com/squaremo/ambergreen/common/store"
-	"github.com/squaremo/ambergreen/common/store/etcdstore"
+	"github.com/squaremo/flux/balancer/etcdcontrol"
+	"github.com/squaremo/flux/balancer/model"
+	"github.com/squaremo/flux/common/daemon"
+	"github.com/squaremo/flux/common/store"
+	"github.com/squaremo/flux/common/store/etcdstore"
 )
 
 type BalancerAgent struct {

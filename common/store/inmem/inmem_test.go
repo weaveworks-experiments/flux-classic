@@ -3,8 +3,8 @@ package inmem
 import (
 	"testing"
 
-	"github.com/squaremo/ambergreen/common/store"
-	"github.com/squaremo/ambergreen/common/store/test"
+	"github.com/squaremo/flux/common/store"
+	"github.com/squaremo/flux/common/store/test"
 )
 
 // Test the in-memory mock Store

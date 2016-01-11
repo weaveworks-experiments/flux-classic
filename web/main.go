@@ -7,9 +7,9 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/squaremo/ambergreen/common/data"
-	"github.com/squaremo/ambergreen/common/store"
-	"github.com/squaremo/ambergreen/common/store/etcdstore"
+	"github.com/squaremo/flux/common/data"
+	"github.com/squaremo/flux/common/store"
+	"github.com/squaremo/flux/common/store/etcdstore"
 
 	"github.com/gorilla/mux"
 )

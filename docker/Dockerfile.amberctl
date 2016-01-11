@@ -1,4 +1,0 @@
-FROM gliderlabs/alpine
-ENTRYPOINT ["/bin/amberctl"]
-
-COPY amberctl /bin/amberctl

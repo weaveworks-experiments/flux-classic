@@ -7,4 +7,4 @@ if [[ -z "$ETCD_ADDRESS" ]]; then
 fi
 export ETCD_ADDRESS
 
-docker run --rm -e ETCD_ADDRESS squaremo/ambergreen-amberctl "$@"
+docker run --rm -e ETCD_ADDRESS squaremo/flux-fluxctl "$@"

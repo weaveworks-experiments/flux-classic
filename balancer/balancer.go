@@ -5,13 +5,13 @@ import (
 	"fmt"
 	log "github.com/Sirupsen/logrus"
 
-	"github.com/squaremo/ambergreen/balancer/etcdcontrol"
-	"github.com/squaremo/ambergreen/balancer/eventlogger"
-	"github.com/squaremo/ambergreen/balancer/events"
-	"github.com/squaremo/ambergreen/balancer/model"
-	"github.com/squaremo/ambergreen/balancer/prometheus"
-	"github.com/squaremo/ambergreen/common/daemon"
-	"github.com/squaremo/ambergreen/common/store/etcdstore"
+	"github.com/squaremo/flux/balancer/etcdcontrol"
+	"github.com/squaremo/flux/balancer/eventlogger"
+	"github.com/squaremo/flux/balancer/events"
+	"github.com/squaremo/flux/balancer/model"
+	"github.com/squaremo/flux/balancer/prometheus"
+	"github.com/squaremo/flux/common/daemon"
+	"github.com/squaremo/flux/common/store/etcdstore"
 )
 
 func logError(err error, args ...interface{}) {
@@ -56,7 +56,7 @@ func (d *BalancerDaemon) start(args []string, ipTablesCmd IPTablesCmd) error {
 	fs.StringVar(&d.netConfig.bridge,
 		"bridge", "docker0", "bridge device")
 	fs.StringVar(&d.netConfig.chain,
-		"chain", "AMBERGREEN", "iptables chain name")
+		"chain", "FLUX", "iptables chain name")
 	fs.StringVar(&exposePrometheus,
 		"expose-prometheus", "",
 		"expose stats to Prometheus on this IPaddress and port; e.g., :9000")

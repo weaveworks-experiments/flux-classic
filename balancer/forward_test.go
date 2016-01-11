@@ -11,16 +11,16 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/squaremo/ambergreen/balancer/events"
-	"github.com/squaremo/ambergreen/balancer/model"
-	"github.com/squaremo/ambergreen/common/daemon"
+	"github.com/squaremo/flux/balancer/events"
+	"github.com/squaremo/flux/balancer/model"
+	"github.com/squaremo/flux/common/daemon"
 )
 
 // Test that forward.go plugs everything together correctly, and
 // exercise the tcp shim.
 func TestForward(t *testing.T) {
 	nc := netConfig{
-		chain:  "AMBERGREEN",
+		chain:  "FLUX",
 		bridge: "lo",
 	}
 
@@ -54,8 +54,8 @@ func TestForward(t *testing.T) {
 	})
 	require.Nil(t, err)
 
-	require.Len(t, mipt.chains["nat AMBERGREEN"], 1)
-	rule := mipt.chains["nat AMBERGREEN"][0]
+	require.Len(t, mipt.chains["nat FLUX"], 1)
+	rule := mipt.chains["nat FLUX"][0]
 	require.Regexp(t, "^-p tcp -d 127\\.42\\.0\\.1 --dport 8888 -j DNAT --to-destination 127\\.0\\.0\\.1:\\d+$", strings.Join(rule, " "))
 
 	rng := rand.New(rand.NewSource(time.Now().UnixNano()))

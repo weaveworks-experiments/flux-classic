@@ -8,9 +8,9 @@ import (
 	"github.com/coreos/go-etcd/etcd"
 	"github.com/stretchr/testify/require"
 
-	"github.com/squaremo/ambergreen/common/store"
-	"github.com/squaremo/ambergreen/common/store/test"
-	"github.com/squaremo/ambergreen/common/test/embeddedetcd"
+	"github.com/squaremo/flux/common/store"
+	"github.com/squaremo/flux/common/store/test"
+	"github.com/squaremo/flux/common/test/embeddedetcd"
 )
 
 type testableEtcdStore struct {

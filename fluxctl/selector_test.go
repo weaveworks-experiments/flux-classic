@@ -3,7 +3,7 @@ package main
 import (
 	"testing"
 
-	"github.com/squaremo/ambergreen/common/data"
+	"github.com/squaremo/flux/common/data"
 
 	"github.com/stretchr/testify/require"
 )

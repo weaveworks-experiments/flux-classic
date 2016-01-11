@@ -1,8 +1,8 @@
 package store
 
 import (
-	"github.com/squaremo/ambergreen/common/daemon"
-	"github.com/squaremo/ambergreen/common/data"
+	"github.com/squaremo/flux/common/daemon"
+	"github.com/squaremo/flux/common/data"
 )
 
 type ServiceFunc func(string, data.Service)

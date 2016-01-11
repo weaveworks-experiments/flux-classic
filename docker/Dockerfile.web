@@ -1,9 +1,9 @@
 FROM scratch
 
-WORKDIR /home/ambergreen
+WORKDIR /home/flux
 ENV HTTP_PORT=7070
 EXPOSE 7070
-COPY ./web /home/ambergreen/server
-COPY ./index.html /home/ambergreen/
-COPY ./*.css ./*.js /home/ambergreen/res/
-ENTRYPOINT ["/home/ambergreen/server"]
+COPY ./web /home/flux/server
+COPY ./index.html /home/flux/
+COPY ./*.css ./*.js /home/flux/res/
+ENTRYPOINT ["/home/flux/server"]

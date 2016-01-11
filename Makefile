@@ -1,9 +1,9 @@
 REPO:=squaremo
-PROJECT:=$(REPO)/ambergreen
+PROJECT:=$(REPO)/flux
 BASEPKG:=github.com/$(PROJECT)
 
 BUILD_IMAGES=build webbuild
-COMPONENTS:=balancer agent web amberctl
+COMPONENTS:=balancer agent web fluxctl
 IMAGES:=$(COMPONENTS) edgebal
 GODIRS:=$(COMPONENTS) common
 CMDS:=$(COMPONENTS) balagent
@@ -14,7 +14,7 @@ docker_tag=$(PROJECT)-$1
 # Where the main package for each command lives
 CMD_DIR_agent:=agent/cmd/agent
 CMD_DIR_web:=web
-CMD_DIR_amberctl:=amberctl
+CMD_DIR_fluxctl:=fluxctl
 CMD_DIR_balancer:=balancer/cmd/balancer
 CMD_DIR_balagent:=balancer/cmd/balagent
 

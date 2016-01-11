@@ -1,7 +1,7 @@
 package store
 
 import (
-	"github.com/squaremo/ambergreen/common/data"
+	"github.com/squaremo/flux/common/data"
 )
 
 func SelectInstances(store Store, sel data.Selector, fun InstanceFunc) {

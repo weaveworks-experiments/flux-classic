@@ -5,7 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/squaremo/ambergreen/common/store"
+	"github.com/squaremo/flux/common/store"
 )
 
 type selectOpts struct {

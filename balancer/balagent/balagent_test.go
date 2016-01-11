@@ -13,10 +13,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/squaremo/ambergreen/balancer/model"
-	"github.com/squaremo/ambergreen/common/daemon"
-	"github.com/squaremo/ambergreen/common/data"
-	"github.com/squaremo/ambergreen/common/store/inmem"
+	"github.com/squaremo/flux/balancer/model"
+	"github.com/squaremo/flux/common/daemon"
+	"github.com/squaremo/flux/common/data"
+	"github.com/squaremo/flux/common/store/inmem"
 )
 
 type instances []model.Instance

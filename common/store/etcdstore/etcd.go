@@ -9,9 +9,9 @@ import (
 	etcd_errors "github.com/coreos/etcd/error"
 	"github.com/coreos/go-etcd/etcd"
 
-	"github.com/squaremo/ambergreen/common/daemon"
-	"github.com/squaremo/ambergreen/common/data"
-	"github.com/squaremo/ambergreen/common/store"
+	"github.com/squaremo/flux/common/daemon"
+	"github.com/squaremo/flux/common/data"
+	"github.com/squaremo/flux/common/store"
 )
 
 type etcdStore struct {

@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/squaremo/ambergreen/balancer/balagent"
-	"github.com/squaremo/ambergreen/common/daemon"
+	"github.com/squaremo/flux/balancer/balagent"
+	"github.com/squaremo/flux/common/daemon"
 )
 
 func main() {

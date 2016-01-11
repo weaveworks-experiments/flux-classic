@@ -235,7 +235,7 @@ function matchExpr(spec) {
 }
 
 function statsURL(spec, start, end) {
-  var query = 'query=sum(rate(ambergreen_http_total{'+matchExpr(spec)+'}['+intervalSecs+'s])) by (code)';
+  var query = 'query=sum(rate(flux_http_total{'+matchExpr(spec)+'}['+intervalSecs+'s])) by (code)';
   var interval = '&step='+intervalSecs+'s&start='+start+'&end='+end;
   return '/stats/api/v1/query_range?'+query+interval;
 }

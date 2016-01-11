@@ -8,9 +8,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/squaremo/ambergreen/common/data"
-	"github.com/squaremo/ambergreen/common/store"
-	"github.com/squaremo/ambergreen/common/store/inmem"
+	"github.com/squaremo/flux/common/data"
+	"github.com/squaremo/flux/common/store"
+	"github.com/squaremo/flux/common/store/inmem"
 )
 
 func doRequest(t *testing.T, st store.Store, url string) *httptest.ResponseRecorder {

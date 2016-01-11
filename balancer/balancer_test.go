@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/squaremo/ambergreen/common/daemon"
+	"github.com/squaremo/flux/common/daemon"
 )
 
 func TestBalancer(t *testing.T) {

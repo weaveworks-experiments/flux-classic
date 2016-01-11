@@ -4,9 +4,9 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"sync"
 
-	"github.com/squaremo/ambergreen/balancer/events"
-	"github.com/squaremo/ambergreen/balancer/model"
-	"github.com/squaremo/ambergreen/common/daemon"
+	"github.com/squaremo/flux/balancer/events"
+	"github.com/squaremo/flux/balancer/model"
+	"github.com/squaremo/flux/common/daemon"
 )
 
 type servicesConfig struct {

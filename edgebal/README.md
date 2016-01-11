@@ -1,16 +1,16 @@
 # Edge balancer Docker image
 
-This is a pre-baked image that packages nginx with an Ambergreen
+This is a pre-baked image that packages nginx with an Weave Flux
 listener which generates nginx configuration. The image entry point is
 supervisord, which runs both the agent and nginx.
 
 ## What is its purpose
 
-This image is mainly to demonstrate integration of Ambergreen with
+This image is mainly to demonstrate integration of Weave Flux with
 nginx; but it may be useful as-is in some simple scenarios, and it is
 adaptable to others.
 
-Used as-is, it will expose the Ambergreen service you name in the
+Used as-is, it will expose the Weave Flux service you name in the
 command line, on port 80, at `/`.
 
 ### Operating the edge balancer
@@ -33,13 +33,13 @@ needs to bind to a privileged port (`80`).
 
 ### Trying it out
 
-Provided you have the Ambergreen prerequisities in the form of an
+Provided you have the Weave Flux prerequisities in the form of an
 endpoint for etcd in `ETCD_ADDRESS`, to expose the service `pages-svc`
 you can do:
 
 ```bash
 docker run -p 8080:80 -d -e ETCD_ADDRESS -e SERVICE=foo-svc \
-       squaremo/ambergreen-edgebal
+       squaremo/flux-edgebal
 ```
 
 To run in the host network namespace:
@@ -47,13 +47,13 @@ To run in the host network namespace:
 ```bash
 docker run --privileged --net=host -d \
        -e ETCD_ADDRESS -e SERVICE=foo-svc \
-       squaremo/ambergreen-edgebal
+       squaremo/flux-edgebal
 ```
 
 ## Adapting the image
 
 The main means of adaption is to replace the configuration template
 (and probably the default configuration). These are the files
-`/home/ambergreen/nginx.tmpl` and `/home/ambergreen/nginx.conf` in the
+`/home/flux/nginx.tmpl` and `/home/flux/nginx.conf` in the
 image filesystem, so you could, for instance, build a new image that
 copies over them.

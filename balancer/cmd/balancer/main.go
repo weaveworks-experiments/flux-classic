@@ -3,8 +3,8 @@ package main
 import (
 	"os/exec"
 
-	"github.com/squaremo/ambergreen/balancer"
-	"github.com/squaremo/ambergreen/common/daemon"
+	"github.com/squaremo/flux/balancer"
+	"github.com/squaremo/flux/common/daemon"
 )
 
 func iptables(args []string) ([]byte, error) {

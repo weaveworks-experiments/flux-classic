@@ -8,7 +8,7 @@ Running as a container:
 ```bash
 docker run -d -e ETCD_ADDRESS=http://etcd:4001 \
        -v /var/run/docker.sock:/var/run/docker.sock \
-       ambergreen/agent
+       flux/agent
 ```
 
 The listener extracts the IP address of a container from `docker
@@ -18,5 +18,5 @@ proxy, so that the IP addresses are those supplied by weave:
 ```bash
 docker run -d -e ETCD_ADDRESS=http://etcd:4001 \
        -v /var/run/weave/weave.sock:/var/run/docker.sock \
-       ambergreen/agent
+       flux/agent
 ```

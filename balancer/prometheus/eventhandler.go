@@ -8,7 +8,7 @@ import (
 
 	prom "github.com/prometheus/client_golang/prometheus"
 
-	"github.com/squaremo/ambergreen/balancer/events"
+	"github.com/squaremo/flux/balancer/events"
 )
 
 type handler struct {
@@ -21,24 +21,24 @@ type handler struct {
 
 func NewEventHandler(address string) (events.Handler, error) {
 	connectionCounter := prom.NewCounterVec(prom.CounterOpts{
-		Name: "ambergreen_connections_total",
+		Name: "flux_connections_total",
 		Help: "Number of TCP connections established",
 	}, []string{"individual", "group", "src", "dst", "protocol"})
 
 	httpLabels := []string{"individual", "group", "src", "dst", "method", "code"}
 
 	httpCounter := prom.NewCounterVec(prom.CounterOpts{
-		Name: "ambergreen_http_total",
+		Name: "flux_http_total",
 		Help: "Number of HTTP request/response exchanges",
 	}, httpLabels)
 
 	httpRoundtrip := prom.NewSummaryVec(prom.SummaryOpts{
-		Name: "ambergreen_http_roundtrip_usec",
+		Name: "flux_http_roundtrip_usec",
 		Help: "HTTP response roundtrip time in microseconds",
 	}, httpLabels)
 
 	httpTotal := prom.NewSummaryVec(prom.SummaryOpts{
-		Name: "ambergreen_http_total_usec",
+		Name: "flux_http_total_usec",
 		Help: "HTTP total response time in microseconds",
 	}, httpLabels)
 

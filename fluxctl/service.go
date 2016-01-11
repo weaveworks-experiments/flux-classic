@@ -8,8 +8,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/squaremo/ambergreen/common/data"
-	"github.com/squaremo/ambergreen/common/store"
+	"github.com/squaremo/flux/common/data"
+	"github.com/squaremo/flux/common/store"
 )
 
 const DEFAULT_GROUP = string("default")

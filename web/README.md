@@ -10,7 +10,7 @@ able to collect stats -- some help on this is given
 
 ### Exposing stats to Prometheus
 
-The `run-amber` script assumes this is what you want, and does it for
+The `run-flux` script assumes this is what you want, and does it for
 you.
 
 If you're running the balancer yourself, though, to tell it to expose
@@ -20,13 +20,13 @@ listening address (`:9000` is fine):
 ```bash
 docker run -d --net=host --privileged \
        -e ETCD_ADDRESS \
-       squaremo/ambergreen-balancer --expose-prometheus :9000
+       squaremo/flux-balancer --expose-prometheus :9000
 ```
 
 ### Running Prometheus
 
 It's easy to run Prometheus under Docker; however, you will need some
-way of telling Prometheus about all of the hosts running Ambergreen,
+way of telling Prometheus about all of the hosts running Weave Flux,
 so it knows to scrape them for stats. See below for some ways to do
 that.
 
@@ -48,7 +48,7 @@ using host names:
 global:
 
 scrape_configs:
-  - job_name: 'amber'
+  - job_name: 'flux'
     scrape_interval: 5s
     scrape_timeout: 10s
     target_groups:
@@ -60,7 +60,7 @@ scrape_configs:
 
 Note the port numbers, which match whatever you told the balancer to
 listen on with `--expose-prometheus` (or `9000` if you use
-`run-amber`).
+`run-flux`).
 
 You can then give the Prometheus container the IP addresses (and the
 configuration, with a volume mount) when starting it:
@@ -85,7 +85,7 @@ For example, if you happen to be running all your containers on a
 for each host,
 
 ```bash
-weave dns-add $(weave expose) weave -h amber.weave.local
+weave dns-add $(weave expose) weave -h flux.weave.local
 ```
 
 and adding a `dns_sd_configs` stanza to the Prometheus configuration:
@@ -94,14 +94,14 @@ and adding a `dns_sd_configs` stanza to the Prometheus configuration:
 global:
 
 scrape_configs:
-  - job_name: 'amber'
+  - job_name: 'flux'
     scrape_interval: 5s
     scrape_timeout: 10s
     dns_sd_configs:
         - port: 9000
           type: A
           names:
-            - 'amber.weave.local'
+            - 'flux.weave.local'
 ```
 
 The `$(weave expose)` is needed to give the host an IP address on the

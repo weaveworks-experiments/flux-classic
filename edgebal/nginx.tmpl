@@ -1,9 +1,9 @@
 http {
 
      server {
-         listen unix:/home/ambergreen/unavailable.sock;
+         listen unix:/home/flux/unavailable.sock;
          location / {
-                  try_files /home/ambergreen/unavailable.html =503;
+                  try_files /home/flux/unavailable.html =503;
          }
      }
 
@@ -13,7 +13,7 @@ http {
          {{range $service.Instances}}server {{.IP}}:{{.Port}};
          {{end}}
        {{end}}
-         server unix:/home/ambergreen/unavailable.sock
+         server unix:/home/flux/unavailable.sock
          {{if $service}}{{if len $service.Instances}} backup{{end}}{{end}};
      }
 

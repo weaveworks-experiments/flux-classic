@@ -6,15 +6,15 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/squaremo/ambergreen/common/store"
-	"github.com/squaremo/ambergreen/common/store/etcdstore"
+	"github.com/squaremo/flux/common/store"
+	"github.com/squaremo/flux/common/store/etcdstore"
 )
 
 func main() {
 	store := etcdstore.NewFromEnv()
 	var topCmd = &cobra.Command{
-		Use:   "amberctl",
-		Short: "control ambergreen",
+		Use:   "fluxctl",
+		Short: "control flux",
 		Long:  `Define services and enrol instances in them`,
 	}
 	addSubCommands(topCmd, store)

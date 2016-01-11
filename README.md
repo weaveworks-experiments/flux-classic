@@ -1,6 +1,6 @@
 ## Service controller for containers
 
-Ambergreen lets you define _services_ which are accessed on the same
+Weave Flux lets you define _services_ which are accessed on the same
 IP address and port everywhere, and load-balanced over a set of Docker
 containers. The containers are automatically enrolled in services
 according to selection rules you supply.
@@ -8,7 +8,7 @@ according to selection rules you supply.
 ### How to run it
 
 Assuming you have [the prerequisites](#prerequisites), you need to run
-the agent and the balancer on each host. `./bin/run-amber` will run
+the agent and the balancer on each host. `./bin/run-flux` will run
 them both, as Docker containers.
 
 You need to provide the agent and the balancer with an etcd endpoint
@@ -24,20 +24,20 @@ address `192.168.99.100`:
 HOST_IP=192.168.99.100
 ETCD_ADDRESS=http://$HOST_IP:4001
 export ETCD_ADDRESS HOST_IP
-./bin/run-amber
+./bin/run-flux
 ```
 
 ### How to use it
 
 Interaction with the system is via a command-line tool,
-`amberctl`. This can be used as a binary, or with the script
-`bin/amberctl` which invokes the binary as a Docker image. Both need
+`fluxctl`. This can be used as a binary, or with the script
+`bin/fluxctl` which invokes the binary as a Docker image. Both need
 `ETCD_ADDRESS` in the environment.
 
 To define a service, you use
 
 ```
-amberctl service <service> <IP address>:<port>[/tcp|http]
+fluxctl service <service> <IP address>:<port>[/tcp|http]
 ```
 
 The IP address and port are chosen by you. The IP address is a virtual
@@ -58,13 +58,13 @@ services will use HTTP.
 To enrol containers in the service, use
 
 ```
-amberctl select <service> <rule> <address spec> [<selector>...]
+fluxctl select <service> <rule> <address spec> [<selector>...]
 ```
 
 The selection `<rule>` name is simply a handle so you can undo the
 selection later.
 
-The `<address spec>` tells Ambergreen how to reach a container. There
+The `<address spec>` tells Weave Flux how to reach a container. There
 are two alternatives: using mapped ports, or assuming a common
 network. The corresponding options are:
 
@@ -87,20 +87,20 @@ is often a version number).
 For example, a service definition could be
 
 ```bash
-amberctl service search-svc 10.128.0.1:80 --protocol http
-amberctl select search-svc default --port-mapped 8080 --image searchapi
+fluxctl service search-svc 10.128.0.1:80 --protocol http
+fluxctl select search-svc default --port-mapped 8080 --image searchapi
 ```
 
 Any container using the image `searchapi` will be enrolled as an
 instance of `search-svc`, and the service will be available on each
 host at 10.128.0.1:80.
 
-See the [command-line README](amberctl/README.md#readme) for details
+See the [command-line README](fluxctl/README.md#readme) for details
 on defining services, selecting containers, and querying the system.
 
 ### Running the web interface
 
-Ambergreen has a web interface that shows the statistics gathered from
+Weave Flux has a web interface that shows the statistics gathered from
 the services.
 
 The web interface needs to know how to connect to etcd (using the
@@ -119,14 +119,14 @@ export PROM_ADDRESS=http://192.168.99.100:9090
 docker run -d -p 7070:7070 \
        -e ETCD_ADDRESS \
        -e PROM_ADDRESS \
-       squaremo/ambergreen-web
+       squaremo/flux-web
 ```
 
 You should now see the web interface on `http://192.168.99.100:7070/`.
 
 ### Prerequisites
 
-Ambergreen assumes you have an etcd installation handy. If you don't,
+Weave Flux assumes you have an etcd installation handy. If you don't,
 it's easy to run one under Docker for the purpose of kicking the
 tires. Assuming you have a host with Docker running and accessible on
 `HOST_IP`, do
@@ -146,5 +146,5 @@ details.
 
 ### Disclaimer
 
-Ambergreen is a work in progress. There are rough edges, and areas
+Weave Flux is a work in progress. There are rough edges, and areas
 where expedience has driven the design.

@@ -6,7 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/squaremo/ambergreen/common/data"
+	"github.com/squaremo/flux/common/data"
 )
 
 type selector struct {

@@ -1,6 +1,6 @@
-# amberctl
+# fluxctl
 
-`amberctl` is the command-line interface to Ambergreen. It has
+`fluxctl` is the command-line interface to Weave Flux. It has
 subcommands for defining services, selecting containers, and querying
 the state of the system.
 
@@ -8,7 +8,7 @@ Synopsis:
 
 ```
 Usage:
-  amberctl [command]
+  fluxctl [command]
 
 Available Commands:
   service     define a service
@@ -19,12 +19,12 @@ Available Commands:
   deselect    deselect a group of instances from a service
 
 Flags:
-  -h, --help[=false]: help for amberctl
+  -h, --help[=false]: help for fluxctl
 ```
 
 ### Define and remove services
 
-`amberctl service` is the subcommand to define a service. It needs a
+`fluxctl service` is the subcommand to define a service. It needs a
 name, and usually you'll supply the address on which the service
 should listen. You can specify the protocol for the service -- whether
 it should be treated as HTTP or plain TCP -- in the address, or with
@@ -36,11 +36,11 @@ this if you were going to use it only to control an external load
 balancer (like [the edgebal image](../edgebal/README.md)).
 
 There are also options for selecting containers to be instances, as a
-shortcut to using a subsequent `amberctl select ...` command.
+shortcut to using a subsequent `fluxctl select ...` command.
 
 ```
 Usage:
-  amberctl service <name> [flags]
+  fluxctl service <name> [flags]
 
 Flags:
       --address="": in the format <ipaddr>:<port>[/<protocol>], an IP address and port at which the service should be made available on each host; optionally, the protocol to assume.
@@ -53,17 +53,17 @@ Flags:
       --tag="": filter instances for this tag
 ```
 
-You can remove a service, or all services, with `amberctl rm`:
+You can remove a service, or all services, with `fluxctl rm`:
 
 ```
 Usage:
-  amberctl rm <service>|--all
+  fluxctl rm <service>|--all
 ```
 
 ### Select and deselect instances
 
 Once you have a service defined, you can select containers to be
-enrolled as instances of the service. Ambergreen will load-balance
+enrolled as instances of the service. Weave Flux will load-balance
 connections to the service address amongst the instances.
 
 Selecting containers is done by giving a rule for matching properties
@@ -94,12 +94,12 @@ common network. The corresponding flags are:
    ports.
 
 A service may have several rules, e.g., from more than one invocation
-of `amberctl select`; a container will be enrolled if it matches _any_
+of `fluxctl select`; a container will be enrolled if it matches _any_
 of the rules.
 
 ```
 Usage:
-  amberctl select <service> <rule> [flags]
+  fluxctl select <service> <rule> [flags]
 
 Flags:
       --env="": filter instances for these environment variable values, given as comma-delimited key=value pairs
@@ -110,23 +110,23 @@ Flags:
       --tag="": filter instances for this tag
 ```
 
-When you use `amberctl select ...`, you give the rule a name. The name
+When you use `fluxctl select ...`, you give the rule a name. The name
 can be used to remove that rule later. A container may remain enrolled
 if it matches another rule.
 
 ```
 Usage:
-  amberctl deselect <service> <rule>
+  fluxctl deselect <service> <rule>
 ```
 
 ### List services and query instances
 
 You can list the currently configured services, and optionally their
-selection rules, using `amberctl list`.
+selection rules, using `fluxctl list`.
 
 ```
 Usage:
-  amberctl list [flags]
+  fluxctl list [flags]
 
 Flags:
   -f, --format="": format each service with the go template expression given
@@ -135,11 +135,11 @@ Flags:
   ```
 
 You can also query for instances, of a particular service of of any
-service, using `amberctl query`.
+service, using `fluxctl query`.
 
 ```
 Usage:
-  amberctl query [flags]
+  fluxctl query [flags]
 
 Flags:
       --env="": filter instances for these environment variable values, given as comma-delimited key=value pairs

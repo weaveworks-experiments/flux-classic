@@ -4,18 +4,25 @@ title: Edge balancer pre-baked image
 permalink: /edgebal.html
 ---
 
-This is a pre-baked Docker image that packages nginx with a Weave Flux
-listener to generate its configuration. The image entry point is
-supervisord, which runs both the listener and nginx.
+A load balancer for the edge of your application.
 
-## What is its purpose
+Load-balancing external traffic has different requirements to doing so
+for internal traffic. In particular, you may want to accomplish other
+things with the load balancer software, like routing based on HTTP
+headers, caching, and SSL termination.
 
-This image is mainly to demonstrate integration of Weave Flux with
-nginx; but it may be useful as-is in some simple scenarios, and it is
-adaptable to others.
+## What is it
+
+Weave Flux provides a pre-baked Docker image that packages nginx with
+a Flux listener to generate the nginx configuration. The image entry
+point is supervisord, which runs both the listener and nginx.
+
+This image is a straight-forward integration of Weave Flux with nginx;
+but it may be useful as-is in simple scenarios, and it is adaptable to
+others.
 
 Used as-is, it will expose the Weave Flux service you name in the
-command line, on port 80, at `/`.
+command line, on 0.0.0.0:80.
 
 ### Operating the edge balancer
 

@@ -1,4 +1,8 @@
-# fluxctl
+---
+layout: page
+title: fluxctl command-line interface
+permalink: /fluxctl.html
+---
 
 `fluxctl` is the command-line interface to Weave Flux. It has
 subcommands for defining services, selecting containers, and querying
@@ -132,7 +136,7 @@ Flags:
   -f, --format="": format each service with the go template expression given
       --format-rule="": format each rule with the go template expression given (implies --verbose)
   -v, --verbose[=false]: show the list of selection rules for each service
-  ```
+```
 
 You can also query for instances, of a particular service of of any
 service, using `fluxctl query`.

@@ -3,10 +3,14 @@ title: Weave Flux
 email: help@weave.works
 description: "Reference and other documentation for Weave Flux"
 baseurl: ""
-url: "http://weave.works/flux"
+url: "http://weave.works/flux/"
 twitter_username: weavenetwork
 github_username:  weaveworks
 
 # Build settings
 markdown: kramdown
 permalink: pretty
+
+kramdown:
+        input: GFM
+        syntax_highlighter: rouge

@@ -62,7 +62,7 @@ run_build_container=mkdir -p build/src/$(BASEPKG) && docker run --rm $2 \
     --workdir=/build/src/$(BASEPKG)$(and $3,/$3) \
     $(call docker_tag,$1) sh /build-wrapper.sh '$(subst ','"'"',$4)'
 
-get_vendor_submodules=@if [ -z "$$(find vendor -type f -print -quit)" ] ; then git submodule update --init ; fi
+get_vendor_submodules=@git submodule update --init
 
 build/bin/%: $(call image_stamp,build) docker/build-wrapper.sh $(GO_SRCS_common)
 	$(get_vendor_submodules)

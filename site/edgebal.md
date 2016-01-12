@@ -1,8 +1,12 @@
-# Edge balancer Docker image
+---
+layout: page
+title: Edge balancer pre-baked image
+permalink: /edgebal.html
+---
 
-This is a pre-baked image that packages nginx with an Weave Flux
-listener which generates nginx configuration. The image entry point is
-supervisord, which runs both the agent and nginx.
+This is a pre-baked Docker image that packages nginx with a Weave Flux
+listener to generate its configuration. The image entry point is
+supervisord, which runs both the listener and nginx.
 
 ## What is its purpose
 

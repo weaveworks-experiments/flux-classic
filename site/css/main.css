@@ -73,6 +73,14 @@ a:visited { color: #205caa; }
   letter-spacing: -.5px;
 }
 
+/* Contents sidebar */
+
+.contents {
+    float: left;
+    width: 120px;
+    margin-left: 100px;
+}
+
 /* Site footer */
 
 .site-footer {

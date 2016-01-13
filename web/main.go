@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -46,21 +47,6 @@ type api struct {
 	promURL string
 }
 
-type serviceDetails struct {
-	Name string `json:"name"`
-	data.Service
-}
-
-type service struct {
-	serviceDetails
-	Children []instanceDetails `json:"children"`
-}
-
-type instanceDetails struct {
-	Name string `json:"name"`
-	data.Instance
-}
-
 func (api *api) router() http.Handler {
 	router := mux.NewRouter()
 
@@ -68,52 +54,47 @@ func (api *api) router() http.Handler {
 	router.HandleFunc("/index.html", homePage)
 	router.PathPrefix("/res/").HandlerFunc(handleResource)
 
-	router.HandleFunc("/api/{service}/", api.listInstances)
-	router.HandleFunc("/api/", api.listServices)
-
+	router.HandleFunc("/api/services", api.allServices)
 	router.PathPrefix("/stats/").HandlerFunc(api.proxyStats)
 
 	return router
 }
 
-func (api *api) listServices(w http.ResponseWriter, r *http.Request) {
-	var currentService serviceDetails
-	services := []serviceDetails{}
+// List all services, along with their instances and accompanying
+// metadata.
 
-	api.store.ForeachServiceInstance(func(name string, details data.Service) {
-		currentService = serviceDetails{
-			Name:    name,
-			Service: details,
-		}
-		services = append(services, currentService)
-	}, nil)
-	json.NewEncoder(w).Encode(services)
+type instance struct {
+	Name string `json:"name"`
+	data.Instance
 }
 
-func (api *api) listInstances(w http.ResponseWriter, r *http.Request) {
-	args := mux.Vars(r)
-	serviceName := args["service"]
-	details, err := api.store.GetServiceDetails(serviceName)
-	if err != nil {
-		http.NotFound(w, r)
-		return
-	}
-	children := []instanceDetails{}
-	api.store.ForeachInstance(serviceName, func(name string, details data.Instance) {
-		instance := instanceDetails{
-			Name:     name,
-			Instance: details,
+type service struct {
+	Name string `json:"name"`
+	data.Service
+	Instances []instance `json:"instances"`
+}
+
+func (api *api) allServices(w http.ResponseWriter, r *http.Request) {
+	var currentService *service
+	services := []*service{}
+
+	api.store.ForeachServiceInstance(func(name string, details data.Service) {
+		fmt.Println("service: " + name)
+		currentService = &service{
+			Name:      name,
+			Service:   details,
+			Instances: make([]instance, 0),
 		}
-		children = append(children, instance)
+		services = append(services, currentService)
+	}, func(svcname, name string, inst data.Instance) {
+		fmt.Println("instance of: " + svcname)
+		instance := instance{
+			Name:     name,
+			Instance: inst,
+		}
+		currentService.Instances = append(currentService.Instances, instance)
 	})
-	service := service{
-		serviceDetails: serviceDetails{
-			Name:    serviceName,
-			Service: details,
-		},
-		Children: children,
-	}
-	json.NewEncoder(w).Encode(service)
+	json.NewEncoder(w).Encode(services)
 }
 
 /* Proxy for prometheus, as a stop-gap */

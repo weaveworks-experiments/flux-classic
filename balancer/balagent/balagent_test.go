@@ -1,15 +1,13 @@
 package balagent
 
 import (
-	"fmt"
 	"io/ioutil"
-	"math/rand"
 	"os"
+	"path"
 	"sort"
 	"strings"
 	"testing"
 	"text/template"
-	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -39,19 +37,25 @@ func sortInsts(a interface{}) interface{} {
 	return insts
 }
 
-func newBalancerAgent() *BalancerAgent {
-	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+func newBalancerAgent(t *testing.T) *BalancerAgent {
+	dir, err := ioutil.TempDir("", "balagent_test")
+	require.Nil(t, err)
+
 	return &BalancerAgent{
 		errorSink: daemon.NewErrorSink(),
 		store:     inmem.NewInMemStore(),
-		filename: fmt.Sprintf("%s/balagent-%d", os.TempDir(),
-			rng.Intn(1000000)),
-		tick: make(chan struct{}),
+		filename:  path.Join(dir, "output"),
+		tick:      make(chan struct{}),
 	}
 }
 
+func cleanup(a *BalancerAgent, t *testing.T) {
+	require.Nil(t, os.RemoveAll(path.Dir(a.filename)))
+}
+
 func TestBalancerAgent(t *testing.T) {
-	a := newBalancerAgent()
+	a := newBalancerAgent(t)
+	defer cleanup(a, t)
 
 	tmpl := template.New("template")
 	tmpl.Funcs(template.FuncMap{"sortInsts": sortInsts})
@@ -113,6 +117,12 @@ service2:`)
 
 	a.Stop()
 	<-a.tick
+
+	// Check that all temporary files got deleted
+	require.Nil(t, os.Remove(a.filename))
+	fis, err := ioutil.ReadDir(path.Dir(a.filename))
+	require.Nil(t, err)
+	require.Empty(t, fis)
 }
 
 func requireFile(t *testing.T, filename string, expect string) {
@@ -122,7 +132,8 @@ func requireFile(t *testing.T, filename string, expect string) {
 }
 
 func TestBadTemplate(t *testing.T) {
-	a := newBalancerAgent()
+	a := newBalancerAgent(t)
+	defer cleanup(a, t)
 
 	var err error
 	a.template, err = template.New("template").Parse("{{.service1.wut}}")

@@ -1,10 +1,11 @@
 package balagent
 
 import (
-	"bytes"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"os"
+	"path"
 	"text/template"
 
 	"github.com/squaremo/flux/balancer/etcdcontrol"
@@ -131,24 +132,31 @@ func (a *BalancerAgent) handleUpdate(u *model.ServiceUpdate) {
 }
 
 func (a *BalancerAgent) runTemplate() error {
-	output := new(bytes.Buffer)
-	err := a.template.Execute(output, a.services)
+	f, err := ioutil.TempFile(path.Dir(a.filename), path.Base(a.filename))
 	if err != nil {
 		return err
 	}
 
-	outfile, err := os.Create(a.filename)
-	if err != nil {
+	tmpname := f.Name()
+	defer func() {
+		if f != nil {
+			f.Close()
+			os.Remove(tmpname)
+		}
+	}()
+
+	if err := a.template.Execute(f, a.services); err != nil {
 		return err
 	}
 
-	if _, err = outfile.Write(output.Bytes()); err != nil {
+	if err := f.Close(); err != nil {
 		return err
 	}
 
-	if err = outfile.Close(); err != nil {
+	if err := os.Rename(tmpname, a.filename); err != nil {
 		return err
 	}
 
+	f = nil
 	return nil
 }

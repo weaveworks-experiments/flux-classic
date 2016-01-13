@@ -9,7 +9,8 @@ github_username:  weaveworks
 
 # Build settings
 markdown: kramdown
-permalink: pretty
+#permalink: pretty
+exclude: ["README.md", "Gemfile", "Gemfile.lock"]
 
 kramdown:
         input: GFM

@@ -1,7 +1,6 @@
 ---
 layout: page
-title: Edge balancer pre-baked image
-permalink: /edgebal.html
+title: Edge-balancer Docker image
 ---
 
 A load balancer for the edge of your application.

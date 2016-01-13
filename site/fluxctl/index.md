@@ -1,7 +1,6 @@
 ---
 layout: page
 title: fluxctl command-line interface
-permalink: /fluxctl.html
 ---
 
 `fluxctl` is the command-line interface to Weave Flux. It has

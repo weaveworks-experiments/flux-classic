@@ -145,17 +145,76 @@ func (es *etcdStore) RemoveAllServices() error {
 	return err
 }
 
-func (es *etcdStore) GetServiceDetails(serviceName string) (data.Service, error) {
-	r, err := es.client.Get(serviceKey(serviceName), false, false)
-	if err != nil {
-		return data.Service{}, err
+func (es *etcdStore) GetService(serviceName string, opts QueryServiceOpts) (data.Service, error) {
+	var svc data.Service
+	if opts.WithInstances {
+		svc.Instances = make([]data.Instance, 0)
 	}
-
-	return unmarshalService(r.Node)
+	if opts.WithGroupSpecs {
+		svc.Groups = make([]data.ContainerGroupSpecs, 0)
+	}
+	return svc, es.traverse(serviceRootKey(serviceName), visitService(&svc))
 }
 
-func unmarshalService(node *etcd.Node) (data.Service, error) {
-	var service data.Service
+func (es *etcdStore) GetAllServices(opts QueryServiceOpts) ([]data.Service, error) {
+	svcs := make([]data.Service)
+	return svcs, es.traverse(ROOT, func(node *etcd.Node) {
+		if isServiceNode(node) {
+			var svc data.Service
+			svcs = append(svcs, svc)
+			return traverse(node, visitService(&svc, opts))
+		}
+	})
+}
+
+// ===== helpers
+
+func isServiceRoot(node *etcd.Node) bool {
+	if !node.Dir {
+		return false
+	}
+	key := parseKey(node)
+	if key.(type) == parsedServiceRootKey {
+		return true
+	}
+	return false
+}
+
+func visitService(svc *data.Service, opts QueryStoreOpts) error {
+	return func(node *etc.Node) error {
+		if node.Dir {
+			return traverse(node, visitService(svc, opts))
+		}
+
+		switch key := parseKey(node).(type) {
+		case parsedServiceKey:
+			err := unmarshalIntoService(node, svc)
+			if err != nil {
+				return err
+			}
+		case parsedInstanceKey:
+			if opts.WithInstances {
+				inst, err := unmarshalInstance(node)
+				if err != nil {
+					return err
+				}
+				inst.Name = key.instanceName
+				svc.Instances = append(svc.Instances, inst)
+			}
+		case parsedGroupSpecKey:
+			if opts.WithGroupSpecs {
+				spec, err := unmarshalGroupSpec(node)
+				if err != nil {
+					return err
+				}
+				spec.Name = key.groupSpecName
+				svc.Groups = append(svc.Groups, spec)
+			}
+		}
+	}
+}
+
+func unmarshalIntoService(svc *data.Service, node *etcd.Node) (data.Service, error) {
 	err := json.Unmarshal([]byte(node.Value), &service)
 	return service, err
 }
@@ -166,30 +225,23 @@ func unmarshalGroupSpec(node *etcd.Node) (data.ContainerGroupSpec, error) {
 	return gs, err
 }
 
-func unmarshalInstance(node *etcd.Node) (data.Instance, error) {
+func unmarshalInstance(name string, node *etcd.Node) (data.Instance, error) {
 	var instance data.Instance
 	err := json.Unmarshal([]byte(node.Value), &instance)
+	instance.Name = name
 	return instance, err
 }
 
-func traverse(node *etcd.Node, f func(*etcd.Node) error) error {
+func traverse(node *etcd.Node, visit func(*etcd.Node) error) error {
 	for _, child := range node.Nodes {
-		var err error
-		if child.Dir {
-			err = traverse(child, f)
-		} else {
-			err = f(child)
-		}
-
-		if err != nil {
+		if err := visit(child); err != nil {
 			return err
 		}
 	}
-
 	return nil
 }
 
-func (es *etcdStore) traverse(key string, f func(*etcd.Node) error) error {
+func (es *etcdStore) traverse(key string, visit func(*etcd.Node) error) error {
 	r, err := es.client.Get(key, false, true)
 	if err != nil {
 		if etcderr, ok := err.(*etcd.EtcdError); ok && etcderr.ErrorCode == etcd_errors.EcodeKeyNotFound {
@@ -198,54 +250,7 @@ func (es *etcdStore) traverse(key string, f func(*etcd.Node) error) error {
 		return err
 	}
 
-	return traverse(r.Node, f)
-}
-
-func (es *etcdStore) ForeachServiceInstance(fs store.ServiceFunc, fi store.ServiceInstanceFunc) error {
-	return es.traverse(ROOT, func(node *etcd.Node) error {
-		switch key := parseKey(node.Key).(type) {
-		case parsedServiceKey:
-			if fs != nil {
-				svc, err := unmarshalService(node)
-				if err != nil {
-					return err
-				}
-
-				fs(key.serviceName, svc)
-			}
-
-		case parsedInstanceKey:
-			if fi != nil {
-				inst, err := unmarshalInstance(node)
-				if err != nil {
-					return err
-				}
-
-				fi(key.serviceName, key.instanceName, inst)
-			}
-		}
-
-		return nil
-	})
-}
-
-func (es *etcdStore) GetContainerGroupSpecs(serviceName string) (map[string]data.ContainerGroupSpec, error) {
-	res := make(map[string]data.ContainerGroupSpec)
-	err := es.traverse(serviceRootKey(serviceName), func(node *etcd.Node) error {
-		switch key := parseKey(node.Key).(type) {
-		case parsedGroupSpecKey:
-			gs, err := unmarshalGroupSpec(node)
-			if err != nil {
-				return err
-			}
-
-			res[key.groupName] = gs
-		}
-
-		return nil
-	})
-
-	return res, err
+	return traverse(r.Node, visit)
 }
 
 func (es *etcdStore) SetContainerGroupSpec(serviceName string, groupName string, spec data.ContainerGroupSpec) error {
@@ -280,22 +285,6 @@ func (es *etcdStore) AddInstance(serviceName string, instanceName string, detail
 func (es *etcdStore) RemoveInstance(serviceName, instanceName string) error {
 	_, err := es.client.Delete(instanceKey(serviceName, instanceName), true)
 	return err
-}
-
-func (es *etcdStore) ForeachInstance(serviceName string, fi store.InstanceFunc) error {
-	return es.traverse(serviceRootKey(serviceName), func(node *etcd.Node) error {
-		switch key := parseKey(node.Key).(type) {
-		case parsedInstanceKey:
-			inst, err := unmarshalInstance(node)
-			if err != nil {
-				return err
-			}
-
-			fi(key.instanceName, inst)
-		}
-
-		return nil
-	})
 }
 
 func (es *etcdStore) WatchServices(resCh chan<- data.ServiceChange, stopCh <-chan struct{}, errorSink daemon.ErrorSink, opts store.WatchServicesOptions) {

@@ -90,16 +90,3 @@ func (opts *spec) makeSpec() (*data.ContainerGroupSpec, error) {
 		return nil, nil
 	}
 }
-
-// For formatted output
-
-type serviceInfo struct {
-	Name string
-	data.Service
-}
-
-type instanceInfo struct {
-	Service string
-	Name    string
-	data.Instance
-}

@@ -22,7 +22,7 @@ type Listener struct {
 	store     store.Store
 	inspector inspector
 
-	services   map[string]*service
+	services   map[string]store.ServiceInfo
 	containers map[string]*docker.Container
 	hostIP     string
 }
@@ -33,17 +33,11 @@ type Config struct {
 	Inspector inspector
 }
 
-type service struct {
-	name       string
-	details    data.Service
-	groupSpecs map[string]data.ContainerGroupSpec
-}
-
 func NewListener(config Config) *Listener {
 	listener := &Listener{
 		store:      config.Store,
 		inspector:  config.Inspector,
-		services:   make(map[string]*service),
+		services:   make(map[string]store.ServiceInfo),
 		containers: make(map[string]*docker.Container),
 		hostIP:     config.HostIP,
 	}
@@ -66,22 +60,13 @@ func instanceNameFor(c *docker.Container) string {
 
 // Read in all info on registered services
 func (l *Listener) ReadInServices() error {
-	err := l.store.ForeachServiceInstance(func(name string, value data.Service) {
-		l.services[name] = &service{name: name, details: value}
-	}, nil)
+	svcs, err := l.store.GetAllServices(store.QueryServiceOptions{WithGroupSpecs: true})
 	if err != nil {
 		return err
 	}
-
-	for name := range l.services {
-		specs, err := l.store.GetContainerGroupSpecs(name)
-		if err != nil {
-			return err
-		}
-
-		l.services[name].groupSpecs = specs
+	for _, svc := range svcs {
+		l.services[svc.Name] = svc
 	}
-
 	return nil
 }
 
@@ -112,17 +97,18 @@ func (l *Listener) reconcile() error {
 	}
 	// Remove instances for which there is no longer a running
 	// container
-	return l.store.ForeachServiceInstance(nil, func(serviceName string, instanceName string, inst data.Instance) {
+	return store.ForeachServiceInstance(l.store, nil, func(serviceName string, instanceName string, inst data.Instance) error {
 		if _, found := l.containers[instanceName]; !found && l.owns(inst) {
 			log.Printf("Removing %.12s/%.12s", serviceName, instanceName)
-			l.store.RemoveInstance(serviceName, instanceName)
+			return l.store.RemoveInstance(serviceName, instanceName)
 		}
+		return nil
 	})
 }
 
 // The service has been changed; re-evaluate which containers belong,
 // and which don't. Assume we have a correct list of containers.
-func (l *Listener) redefineService(serviceName string, service *service) error {
+func (l *Listener) redefineService(serviceName string, service *store.ServiceInfo) error {
 	keep := make(map[string]struct{})
 	var (
 		inService bool
@@ -137,23 +123,24 @@ func (l *Listener) redefineService(serviceName string, service *service) error {
 		}
 	}
 	// remove any instances for this service that do not match
-	return l.store.ForeachInstance(serviceName, func(instanceName string, _ data.Instance) {
+	return store.ForeachInstance(l.store, serviceName, func(_, instanceName string, _ data.Instance) error {
 		if _, found := keep[instanceName]; !found {
-			l.store.RemoveInstance(serviceName, instanceName)
+			return l.store.RemoveInstance(serviceName, instanceName)
 		}
+		return nil
 	})
 }
 
-func (l *Listener) evaluate(container *docker.Container, service *service) (bool, error) {
-	for group, spec := range service.groupSpecs {
-		if instance, ok := l.extractInstance(spec, container); ok {
-			instance.ContainerGroup = group
-			err := l.store.AddInstance(service.name, container.ID, instance)
+func (l *Listener) evaluate(container *docker.Container, service *store.ServiceInfo) (bool, error) {
+	for _, spec := range service.ContainerGroupSpecs {
+		if instance, ok := l.extractInstance(spec.ContainerGroupSpec, container); ok {
+			instance.ContainerGroup = spec.Name
+			err := l.store.AddInstance(service.Name, container.ID, instance)
 			if err != nil {
 				log.Println("Failed to register service:", err)
 				return false, err
 			}
-			log.Printf("Registered %s instance %.12s at %s:%d", service.name, container.ID, instance.Address, instance.Port)
+			log.Printf("Registered %s instance %.12s at %s:%d", service.Name, container.ID, instance.Address, instance.Port)
 			return true, nil
 		}
 	}
@@ -162,7 +149,8 @@ func (l *Listener) evaluate(container *docker.Container, service *service) (bool
 
 func (l *Listener) matchContainer(container *docker.Container) error {
 	for _, service := range l.services {
-		if _, err := l.evaluate(container, service); err != nil {
+		log.Printf("Evaluating container %s against service %s", container.ID, service.Name)
+		if _, err := l.evaluate(container, &service); err != nil {
 			return err
 		}
 	}
@@ -297,22 +285,16 @@ func (l *Listener) serviceRemoved(name string) error {
 }
 
 func (l *Listener) serviceUpdated(name string) error {
-	svc, err := l.store.GetServiceDetails(name)
+	svc, err := l.store.GetService(name, store.QueryServiceOptions{WithGroupSpecs: true})
 	if err != nil {
 		log.Println("Failed to retrieve service:", name, err)
 		return err
 	}
 
-	specs, err := l.store.GetContainerGroupSpecs(name)
-	if err != nil {
-		return err
-	}
-
-	s := &service{name, svc, specs}
-	l.services[name] = s
+	l.services[name] = svc
 	log.Println("Service", name, "updated:", svc)
 	// See which containers match now.
-	return l.redefineService(name, s)
+	return l.redefineService(name, &svc)
 }
 
 func (l *Listener) Run(events <-chan *docker.APIEvents) {

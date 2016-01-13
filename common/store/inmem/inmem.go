@@ -85,39 +85,34 @@ func (s *inmem) RemoveAllServices() error {
 	return nil
 }
 
-func (s *inmem) GetServiceDetails(name string) (data.Service, error) {
+func (s *inmem) GetService(name string, opts store.QueryServiceOptions) (store.ServiceInfo, error) {
 	svc, found := s.services[name]
 	if !found {
-		return data.Service{}, fmt.Errorf(`Not found "%s"`, name)
+		return store.ServiceInfo{}, fmt.Errorf(`Not found "%s"`, name)
 	}
-	return svc, nil
+	info := store.ServiceInfo{
+		Name:    name,
+		Service: svc,
+	}
+	s.populateServiceInfo(&info, opts)
+	return info, nil
 }
 
-func (s *inmem) ForeachServiceInstance(fs store.ServiceFunc, fi store.ServiceInstanceFunc) error {
-	for serviceName, svc := range s.services {
-		if fs != nil {
-			fs(serviceName, svc)
+func (s *inmem) GetAllServices(opts store.QueryServiceOptions) ([]store.ServiceInfo, error) {
+	svcs := []store.ServiceInfo{}
+	for n, svc := range s.services {
+		info := store.ServiceInfo{
+			Name:    n,
+			Service: svc,
 		}
-		if fi != nil {
-			for instanceName, inst := range s.instances[serviceName] {
-				fi(serviceName, instanceName, inst)
-			}
-		}
+		s.populateServiceInfo(&info, opts)
+		svcs = append(svcs, info)
 	}
-	return nil
+	return svcs, nil
 }
 
 func withGroupSpecChanges(opts store.WatchServicesOptions) bool {
 	return opts.WithGroupSpecChanges
-}
-
-func (s *inmem) GetContainerGroupSpecs(serviceName string) (map[string]data.ContainerGroupSpec, error) {
-	res, found := s.groupSpecs[serviceName]
-	if !found {
-		return nil, fmt.Errorf(`Not found "%s"`, serviceName)
-	}
-
-	return res, nil
 }
 
 func (s *inmem) SetContainerGroupSpec(serviceName string, groupName string, spec data.ContainerGroupSpec) error {
@@ -158,13 +153,6 @@ func (s *inmem) RemoveInstance(serviceName string, instanceName string) error {
 	return nil
 }
 
-func (s *inmem) ForeachInstance(serviceName string, fi store.InstanceFunc) error {
-	for instanceName, inst := range s.instances[serviceName] {
-		fi(instanceName, inst)
-	}
-	return nil
-}
-
 func (s *inmem) WatchServices(res chan<- data.ServiceChange, stop <-chan struct{}, _ daemon.ErrorSink, opts store.WatchServicesOptions) {
 	s.watchersLock.Lock()
 	defer s.watchersLock.Unlock()
@@ -182,4 +170,29 @@ func (s *inmem) WatchServices(res chan<- data.ServiceChange, stop <-chan struct{
 			}
 		}
 	}()
+}
+
+// ===
+
+func (s *inmem) populateServiceInfo(info *store.ServiceInfo, opts store.QueryServiceOptions) {
+	if opts.WithInstances {
+		insts := make([]store.InstanceInfo, 0)
+		for n, i := range s.instances[info.Name] {
+			insts = append(insts, store.InstanceInfo{
+				Name:     n,
+				Instance: i,
+			})
+		}
+		info.Instances = insts
+	}
+	if opts.WithGroupSpecs {
+		groups := make([]store.ContainerGroupSpecInfo, 0)
+		for n, g := range s.groupSpecs[info.Name] {
+			groups = append(groups, store.ContainerGroupSpecInfo{
+				Name:               n,
+				ContainerGroupSpec: g,
+			})
+		}
+		info.ContainerGroupSpecs = groups
+	}
 }

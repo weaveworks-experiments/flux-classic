@@ -28,18 +28,6 @@ var testService = data.Service{
 	Protocol: "tcp",
 }
 
-func TestListServices(t *testing.T) {
-	st := inmem.NewInMemStore()
-	st.AddService("svc", testService)
-
-	resp := doRequest(t, st, "/api/")
-	require.Equal(t, 200, resp.Code)
-
-	var deets []serviceDetails
-	require.Nil(t, json.Unmarshal(resp.Body.Bytes(), &deets))
-	require.Equal(t, []serviceDetails{serviceDetails{Name: "svc", Service: testService}}, deets)
-}
-
 var testInstance = data.Instance{
 	ContainerGroup: "group",
 	Address:        "1.2.3.4",
@@ -47,28 +35,22 @@ var testInstance = data.Instance{
 	Labels:         map[string]string{"key": "val"},
 }
 
-func TestListInstances(t *testing.T) {
+func allServices(t *testing.T, st store.Store) []store.ServiceInfo {
+	services, err := st.GetAllServices(store.QueryServiceOptions{WithInstances: true})
+	require.NoError(t, err)
+	return services
+}
+
+func TestListServices(t *testing.T) {
 	st := inmem.NewInMemStore()
-
-	resp := doRequest(t, st, "/api/nosuchservice/")
-	require.Equal(t, 404, resp.Code)
-
 	st.AddService("svc", testService)
 	st.AddInstance("svc", "inst", testInstance)
 
-	resp = doRequest(t, st, "/api/svc/")
+	resp := doRequest(t, st, "/api/services")
 	require.Equal(t, 200, resp.Code)
 
-	var svc service
-	require.Nil(t, json.Unmarshal(resp.Body.Bytes(), &svc))
-	require.Equal(t, service{
-		serviceDetails: serviceDetails{
-			Name:    "svc",
-			Service: testService,
-		},
-		Children: []instanceDetails{{
-			Name:     "inst",
-			Instance: testInstance,
-		}},
-	}, svc)
+	var deets []store.ServiceInfo
+	require.Nil(t, json.Unmarshal(resp.Body.Bytes(), &deets))
+	services := allServices(t, st)
+	require.Equal(t, services, deets)
 }

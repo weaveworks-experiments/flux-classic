@@ -223,8 +223,9 @@ func TestListenerEvents(t *testing.T) {
 
 func allInstances(st store.Store) []data.Instance {
 	res := make([]data.Instance, 0)
-	st.ForeachServiceInstance(nil, func(_, _ string, inst data.Instance) {
+	store.ForeachServiceInstance(st, nil, func(_, _ string, inst data.Instance) error {
 		res = append(res, inst)
+		return nil
 	})
 	return res
 }
@@ -251,9 +252,10 @@ func TestMappedPort(t *testing.T) {
 	listener.reconcile()
 
 	require.Len(t, allInstances(st), 1)
-	st.ForeachInstance("blorp-svc", func(_ string, inst data.Instance) {
+	store.ForeachInstance(st, "blorp-svc", func(_, _ string, inst data.Instance) error {
 		require.Equal(t, listener.hostIP, inst.Address)
 		require.Equal(t, 3456, inst.Port)
+		return nil
 	})
 }
 

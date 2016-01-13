@@ -85,39 +85,46 @@ func (s *inmem) RemoveAllServices() error {
 	return nil
 }
 
-func (s *inmem) GetServiceDetails(name string) (data.Service, error) {
+func (s *inmem) GetService(name string, opts store.QueryServiceOptions) (data.Service, error) {
 	svc, found := s.services[name]
 	if !found {
 		return data.Service{}, fmt.Errorf(`Not found "%s"`, name)
 	}
+	s.populateService(&svc, opts)
 	return svc, nil
 }
 
-func (s *inmem) ForeachServiceInstance(fs store.ServiceFunc, fi store.ServiceInstanceFunc) error {
-	for serviceName, svc := range s.services {
-		if fs != nil {
-			fs(serviceName, svc)
+func (s *inmem) populateService(svc *data.Service, opts store.QueryServiceOptions) {
+	if opts.WithInstances {
+		insts := make([]data.Instance, 0)
+		for n, i := range s.instances[svc.Name] {
+			i.Name = n
+			insts = append(insts, i)
 		}
-		if fi != nil {
-			for instanceName, inst := range s.instances[serviceName] {
-				fi(serviceName, instanceName, inst)
-			}
-		}
+		svc.Instances = insts
 	}
-	return nil
+	if opts.WithGroupSpecs {
+		groups := make([]data.ContainerGroupSpec, 0)
+		for n, g := range s.groupSpecs[svc.Name] {
+			g.Name = n
+			groups = append(groups, g)
+		}
+		svc.Groups = groups
+	}
+}
+
+func (s *inmem) GetAllServices(opts store.QueryServiceOptions) ([]data.Service, error) {
+	svcs := []data.Service{}
+	for n, svc := range s.services {
+		svc.Name = n
+		s.populateService(&svc, opts)
+		svcs = append(svcs, svc)
+	}
+	return svcs, nil
 }
 
 func withGroupSpecChanges(opts store.WatchServicesOptions) bool {
 	return opts.WithGroupSpecChanges
-}
-
-func (s *inmem) GetContainerGroupSpecs(serviceName string) (map[string]data.ContainerGroupSpec, error) {
-	res, found := s.groupSpecs[serviceName]
-	if !found {
-		return nil, fmt.Errorf(`Not found "%s"`, serviceName)
-	}
-
-	return res, nil
 }
 
 func (s *inmem) SetContainerGroupSpec(serviceName string, groupName string, spec data.ContainerGroupSpec) error {
@@ -155,13 +162,6 @@ func (s *inmem) AddInstance(serviceName string, instanceName string, inst data.I
 func (s *inmem) RemoveInstance(serviceName string, instanceName string) error {
 	delete(s.instances[serviceName], instanceName)
 	s.fireEvent(data.ServiceChange{serviceName, false}, withInstanceChanges)
-	return nil
-}
-
-func (s *inmem) ForeachInstance(serviceName string, fi store.InstanceFunc) error {
-	for instanceName, inst := range s.instances[serviceName] {
-		fi(instanceName, inst)
-	}
 	return nil
 }
 

@@ -9,7 +9,7 @@ func (sel Selector) Empty() bool {
 // Specifies which containers form an instance group, and the
 // attributes of the resulting instances.
 type ContainerGroupSpec struct {
-	Name        string      `json:"name"`
+	Name        string      `json:"name,omitempty"`
 	AddressSpec AddressSpec `json:"addressSpec,omitempty"`
 	Selector    Selector    `json:"selector,omitempty"`
 }
@@ -42,7 +42,7 @@ type AddressSpec struct {
 }
 
 type Service struct {
-	Name      string               `json:"name"`
+	Name      string               `json:"name,omitempty"`
 	Address   string               `json:"address,omitempty"`
 	Port      int                  `json:"port,omitempty"`
 	Protocol  string               `json:"protocol,omitempty"`
@@ -51,7 +51,7 @@ type Service struct {
 }
 
 type Instance struct {
-	Name           string            `json:"name"`
+	Name           string            `json:"name,omitempty"`
 	OwnerID        string            `json:"ownerID"`
 	ContainerGroup string            `json:"containerGroup"`
 	Address        string            `json:"address,omitempty"`

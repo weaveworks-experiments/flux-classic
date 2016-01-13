@@ -35,6 +35,7 @@ func testPing(s store.Store, t *testing.T) {
 }
 
 var testService = data.Service{
+	Name:     "svc",
 	Address:  "1.2.3.4",
 	Port:     1234,
 	Protocol: "tcp",
@@ -50,9 +51,11 @@ func testServices(s store.Store, t *testing.T) {
 
 	services := func() map[string]data.Service {
 		svcs := make(map[string]data.Service)
-		require.Nil(t, store.ForeachServiceInstance(st, func(n string, s data.Service) {
-			svcs[n] = s
-		}, nil))
+		ss, err := s.GetAllServices(store.QueryServiceOptions{})
+		require.Nil(t, err)
+		for _, svc := range ss {
+			svcs[svc.Name] = svc
+		}
 		return svcs
 	}
 
@@ -67,6 +70,7 @@ func testServices(s store.Store, t *testing.T) {
 }
 
 var testGroupSpec = data.ContainerGroupSpec{
+	Name: "group",
 	AddressSpec: data.AddressSpec{
 		Type: "foo",
 		Port: 5678,
@@ -80,19 +84,18 @@ func testGroupSpecs(s store.Store, t *testing.T) {
 	require.Nil(t, s.AddService("svc", testService))
 	require.Nil(t, s.SetContainerGroupSpec("svc", "group", testGroupSpec))
 
-	specs, err := s.GetContainerGroupSpecs("svc")
-	require.Nil(t, err)
-	require.Equal(t, map[string]data.ContainerGroupSpec{"group": testGroupSpec}, specs)
-
-	require.Nil(t, s.RemoveContainerGroupSpec("svc", "group"))
 	svc, err := s.GetService("svc", store.QueryServiceOptions{WithGroupSpecs: true})
 	require.Nil(t, err)
-	specs, err = s.GetContainerGroupSpecs("svc")
+	require.Equal(t, []data.ContainerGroupSpec{testGroupSpec}, svc.Groups)
+
+	require.Nil(t, s.RemoveContainerGroupSpec("svc", "group"))
+	svc, err = s.GetService("svc", store.QueryServiceOptions{WithGroupSpecs: true})
 	require.Nil(t, err)
-	require.Equal(t, map[string]data.ContainerGroupSpec{}, specs)
+	require.Equal(t, []data.ContainerGroupSpec{}, svc.Groups)
 }
 
 var testInst = data.Instance{
+	Name:           "inst",
 	ContainerGroup: "group",
 	Address:        "1.2.3.4",
 	Port:           12345,
@@ -105,8 +108,9 @@ func testInstances(s store.Store, t *testing.T) {
 
 	instances := func() map[string]data.Instance {
 		insts := make(map[string]data.Instance)
-		require.Nil(t, store.ForeachInstance(st, "svc", func(n string, inst data.Instance) {
+		require.Nil(t, store.ForeachInstance(s, "svc", func(_, n string, inst data.Instance) error {
 			insts[n] = inst
+			return nil
 		}))
 		return insts
 	}
@@ -115,8 +119,9 @@ func testInstances(s store.Store, t *testing.T) {
 
 	serviceInstances := func() map[string]data.Instance {
 		insts := make(map[string]data.Instance)
-		require.Nil(t, store.ForeachServiceInstance(st, nil, func(sn string, in string, inst data.Instance) {
+		require.Nil(t, store.ForeachServiceInstance(s, nil, func(sn string, in string, inst data.Instance) error {
 			insts[sn+" "+in] = inst
+			return nil
 		}))
 		return insts
 	}

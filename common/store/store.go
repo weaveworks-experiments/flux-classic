@@ -19,7 +19,7 @@ type Store interface {
 	Ping() error
 
 	CheckRegisteredService(serviceName string) error
-	AddService(service data.Service) error
+	AddService(name string, service data.Service) error
 	RemoveService(serviceName string) error
 	RemoveAllServices() error
 
@@ -29,7 +29,7 @@ type Store interface {
 	SetContainerGroupSpec(serviceName string, groupName string, spec data.ContainerGroupSpec) error
 	RemoveContainerGroupSpec(serviceName string, groupName string) error
 
-	AddInstance(serviceName string, instanceName string, details data.Instance) error
+	AddInstance(serviceName, instanceName string, details data.Instance) error
 	RemoveInstance(serviceName, instanceName string) error
 
 	WatchServices(resCh chan<- data.ServiceChange, stopCh <-chan struct{}, errorSink daemon.ErrorSink, opts WatchServicesOptions)

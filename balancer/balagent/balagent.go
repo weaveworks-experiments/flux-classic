@@ -66,7 +66,7 @@ func (a *BalancerAgent) parseArgs(args []string) error {
 	var templateFile string
 	fs.StringVar(&templateFile, "i", "nginx.tmpl",
 		"name of template file with which to generate the output file")
-	fs.StringVar(&a.reloadCmd, "o", "",
+	fs.StringVar(&a.reloadCmd, "c", "",
 		"command to run each time the file is regenerated")
 
 	var err error

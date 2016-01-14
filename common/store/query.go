@@ -15,13 +15,13 @@ func ForeachServiceInstance(store Store, fs ServiceFunc, fi InstanceFunc) error 
 	}
 	for _, s := range svcs {
 		if fs != nil {
-			if err := fs(s.Name, s); err != nil {
+			if err := fs(s.Name, s.Service); err != nil {
 				return err
 			}
 		}
 		if fi != nil {
 			for _, inst := range s.Instances {
-				if err := fi(s.Name, inst.Name, inst); err != nil {
+				if err := fi(s.Name, inst.Name, inst.Instance); err != nil {
 					return err
 				}
 			}
@@ -36,7 +36,7 @@ func ForeachInstance(store Store, serviceName string, fi InstanceFunc) error {
 		return err
 	}
 	for _, inst := range svc.Instances {
-		if err := fi(svc.Name, inst.Name, inst); err != nil {
+		if err := fi(svc.Name, inst.Name, inst.Instance); err != nil {
 			return err
 		}
 	}

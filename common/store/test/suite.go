@@ -35,7 +35,6 @@ func testPing(s store.Store, t *testing.T) {
 }
 
 var testService = data.Service{
-	Name:     "svc",
 	Address:  "1.2.3.4",
 	Port:     1234,
 	Protocol: "tcp",
@@ -45,7 +44,8 @@ func testServices(s store.Store, t *testing.T) {
 	require.Nil(t, s.AddService("svc", testService))
 	svc2, err := s.GetService("svc", store.QueryServiceOptions{})
 	require.Nil(t, err)
-	require.Equal(t, testService, svc2)
+	require.Equal(t, "svc", svc2.Name)
+	require.Equal(t, testService, svc2.Service)
 
 	require.Nil(t, s.CheckRegisteredService("svc"))
 
@@ -54,7 +54,7 @@ func testServices(s store.Store, t *testing.T) {
 		ss, err := s.GetAllServices(store.QueryServiceOptions{})
 		require.Nil(t, err)
 		for _, svc := range ss {
-			svcs[svc.Name] = svc
+			svcs[svc.Name] = svc.Service
 		}
 		return svcs
 	}
@@ -70,7 +70,6 @@ func testServices(s store.Store, t *testing.T) {
 }
 
 var testGroupSpec = data.ContainerGroupSpec{
-	Name: "group",
 	AddressSpec: data.AddressSpec{
 		Type: "foo",
 		Port: 5678,
@@ -86,16 +85,21 @@ func testGroupSpecs(s store.Store, t *testing.T) {
 
 	svc, err := s.GetService("svc", store.QueryServiceOptions{WithGroupSpecs: true})
 	require.Nil(t, err)
-	require.Equal(t, []data.ContainerGroupSpec{testGroupSpec}, svc.Groups)
+
+	require.Equal(t, []store.ContainerGroupSpecInfo{
+		store.ContainerGroupSpecInfo{
+			Name:               "group",
+			ContainerGroupSpec: testGroupSpec,
+		},
+	}, svc.ContainerGroupSpecs)
 
 	require.Nil(t, s.RemoveContainerGroupSpec("svc", "group"))
 	svc, err = s.GetService("svc", store.QueryServiceOptions{WithGroupSpecs: true})
 	require.Nil(t, err)
-	require.Equal(t, []data.ContainerGroupSpec{}, svc.Groups)
+	require.Equal(t, []store.ContainerGroupSpecInfo{}, svc.ContainerGroupSpecs)
 }
 
 var testInst = data.Instance{
-	Name:           "inst",
 	ContainerGroup: "group",
 	Address:        "1.2.3.4",
 	Port:           12345,

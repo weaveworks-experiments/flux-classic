@@ -15,6 +15,23 @@ type QueryServiceOptions struct {
 	WithGroupSpecs bool
 }
 
+type InstanceInfo struct {
+	Name string
+	data.Instance
+}
+
+type ContainerGroupSpecInfo struct {
+	Name string
+	data.ContainerGroupSpec
+}
+
+type ServiceInfo struct {
+	Name string `json:"name"`
+	data.Service
+	Instances           []InstanceInfo           `json:"instances,omitempty"`
+	ContainerGroupSpecs []ContainerGroupSpecInfo `json:"groups,omitempty"`
+}
+
 type Store interface {
 	Ping() error
 
@@ -23,8 +40,8 @@ type Store interface {
 	RemoveService(serviceName string) error
 	RemoveAllServices() error
 
-	GetService(serviceName string, opts QueryServiceOptions) (data.Service, error)
-	GetAllServices(opts QueryServiceOptions) ([]data.Service, error)
+	GetService(serviceName string, opts QueryServiceOptions) (ServiceInfo, error)
+	GetAllServices(opts QueryServiceOptions) ([]ServiceInfo, error)
 
 	SetContainerGroupSpec(serviceName string, groupName string, spec data.ContainerGroupSpec) error
 	RemoveContainerGroupSpec(serviceName string, groupName string) error

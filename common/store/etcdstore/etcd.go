@@ -145,22 +145,22 @@ func (es *etcdStore) RemoveAllServices() error {
 	return err
 }
 
-func (es *etcdStore) GetService(serviceName string, opts store.QueryServiceOptions) (data.Service, error) {
-	var svc data.Service
+func (es *etcdStore) GetService(serviceName string, opts store.QueryServiceOptions) (store.ServiceInfo, error) {
+	var svc store.ServiceInfo
 	if opts.WithInstances {
-		svc.Instances = make([]data.Instance, 0)
+		svc.Instances = make([]store.InstanceInfo, 0)
 	}
 	if opts.WithGroupSpecs {
-		svc.Groups = make([]data.ContainerGroupSpec, 0)
+		svc.ContainerGroupSpecs = make([]store.ContainerGroupSpecInfo, 0)
 	}
 	return svc, es.traverse(serviceRootKey(serviceName), visitService(&svc, opts))
 }
 
-func (es *etcdStore) GetAllServices(opts store.QueryServiceOptions) ([]data.Service, error) {
-	svcs := make([]data.Service, 0)
+func (es *etcdStore) GetAllServices(opts store.QueryServiceOptions) ([]store.ServiceInfo, error) {
+	svcs := make([]store.ServiceInfo, 0)
 	err := es.traverse(ROOT, func(node *etcd.Node) error {
 		if isServiceRoot(node) {
-			var svc data.Service
+			var svc store.ServiceInfo
 			err := traverse(node, visitService(&svc, opts))
 			if err != nil {
 				return err
@@ -188,7 +188,7 @@ func isServiceRoot(node *etcd.Node) bool {
 
 type visitor func(*etcd.Node) error
 
-func visitService(svc *data.Service, opts store.QueryServiceOptions) visitor {
+func visitService(svc *store.ServiceInfo, opts store.QueryServiceOptions) visitor {
 	return func(node *etcd.Node) error {
 		if node.Dir {
 			return traverse(node, visitService(svc, opts))
@@ -197,7 +197,7 @@ func visitService(svc *data.Service, opts store.QueryServiceOptions) visitor {
 		switch key := parseKey(node.Key).(type) {
 		case parsedServiceKey:
 			svc.Name = key.serviceName
-			err := unmarshalIntoService(svc, node)
+			err := unmarshalIntoService(&svc.Service, node)
 			if err != nil {
 				return err
 			}
@@ -207,7 +207,10 @@ func visitService(svc *data.Service, opts store.QueryServiceOptions) visitor {
 				if err != nil {
 					return err
 				}
-				svc.Instances = append(svc.Instances, inst)
+				svc.Instances = append(svc.Instances, store.InstanceInfo{
+					Name:     key.instanceName,
+					Instance: inst,
+				})
 			}
 		case parsedGroupSpecKey:
 			if opts.WithGroupSpecs {
@@ -215,7 +218,10 @@ func visitService(svc *data.Service, opts store.QueryServiceOptions) visitor {
 				if err != nil {
 					return err
 				}
-				svc.Groups = append(svc.Groups, spec)
+				svc.ContainerGroupSpecs = append(svc.ContainerGroupSpecs, store.ContainerGroupSpecInfo{
+					Name:               key.groupName,
+					ContainerGroupSpec: spec,
+				})
 			}
 		}
 		return nil
@@ -228,13 +234,11 @@ func unmarshalIntoService(svc *data.Service, node *etcd.Node) error {
 
 func unmarshalGroupSpec(name string, node *etcd.Node) (data.ContainerGroupSpec, error) {
 	var gs data.ContainerGroupSpec
-	gs.Name = name
 	return gs, json.Unmarshal([]byte(node.Value), &gs)
 }
 
 func unmarshalInstance(name string, node *etcd.Node) (data.Instance, error) {
 	var instance data.Instance
-	instance.Name = name
 	return instance, json.Unmarshal([]byte(node.Value), &instance)
 }
 

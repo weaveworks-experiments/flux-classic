@@ -85,40 +85,28 @@ func (s *inmem) RemoveAllServices() error {
 	return nil
 }
 
-func (s *inmem) GetService(name string, opts store.QueryServiceOptions) (data.Service, error) {
+func (s *inmem) GetService(name string, opts store.QueryServiceOptions) (store.ServiceInfo, error) {
 	svc, found := s.services[name]
 	if !found {
-		return data.Service{}, fmt.Errorf(`Not found "%s"`, name)
+		return store.ServiceInfo{}, fmt.Errorf(`Not found "%s"`, name)
 	}
-	s.populateService(&svc, opts)
-	return svc, nil
+	info := store.ServiceInfo{
+		Name:    name,
+		Service: svc,
+	}
+	s.populateServiceInfo(&info, opts)
+	return info, nil
 }
 
-func (s *inmem) populateService(svc *data.Service, opts store.QueryServiceOptions) {
-	if opts.WithInstances {
-		insts := make([]data.Instance, 0)
-		for n, i := range s.instances[svc.Name] {
-			i.Name = n
-			insts = append(insts, i)
-		}
-		svc.Instances = insts
-	}
-	if opts.WithGroupSpecs {
-		groups := make([]data.ContainerGroupSpec, 0)
-		for n, g := range s.groupSpecs[svc.Name] {
-			g.Name = n
-			groups = append(groups, g)
-		}
-		svc.Groups = groups
-	}
-}
-
-func (s *inmem) GetAllServices(opts store.QueryServiceOptions) ([]data.Service, error) {
-	svcs := []data.Service{}
+func (s *inmem) GetAllServices(opts store.QueryServiceOptions) ([]store.ServiceInfo, error) {
+	svcs := []store.ServiceInfo{}
 	for n, svc := range s.services {
-		svc.Name = n
-		s.populateService(&svc, opts)
-		svcs = append(svcs, svc)
+		info := store.ServiceInfo{
+			Name:    n,
+			Service: svc,
+		}
+		s.populateServiceInfo(&info, opts)
+		svcs = append(svcs, info)
 	}
 	return svcs, nil
 }
@@ -182,4 +170,29 @@ func (s *inmem) WatchServices(res chan<- data.ServiceChange, stop <-chan struct{
 			}
 		}
 	}()
+}
+
+// ===
+
+func (s *inmem) populateServiceInfo(info *store.ServiceInfo, opts store.QueryServiceOptions) {
+	if opts.WithInstances {
+		insts := make([]store.InstanceInfo, 0)
+		for n, i := range s.instances[info.Name] {
+			insts = append(insts, store.InstanceInfo{
+				Name:     n,
+				Instance: i,
+			})
+		}
+		info.Instances = insts
+	}
+	if opts.WithGroupSpecs {
+		groups := make([]store.ContainerGroupSpecInfo, 0)
+		for n, g := range s.groupSpecs[info.Name] {
+			groups = append(groups, store.ContainerGroupSpecInfo{
+				Name:               n,
+				ContainerGroupSpec: g,
+			})
+		}
+		info.ContainerGroupSpecs = groups
+	}
 }

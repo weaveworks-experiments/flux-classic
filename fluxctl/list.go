@@ -33,7 +33,7 @@ func (opts *listOpts) addCommandTo(top *cobra.Command) {
 
 type ruleInfo struct {
 	Service string
-	*store.ContainerGroupSpecInfo
+	*store.ContainerRuleInfo
 }
 
 func (opts *listOpts) run(_ *cobra.Command, args []string) {
@@ -59,12 +59,12 @@ func (opts *listOpts) run(_ *cobra.Command, args []string) {
 		opts.formatRule = `  {{.Name}} {{json .Selector}}`
 	}
 
-	var printRule func(serviceName string, rule *store.ContainerGroupSpecInfo)
+	var printRule func(serviceName string, rule *store.ContainerRuleInfo)
 	if opts.verbose {
 		tmpl := template.Must(template.New("rule").Funcs(extraTemplateFuncs).Parse(opts.formatRule))
-		printRule = func(serviceName string, rule *store.ContainerGroupSpecInfo) {
+		printRule = func(serviceName string, rule *store.ContainerRuleInfo) {
 			var info ruleInfo
-			info.ContainerGroupSpecInfo = rule
+			info.ContainerRuleInfo = rule
 			info.Service = serviceName
 			err := tmpl.Execute(os.Stdout, info)
 			if err != nil {
@@ -74,14 +74,14 @@ func (opts *listOpts) run(_ *cobra.Command, args []string) {
 		}
 	}
 
-	svcs, err := opts.store.GetAllServices(store.QueryServiceOptions{WithGroupSpecs: opts.verbose})
+	svcs, err := opts.store.GetAllServices(store.QueryServiceOptions{WithContainerRules: opts.verbose})
 	if err != nil {
 		exitWithErrorf("Unable to enumerate services: ", err)
 	}
 	for _, service := range svcs {
 		printService(&service)
 		if opts.verbose {
-			rules := service.ContainerGroupSpecs
+			rules := service.ContainerRules
 			if err != nil {
 				panic(err)
 			}

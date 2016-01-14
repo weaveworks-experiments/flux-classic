@@ -32,7 +32,7 @@ func (opts *deselectOpts) run(_ *cobra.Command, args []string) {
 		exitWithErrorf("Error fetching service: ", err)
 	}
 
-	if err := opts.store.RemoveContainerGroupSpec(serviceName, group); err != nil {
+	if err := opts.store.RemoveContainerRule(serviceName, group); err != nil {
 		exitWithErrorf("Unable to update service %s: %s", serviceName, err)
 	}
 

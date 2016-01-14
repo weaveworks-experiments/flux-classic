@@ -97,7 +97,7 @@ func (opts *addOpts) run(cmd *cobra.Command, args []string) error {
 	}
 
 	if spec != nil {
-		if err = opts.store.SetContainerGroupSpec(serviceName, DEFAULT_GROUP, *spec); err != nil {
+		if err = opts.store.SetContainerRule(serviceName, DEFAULT_GROUP, *spec); err != nil {
 			return fmt.Errorf("Error updating service: ", err)
 		}
 	}

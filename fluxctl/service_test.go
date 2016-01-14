@@ -88,9 +88,9 @@ func TestServiceSelect(t *testing.T) {
 	require.NoError(t, err)
 	services := allServices(t, st)
 	require.Len(t, services, 1)
-	svc, err := st.GetService("svc", store.QueryServiceOptions{WithGroupSpecs: true})
+	svc, err := st.GetService("svc", store.QueryServiceOptions{WithContainerRules: true})
 	require.NoError(t, err)
-	specs := svc.ContainerGroupSpecs
+	specs := svc.ContainerRules
 	require.Len(t, specs, 1)
 	spec := specs[0]
 	require.NotNil(t, spec)

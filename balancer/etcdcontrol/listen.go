@@ -44,7 +44,7 @@ func (l *Listener) send(serviceName string) {
 
 		insts = append(insts, model.Instance{
 			Name:  instance.Name,
-			Group: instance.ContainerGroup,
+			Group: instance.ContainerRule,
 			IP:    ip,
 			Port:  instance.Port,
 		})
@@ -77,7 +77,7 @@ func (l *Listener) Updates() <-chan model.ServiceUpdate {
 func (l *Listener) run(errorSink daemon.ErrorSink) {
 	changes := make(chan data.ServiceChange)
 	l.store.WatchServices(changes, nil, errorSink,
-		store.WatchServicesOptions{WithInstanceChanges: true})
+		store.QueryServiceOptions{WithInstances: true})
 
 	// Send initial state of each service
 	store.ForeachServiceInstance(l.store, func(name string, _ data.Service) error {

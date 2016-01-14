@@ -60,7 +60,7 @@ func instanceNameFor(c *docker.Container) string {
 
 // Read in all info on registered services
 func (l *Listener) ReadInServices() error {
-	svcs, err := l.store.GetAllServices(store.QueryServiceOptions{WithGroupSpecs: true})
+	svcs, err := l.store.GetAllServices(store.QueryServiceOptions{WithContainerRules: true})
 	if err != nil {
 		return err
 	}
@@ -132,9 +132,9 @@ func (l *Listener) redefineService(serviceName string, service *store.ServiceInf
 }
 
 func (l *Listener) evaluate(container *docker.Container, service *store.ServiceInfo) (bool, error) {
-	for _, spec := range service.ContainerGroupSpecs {
-		if instance, ok := l.extractInstance(spec.ContainerGroupSpec, container); ok {
-			instance.ContainerGroup = spec.Name
+	for _, spec := range service.ContainerRules {
+		if instance, ok := l.extractInstance(spec.ContainerRule, container); ok {
+			instance.ContainerRule = spec.Name
 			err := l.store.AddInstance(service.Name, container.ID, instance)
 			if err != nil {
 				log.Println("Failed to register service:", err)
@@ -172,7 +172,7 @@ func (container containerLabels) Label(label string) string {
 	}
 }
 
-func (l *Listener) extractInstance(spec data.ContainerGroupSpec, container *docker.Container) (data.Instance, bool) {
+func (l *Listener) extractInstance(spec data.ContainerRule, container *docker.Container) (data.Instance, bool) {
 	if !spec.Includes(containerLabels{container}) {
 		return data.Instance{}, false
 	}
@@ -216,7 +216,7 @@ func (l *Listener) deregister(container *docker.Container) error {
 	return nil
 }
 
-func (l *Listener) getAddress(spec data.ContainerGroupSpec, container *docker.Container) (string, int) {
+func (l *Listener) getAddress(spec data.ContainerRule, container *docker.Container) (string, int) {
 	addrSpec := spec.AddressSpec
 	switch addrSpec.Type {
 	case data.MAPPED:
@@ -285,7 +285,7 @@ func (l *Listener) serviceRemoved(name string) error {
 }
 
 func (l *Listener) serviceUpdated(name string) error {
-	svc, err := l.store.GetService(name, store.QueryServiceOptions{WithGroupSpecs: true})
+	svc, err := l.store.GetService(name, store.QueryServiceOptions{WithContainerRules: true})
 	if err != nil {
 		log.Println("Failed to retrieve service:", name, err)
 		return err
@@ -300,7 +300,7 @@ func (l *Listener) serviceUpdated(name string) error {
 func (l *Listener) Run(events <-chan *docker.APIEvents) {
 	changes := make(chan data.ServiceChange)
 	l.store.WatchServices(changes, nil, daemon.NewErrorSink(),
-		store.WatchServicesOptions{WithGroupSpecChanges: true})
+		store.QueryServiceOptions{WithContainerRules: true})
 
 	// sync after we have initiated the watch
 	if err := l.reconcile(); err != nil {

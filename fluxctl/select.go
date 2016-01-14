@@ -41,7 +41,7 @@ func (opts *selectOpts) run(_ *cobra.Command, args []string) {
 		exitWithErrorf("Unable to parse options into instance spec: ", err)
 	}
 
-	if err = opts.store.SetContainerGroupSpec(serviceName, name, *spec); err != nil {
+	if err = opts.store.SetContainerRule(serviceName, name, *spec); err != nil {
 		exitWithErrorf("Error updating service: ", err)
 	}
 

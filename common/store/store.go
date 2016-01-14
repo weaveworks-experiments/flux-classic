@@ -5,31 +5,26 @@ import (
 	"github.com/squaremo/flux/common/data"
 )
 
-type WatchServicesOptions struct {
-	WithInstanceChanges  bool
-	WithGroupSpecChanges bool
-}
-
 type QueryServiceOptions struct {
-	WithInstances  bool
-	WithGroupSpecs bool
+	WithInstances      bool
+	WithContainerRules bool
 }
 
 type InstanceInfo struct {
-	Name string
+	Name string `json:"name"`
 	data.Instance
 }
 
-type ContainerGroupSpecInfo struct {
-	Name string
-	data.ContainerGroupSpec
+type ContainerRuleInfo struct {
+	Name string `json:"name"`
+	data.ContainerRule
 }
 
 type ServiceInfo struct {
 	Name string `json:"name"`
 	data.Service
-	Instances           []InstanceInfo           `json:"instances,omitempty"`
-	ContainerGroupSpecs []ContainerGroupSpecInfo `json:"groups,omitempty"`
+	Instances      []InstanceInfo      `json:"instances,omitempty"`
+	ContainerRules []ContainerRuleInfo `json:"groups,omitempty"`
 }
 
 type Store interface {
@@ -43,11 +38,11 @@ type Store interface {
 	GetService(serviceName string, opts QueryServiceOptions) (ServiceInfo, error)
 	GetAllServices(opts QueryServiceOptions) ([]ServiceInfo, error)
 
-	SetContainerGroupSpec(serviceName string, groupName string, spec data.ContainerGroupSpec) error
-	RemoveContainerGroupSpec(serviceName string, groupName string) error
+	SetContainerRule(serviceName string, ruleName string, spec data.ContainerRule) error
+	RemoveContainerRule(serviceName string, ruleName string) error
 
 	AddInstance(serviceName, instanceName string, details data.Instance) error
 	RemoveInstance(serviceName, instanceName string) error
 
-	WatchServices(resCh chan<- data.ServiceChange, stopCh <-chan struct{}, errorSink daemon.ErrorSink, opts WatchServicesOptions)
+	WatchServices(resCh chan<- data.ServiceChange, stopCh <-chan struct{}, errorSink daemon.ErrorSink, opts QueryServiceOptions)
 }

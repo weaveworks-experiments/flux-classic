@@ -29,10 +29,10 @@ var testService = data.Service{
 }
 
 var testInstance = data.Instance{
-	ContainerGroup: "group",
-	Address:        "1.2.3.4",
-	Port:           12345,
-	Labels:         map[string]string{"key": "val"},
+	ContainerRule: "group",
+	Address:       "1.2.3.4",
+	Port:          12345,
+	Labels:        map[string]string{"key": "val"},
 }
 
 func allServices(t *testing.T, st store.Store) []store.ServiceInfo {

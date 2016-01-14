@@ -23,7 +23,7 @@ func RunStoreTestSuite(ts TestableStore, t *testing.T) {
 	ts.Reset(t)
 	testServices(ts, t)
 	ts.Reset(t)
-	testGroupSpecs(ts, t)
+	testRules(ts, t)
 	ts.Reset(t)
 	testInstances(ts, t)
 	ts.Reset(t)
@@ -69,7 +69,7 @@ func testServices(s store.Store, t *testing.T) {
 	require.Equal(t, map[string]data.Service{}, services())
 }
 
-var testGroupSpec = data.ContainerGroupSpec{
+var testRule = data.ContainerRule{
 	AddressSpec: data.AddressSpec{
 		Type: "foo",
 		Port: 5678,
@@ -79,31 +79,31 @@ var testGroupSpec = data.ContainerGroupSpec{
 	},
 }
 
-func testGroupSpecs(s store.Store, t *testing.T) {
+func testRules(s store.Store, t *testing.T) {
 	require.Nil(t, s.AddService("svc", testService))
-	require.Nil(t, s.SetContainerGroupSpec("svc", "group", testGroupSpec))
+	require.Nil(t, s.SetContainerRule("svc", "group", testRule))
 
-	svc, err := s.GetService("svc", store.QueryServiceOptions{WithGroupSpecs: true})
+	svc, err := s.GetService("svc", store.QueryServiceOptions{WithContainerRules: true})
 	require.Nil(t, err)
 
-	require.Equal(t, []store.ContainerGroupSpecInfo{
-		store.ContainerGroupSpecInfo{
-			Name:               "group",
-			ContainerGroupSpec: testGroupSpec,
+	require.Equal(t, []store.ContainerRuleInfo{
+		store.ContainerRuleInfo{
+			Name:          "group",
+			ContainerRule: testRule,
 		},
-	}, svc.ContainerGroupSpecs)
+	}, svc.ContainerRules)
 
-	require.Nil(t, s.RemoveContainerGroupSpec("svc", "group"))
-	svc, err = s.GetService("svc", store.QueryServiceOptions{WithGroupSpecs: true})
+	require.Nil(t, s.RemoveContainerRule("svc", "group"))
+	svc, err = s.GetService("svc", store.QueryServiceOptions{WithContainerRules: true})
 	require.Nil(t, err)
-	require.Equal(t, []store.ContainerGroupSpecInfo{}, svc.ContainerGroupSpecs)
+	require.Equal(t, []store.ContainerRuleInfo{}, svc.ContainerRules)
 }
 
 var testInst = data.Instance{
-	ContainerGroup: "group",
-	Address:        "1.2.3.4",
-	Port:           12345,
-	Labels:         map[string]string{"key": "val"},
+	ContainerRule: "group",
+	Address:       "1.2.3.4",
+	Port:          12345,
+	Labels:        map[string]string{"key": "val"},
 }
 
 func testInstances(s store.Store, t *testing.T) {
@@ -143,7 +143,7 @@ type watcher struct {
 	done    chan struct{}
 }
 
-func newWatcher(s store.Store, opts store.WatchServicesOptions) *watcher {
+func newWatcher(s store.Store, opts store.QueryServiceOptions) *watcher {
 	w := &watcher{stopCh: make(chan struct{}), done: make(chan struct{})}
 	changes := make(chan data.ServiceChange)
 	stopWatch := make(chan struct{})
@@ -169,7 +169,7 @@ func (w *watcher) stop() {
 }
 
 func testWatchServices(s store.Store, t *testing.T) {
-	check := func(opts store.WatchServicesOptions, body func(w *watcher), changes ...data.ServiceChange) {
+	check := func(opts store.QueryServiceOptions, body func(w *watcher), changes ...data.ServiceChange) {
 		w := newWatcher(s, opts)
 		body(w)
 		// Yuck.  There's a race between making a change in
@@ -181,49 +181,49 @@ func testWatchServices(s store.Store, t *testing.T) {
 		require.Nil(t, s.RemoveAllServices())
 	}
 
-	check(store.WatchServicesOptions{}, func(w *watcher) {
+	check(store.QueryServiceOptions{}, func(w *watcher) {
 		require.Nil(t, s.AddService("svc", testService))
 	}, data.ServiceChange{"svc", false})
 
 	require.Nil(t, s.AddService("svc", testService))
-	check(store.WatchServicesOptions{}, func(w *watcher) {
+	check(store.QueryServiceOptions{}, func(w *watcher) {
 		require.Nil(t, s.RemoveAllServices())
 		require.Nil(t, s.AddService("svc", testService))
 		require.Nil(t, s.RemoveService("svc"))
 	}, data.ServiceChange{"svc", true}, data.ServiceChange{"svc", false},
 		data.ServiceChange{"svc", true})
 
-	// WithInstanceChanges false, so adding an instance should not
+	// WithInstances false, so adding an instance should not
 	// cause an event
 	require.Nil(t, s.AddService("svc", testService))
-	check(store.WatchServicesOptions{}, func(w *watcher) {
+	check(store.QueryServiceOptions{}, func(w *watcher) {
 		require.Nil(t, s.AddInstance("svc", "inst", testInst))
 	})
 
-	// WithInstanceChanges true, so instance changes should
+	// WithInstances true, so instance changes should
 	// cause events
 	require.Nil(t, s.AddService("svc", testService))
-	check(store.WatchServicesOptions{WithInstanceChanges: true},
+	check(store.QueryServiceOptions{WithInstances: true},
 		func(w *watcher) {
 			require.Nil(t, s.AddInstance("svc", "inst", testInst))
 			require.Nil(t, s.RemoveInstance("svc", "inst"))
 		}, data.ServiceChange{"svc", false},
 		data.ServiceChange{"svc", false})
 
-	// WithGroupSpecChanges false, so adding an instance should not
+	// WithContainerRules false, so adding a rule should not
 	// cause an event
 	require.Nil(t, s.AddService("svc", testService))
-	check(store.WatchServicesOptions{}, func(w *watcher) {
-		require.Nil(t, s.SetContainerGroupSpec("svc", "group", testGroupSpec))
+	check(store.QueryServiceOptions{}, func(w *watcher) {
+		require.Nil(t, s.SetContainerRule("svc", "group", testRule))
 	})
 
-	// withGroupSpecChanges true, so instance changes should
+	// WithContainerRules true, so instance changes should
 	// cause events
 	require.Nil(t, s.AddService("svc", testService))
-	check(store.WatchServicesOptions{WithGroupSpecChanges: true},
+	check(store.QueryServiceOptions{WithContainerRules: true},
 		func(w *watcher) {
-			require.Nil(t, s.SetContainerGroupSpec("svc", "group", testGroupSpec))
-			require.Nil(t, s.RemoveContainerGroupSpec("svc", "group"))
+			require.Nil(t, s.SetContainerRule("svc", "group", testRule))
+			require.Nil(t, s.RemoveContainerRule("svc", "group"))
 		}, data.ServiceChange{"svc", false},
 		data.ServiceChange{"svc", false})
 }

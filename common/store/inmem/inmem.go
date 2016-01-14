@@ -13,14 +13,14 @@ import (
 func NewInMemStore() store.Store {
 	return &inmem{
 		services:   make(map[string]data.Service),
-		groupSpecs: make(map[string]map[string]data.ContainerGroupSpec),
+		groupSpecs: make(map[string]map[string]data.ContainerRule),
 		instances:  make(map[string]map[string]data.Instance),
 	}
 }
 
 type inmem struct {
 	services     map[string]data.Service
-	groupSpecs   map[string]map[string]data.ContainerGroupSpec
+	groupSpecs   map[string]map[string]data.ContainerRule
 	instances    map[string]map[string]data.Instance
 	watchersLock sync.Mutex
 	watchers     []watcher
@@ -29,10 +29,10 @@ type inmem struct {
 type watcher struct {
 	ch   chan<- data.ServiceChange
 	stop <-chan struct{}
-	opts store.WatchServicesOptions
+	opts store.QueryServiceOptions
 }
 
-func (s *inmem) fireEvent(ev data.ServiceChange, optsFilter func(store.WatchServicesOptions) bool) {
+func (s *inmem) fireEvent(ev data.ServiceChange, optsFilter func(store.QueryServiceOptions) bool) {
 	s.watchersLock.Lock()
 	watchers := s.watchers
 	s.watchersLock.Unlock()
@@ -60,7 +60,7 @@ func (s *inmem) CheckRegisteredService(name string) error {
 
 func (s *inmem) AddService(name string, svc data.Service) error {
 	s.services[name] = svc
-	s.groupSpecs[name] = make(map[string]data.ContainerGroupSpec)
+	s.groupSpecs[name] = make(map[string]data.ContainerRule)
 	s.instances[name] = make(map[string]data.Instance)
 
 	s.fireEvent(data.ServiceChange{name, false}, nil)
@@ -111,34 +111,34 @@ func (s *inmem) GetAllServices(opts store.QueryServiceOptions) ([]store.ServiceI
 	return svcs, nil
 }
 
-func withGroupSpecChanges(opts store.WatchServicesOptions) bool {
-	return opts.WithGroupSpecChanges
+func withRuleChanges(opts store.QueryServiceOptions) bool {
+	return opts.WithContainerRules
 }
 
-func (s *inmem) SetContainerGroupSpec(serviceName string, groupName string, spec data.ContainerGroupSpec) error {
+func (s *inmem) SetContainerRule(serviceName string, groupName string, spec data.ContainerRule) error {
 	groupSpecs, found := s.groupSpecs[serviceName]
 	if !found {
 		return fmt.Errorf(`Not found "%s"`, serviceName)
 	}
 
 	groupSpecs[groupName] = spec
-	s.fireEvent(data.ServiceChange{serviceName, false}, withGroupSpecChanges)
+	s.fireEvent(data.ServiceChange{serviceName, false}, withRuleChanges)
 	return nil
 }
 
-func (s *inmem) RemoveContainerGroupSpec(serviceName string, groupName string) error {
+func (s *inmem) RemoveContainerRule(serviceName string, groupName string) error {
 	groupSpecs, found := s.groupSpecs[serviceName]
 	if !found {
 		return fmt.Errorf(`Not found "%s"`, serviceName)
 	}
 
 	delete(groupSpecs, groupName)
-	s.fireEvent(data.ServiceChange{serviceName, false}, withGroupSpecChanges)
+	s.fireEvent(data.ServiceChange{serviceName, false}, withRuleChanges)
 	return nil
 }
 
-func withInstanceChanges(opts store.WatchServicesOptions) bool {
-	return opts.WithInstanceChanges
+func withInstanceChanges(opts store.QueryServiceOptions) bool {
+	return opts.WithInstances
 }
 
 func (s *inmem) AddInstance(serviceName string, instanceName string, inst data.Instance) error {
@@ -153,7 +153,7 @@ func (s *inmem) RemoveInstance(serviceName string, instanceName string) error {
 	return nil
 }
 
-func (s *inmem) WatchServices(res chan<- data.ServiceChange, stop <-chan struct{}, _ daemon.ErrorSink, opts store.WatchServicesOptions) {
+func (s *inmem) WatchServices(res chan<- data.ServiceChange, stop <-chan struct{}, _ daemon.ErrorSink, opts store.QueryServiceOptions) {
 	s.watchersLock.Lock()
 	defer s.watchersLock.Unlock()
 	s.watchers = append(s.watchers, watcher{res, stop, opts})
@@ -185,14 +185,14 @@ func (s *inmem) populateServiceInfo(info *store.ServiceInfo, opts store.QuerySer
 		}
 		info.Instances = insts
 	}
-	if opts.WithGroupSpecs {
-		groups := make([]store.ContainerGroupSpecInfo, 0)
+	if opts.WithContainerRules {
+		groups := make([]store.ContainerRuleInfo, 0)
 		for n, g := range s.groupSpecs[info.Name] {
-			groups = append(groups, store.ContainerGroupSpecInfo{
-				Name:               n,
-				ContainerGroupSpec: g,
+			groups = append(groups, store.ContainerRuleInfo{
+				Name:          n,
+				ContainerRule: g,
 			})
 		}
-		info.ContainerGroupSpecs = groups
+		info.ContainerRules = groups
 	}
 }

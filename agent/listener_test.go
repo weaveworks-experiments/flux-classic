@@ -119,7 +119,7 @@ func addGroup(st store.Store, serviceName string, addr *data.AddressSpec, labels
 		addr = &data.AddressSpec{"fixed", 80}
 	}
 
-	st.SetContainerGroupSpec(serviceName, GROUP, data.ContainerGroupSpec{*addr, sel})
+	st.SetContainerRule(serviceName, GROUP, data.ContainerRule{*addr, sel})
 }
 
 func setup(hostIP string) (*Listener, store.Store, *mockInspector) {
@@ -177,7 +177,7 @@ func TestListenerEvents(t *testing.T) {
 
 	dc.listenToEvents(events)
 	st.WatchServices(changes, nil, daemon.NewErrorSink(),
-		store.WatchServicesOptions{WithGroupSpecChanges: true})
+		store.QueryServiceOptions{WithContainerRules: true})
 
 	// no services defined
 	dc.startContainers(container{

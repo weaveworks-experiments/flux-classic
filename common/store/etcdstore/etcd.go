@@ -54,8 +54,8 @@ func serviceKey(serviceName string) string {
 	return fmt.Sprintf("%s%s/details", ROOT, serviceName)
 }
 
-func groupSpecKey(serviceName, groupName string) string {
-	return fmt.Sprintf("%s%s/groupspec/%s", ROOT, serviceName, groupName)
+func ruleKey(serviceName, ruleName string) string {
+	return fmt.Sprintf("%s%s/groupspec/%s", ROOT, serviceName, ruleName)
 }
 
 func instanceKey(serviceName, instanceName string) string {
@@ -73,13 +73,13 @@ type parsedServiceKey struct {
 	serviceName string
 }
 
-type parsedGroupSpecKey struct {
+type parsedRuleKey struct {
 	serviceName string
-	groupName   string
+	ruleName    string
 }
 
-func (k parsedGroupSpecKey) relevantTo(opts store.WatchServicesOptions) (bool, string) {
-	return opts.WithGroupSpecChanges, k.serviceName
+func (k parsedRuleKey) relevantTo(opts store.QueryServiceOptions) (bool, string) {
+	return opts.WithContainerRules, k.serviceName
 }
 
 type parsedInstanceKey struct {
@@ -87,8 +87,8 @@ type parsedInstanceKey struct {
 	instanceName string
 }
 
-func (k parsedInstanceKey) relevantTo(opts store.WatchServicesOptions) (bool, string) {
-	return opts.WithInstanceChanges, k.serviceName
+func (k parsedInstanceKey) relevantTo(opts store.QueryServiceOptions) (bool, string) {
+	return opts.WithInstances, k.serviceName
 }
 
 // Parse a path to find its type
@@ -109,7 +109,7 @@ func parseKey(key string) interface{} {
 
 	case "groupspec":
 		if len(p) == 3 {
-			return parsedGroupSpecKey{p[0], p[2]}
+			return parsedRuleKey{p[0], p[2]}
 		}
 
 	case "instance":
@@ -150,8 +150,8 @@ func (es *etcdStore) GetService(serviceName string, opts store.QueryServiceOptio
 	if opts.WithInstances {
 		svc.Instances = make([]store.InstanceInfo, 0)
 	}
-	if opts.WithGroupSpecs {
-		svc.ContainerGroupSpecs = make([]store.ContainerGroupSpecInfo, 0)
+	if opts.WithContainerRules {
+		svc.ContainerRules = make([]store.ContainerRuleInfo, 0)
 	}
 	return svc, es.traverse(serviceRootKey(serviceName), visitService(&svc, opts))
 }
@@ -212,15 +212,15 @@ func visitService(svc *store.ServiceInfo, opts store.QueryServiceOptions) visito
 					Instance: inst,
 				})
 			}
-		case parsedGroupSpecKey:
-			if opts.WithGroupSpecs {
-				spec, err := unmarshalGroupSpec(key.groupName, node)
+		case parsedRuleKey:
+			if opts.WithContainerRules {
+				spec, err := unmarshalRule(key.ruleName, node)
 				if err != nil {
 					return err
 				}
-				svc.ContainerGroupSpecs = append(svc.ContainerGroupSpecs, store.ContainerGroupSpecInfo{
-					Name:               key.groupName,
-					ContainerGroupSpec: spec,
+				svc.ContainerRules = append(svc.ContainerRules, store.ContainerRuleInfo{
+					Name:          key.ruleName,
+					ContainerRule: spec,
 				})
 			}
 		}
@@ -232,8 +232,8 @@ func unmarshalIntoService(svc *data.Service, node *etcd.Node) error {
 	return json.Unmarshal([]byte(node.Value), &svc)
 }
 
-func unmarshalGroupSpec(name string, node *etcd.Node) (data.ContainerGroupSpec, error) {
-	var gs data.ContainerGroupSpec
+func unmarshalRule(name string, node *etcd.Node) (data.ContainerRule, error) {
+	var gs data.ContainerRule
 	return gs, json.Unmarshal([]byte(node.Value), &gs)
 }
 
@@ -263,21 +263,21 @@ func (es *etcdStore) traverse(key string, visit visitor) error {
 	return traverse(r.Node, visit)
 }
 
-func (es *etcdStore) SetContainerGroupSpec(serviceName string, groupName string, spec data.ContainerGroupSpec) error {
+func (es *etcdStore) SetContainerRule(serviceName string, ruleName string, spec data.ContainerRule) error {
 	json, err := json.Marshal(spec)
 	if err != nil {
 		return err
 	}
 
-	if _, err := es.client.Set(groupSpecKey(serviceName, groupName), string(json), 0); err != nil {
+	if _, err := es.client.Set(ruleKey(serviceName, ruleName), string(json), 0); err != nil {
 		return err
 	}
 
 	return err
 }
 
-func (es *etcdStore) RemoveContainerGroupSpec(serviceName string, groupName string) error {
-	_, err := es.client.Delete(groupSpecKey(serviceName, groupName), true)
+func (es *etcdStore) RemoveContainerRule(serviceName string, ruleName string) error {
+	_, err := es.client.Delete(ruleKey(serviceName, ruleName), true)
 	return err
 }
 
@@ -297,7 +297,7 @@ func (es *etcdStore) RemoveInstance(serviceName, instanceName string) error {
 	return err
 }
 
-func (es *etcdStore) WatchServices(resCh chan<- data.ServiceChange, stopCh <-chan struct{}, errorSink daemon.ErrorSink, opts store.WatchServicesOptions) {
+func (es *etcdStore) WatchServices(resCh chan<- data.ServiceChange, stopCh <-chan struct{}, errorSink daemon.ErrorSink, opts store.QueryServiceOptions) {
 	etcdCh := make(chan *etcd.Response, 1)
 	watchStopCh := make(chan bool, 1)
 	go func() {
@@ -333,7 +333,7 @@ func (es *etcdStore) WatchServices(resCh chan<- data.ServiceChange, stopCh <-cha
 				resCh <- data.ServiceChange{key.serviceName, true}
 
 			case interface {
-				relevantTo(opts store.WatchServicesOptions) (bool, string)
+				relevantTo(opts store.QueryServiceOptions) (bool, string)
 			}:
 				if relevant, service := key.relevantTo(opts); relevant {
 					resCh <- data.ServiceChange{service, false}
@@ -347,7 +347,7 @@ func (es *etcdStore) WatchServices(resCh chan<- data.ServiceChange, stopCh <-cha
 				resCh <- data.ServiceChange{key.serviceName, false}
 
 			case interface {
-				relevantTo(opts store.WatchServicesOptions) (bool, string)
+				relevantTo(opts store.QueryServiceOptions) (bool, string)
 			}:
 				if relevant, service := key.relevantTo(opts); relevant {
 					resCh <- data.ServiceChange{service, false}

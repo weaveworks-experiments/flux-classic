@@ -65,7 +65,7 @@ func (opts *spec) addSpecVars(cmd *cobra.Command) {
 	cmd.Flags().IntVar(&opts.mapped, "port-mapped", 0, "Use the host IP address, and the host port mapped to the given container port")
 }
 
-func (opts *spec) makeSpec() (*data.ContainerGroupSpec, error) {
+func (opts *spec) makeSpec() (*data.ContainerRule, error) {
 	var addrSpec data.AddressSpec
 
 	sel := opts.makeSelector()
@@ -82,7 +82,7 @@ func (opts *spec) makeSpec() (*data.ContainerGroupSpec, error) {
 			return nil, fmt.Errorf("Along with selection flags, you must supply one of --port-fixed or --port-mapped")
 		}
 
-		return &data.ContainerGroupSpec{
+		return &data.ContainerRule{
 			AddressSpec: addrSpec,
 			Selector:    sel,
 		}, nil

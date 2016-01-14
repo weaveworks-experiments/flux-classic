@@ -18,7 +18,7 @@ type Listener struct {
 }
 
 func (l *Listener) send(serviceName string) {
-	service, err := l.store.GetServiceDetails(serviceName)
+	service, err := l.store.GetService(serviceName, store.QueryServiceOptions{WithInstances: true})
 	if err != nil {
 		log.Error(err)
 		return
@@ -33,22 +33,22 @@ func (l *Listener) send(serviceName string) {
 		return
 	}
 
-	var insts []model.Instance
-	l.store.ForeachInstance(serviceName, func(name string, instance data.Instance) {
+	insts := []model.Instance{}
+	for _, instance := range service.Instances {
 		ip := net.ParseIP(instance.Address)
 		if ip == nil {
 			log.Errorf("Bad address \"%s\" for instance %s/%s",
-				instance.Address, serviceName, name)
+				instance.Address, serviceName, service.Name)
 			return
 		}
 
 		insts = append(insts, model.Instance{
-			Name:  name,
+			Name:  instance.Name,
 			Group: instance.ContainerGroup,
 			IP:    ip,
 			Port:  instance.Port,
 		})
-	})
+	}
 
 	l.updates <- model.ServiceUpdate{
 		Service: model.Service{
@@ -80,8 +80,9 @@ func (l *Listener) run(errorSink daemon.ErrorSink) {
 		store.WatchServicesOptions{WithInstanceChanges: true})
 
 	// Send initial state of each service
-	l.store.ForeachServiceInstance(func(name string, _ data.Service) {
+	store.ForeachServiceInstance(l.store, func(name string, _ data.Service) error {
 		l.send(name)
+		return nil
 	}, nil)
 
 	for {

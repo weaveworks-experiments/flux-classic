@@ -28,12 +28,11 @@ func (opts *deselectOpts) run(_ *cobra.Command, args []string) {
 	serviceName, group := args[0], args[1]
 
 	// Check that the service exists
-	_, err := opts.store.GetServiceDetails(serviceName)
-	if err != nil {
+	if err := opts.store.CheckRegisteredService(serviceName); err != nil {
 		exitWithErrorf("Error fetching service: ", err)
 	}
 
-	if err = opts.store.RemoveContainerGroupSpec(serviceName, group); err != nil {
+	if err := opts.store.RemoveContainerGroupSpec(serviceName, group); err != nil {
 		exitWithErrorf("Unable to update service %s: %s", serviceName, err)
 	}
 

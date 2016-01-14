@@ -1,20 +1,16 @@
-WEB_BABELGEN:=$(patsubst %.babel,%.js,$(shell find web/gen -name '*.babel'))
-WEB_LESSGEN:=$(patsubst %.less,%.css,$(shell find web/gen -name '*.less'))
-WEB_GEN:=$(WEB_LESSGEN) $(WEB_BABELGEN)
-WEB_STATIC:=web/index.html web/res/*.css web/res/*.js
+WEB_SRC:=$(shell find web/src -type f)
+WEB_BUILD:=$(shell find web/build -type f)
+WEB_STATIC:=web/src/index.html
 
-$(call image_stamp,web): $(WEB_STATIC) $(WEB_GEN)
+$(call image_stamp,web): $(WEB_STATIC) $(WEB_BUILD) web/build/app.js web/webpack.production.config.js
 
-$(WEB_GEN): $(call image_stamp,webbuild)
+$(call image_stamp,webbuild): web/package.json
 
-%.css: %.less
-	$(call run_build_container,webbuild,,,lessc $< $@)
-
-%.js: %.babel
-	$(call run_build_container,webbuild,,,babel $< -o $@)
+web/build/app.js: $(call image_stamp,webbuild)
+	$(call run_build_container,webbuild,,web,npm run build)
 
 .PHONY: clean-web
 clean:: clean-web
 
 clean-web::
-	rm -f $(WEB_GEN)
+	rm -f $(WEB_BUILD)

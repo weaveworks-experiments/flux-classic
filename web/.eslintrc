@@ -1,0 +1,14 @@
+{
+  "extends": "airbnb",
+  "env": {
+    "browser": true,
+    "jest": true,
+    "node": true
+  },
+  "rules": {
+    "comma-dangle": 0,
+    "func-names": 0,
+    "react/sort-comp": 0,
+    "react/prop-types": 0
+  }
+}

@@ -1,2 +1,4 @@
 FROM node
-RUN npm install -g less babel@5
+ENV NPM_CONFIG_LOGLEVEL warn
+COPY ./package.json ./
+RUN npm install --no-optional

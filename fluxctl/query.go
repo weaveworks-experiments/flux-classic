@@ -32,21 +32,25 @@ func (opts *queryOpts) addCommandTo(top *cobra.Command) {
 	top.AddCommand(cmd)
 }
 
-func printInstanceID(name string, inst data.Instance) {
+func printInstanceID(_, name string, _ data.Instance) error {
 	fmt.Println(name)
+	return nil
+}
+
+type instanceForFormat struct {
+	Service string
+	Name    string
+	data.Instance
 }
 
 func (opts *queryOpts) run(_ *cobra.Command, args []string) {
 	sel := opts.makeSelector()
-
 	printInstance := printInstanceID
-
-	var serviceName = opts.service
 
 	if opts.format != "" {
 		tmpl := template.Must(template.New("instance").Funcs(extraTemplateFuncs).Parse(opts.format))
-		printInstance = func(name string, inst data.Instance) {
-			err := tmpl.Execute(os.Stdout, instanceInfo{
+		printInstance = func(serviceName, name string, inst data.Instance) error {
+			err := tmpl.Execute(os.Stdout, instanceForFormat{
 				Service:  serviceName,
 				Name:     name,
 				Instance: inst,
@@ -55,6 +59,7 @@ func (opts *queryOpts) run(_ *cobra.Command, args []string) {
 				panic(err)
 			}
 			fmt.Println()
+			return nil
 		}
 	}
 

@@ -2,13 +2,11 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"os"
 
-	"github.com/squaremo/flux/common/data"
 	"github.com/squaremo/flux/common/store"
 	"github.com/squaremo/flux/common/store/etcdstore"
 
@@ -63,38 +61,12 @@ func (api *api) router() http.Handler {
 // List all services, along with their instances and accompanying
 // metadata.
 
-type instance struct {
-	Name string `json:"name"`
-	data.Instance
-}
-
-type service struct {
-	Name string `json:"name"`
-	data.Service
-	Instances []instance `json:"instances"`
-}
-
 func (api *api) allServices(w http.ResponseWriter, r *http.Request) {
-	var currentService *service
-	services := []*service{}
-
-	api.store.ForeachServiceInstance(func(name string, details data.Service) {
-		fmt.Println("service: " + name)
-		currentService = &service{
-			Name:      name,
-			Service:   details,
-			Instances: make([]instance, 0),
-		}
-		services = append(services, currentService)
-	}, func(svcname, name string, inst data.Instance) {
-		fmt.Println("instance of: " + svcname)
-		instance := instance{
-			Name:     name,
-			Instance: inst,
-		}
-		currentService.Instances = append(currentService.Instances, instance)
-	})
-	json.NewEncoder(w).Encode(services)
+	services, err := api.store.GetAllServices(store.QueryServiceOptions{WithInstances: true})
+	if err != nil {
+		http.Error(w, "Error getting services from store: "+err.Error(), 500)
+	}
+	json.NewEncoder(w).Encode(&services)
 }
 
 /* Proxy for prometheus, as a stop-gap */

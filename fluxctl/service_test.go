@@ -21,16 +21,9 @@ func runCmd(args []string) (store.Store, error) {
 	return st, err
 }
 
-type service struct {
-	data.Service
-	Name string
-}
-
-func allServices(st store.Store) []service {
-	services := make([]service, 0)
-	st.ForeachServiceInstance(func(name string, svc data.Service) {
-		services = append(services, service{Service: svc, Name: name})
-	}, nil)
+func allServices(t *testing.T, st store.Store) []store.ServiceInfo {
+	services, err := st.GetAllServices(store.QueryServiceOptions{})
+	require.NoError(t, err)
 	return services
 }
 
@@ -43,7 +36,7 @@ func TestMinimal(t *testing.T) {
 	st, err := runCmd([]string{
 		"foo"})
 	require.NoError(t, err)
-	services := allServices(st)
+	services := allServices(t, st)
 	require.Len(t, services, 1)
 	require.Equal(t, "foo", services[0].Name)
 }
@@ -74,7 +67,7 @@ func TestServiceAddress(t *testing.T) {
 	st, err := runCmd([]string{
 		"foo", "--address", "10.3.4.5:8000"})
 	require.NoError(t, err)
-	services := allServices(st)
+	services := allServices(t, st)
 	require.Len(t, services, 1)
 	require.Equal(t, "foo", services[0].Name)
 	require.Equal(t, "10.3.4.5", services[0].Address)
@@ -93,13 +86,15 @@ func TestServiceSelect(t *testing.T) {
 		"svc", "--image", "repo/image", "--port-fixed", "9000",
 	})
 	require.NoError(t, err)
-	services := allServices(st)
+	services := allServices(t, st)
 	require.Len(t, services, 1)
-	specs, err := st.GetContainerGroupSpecs("svc")
+	svc, err := st.GetService("svc", store.QueryServiceOptions{WithGroupSpecs: true})
 	require.NoError(t, err)
+	specs := svc.ContainerGroupSpecs
 	require.Len(t, specs, 1)
-	spec := specs[DEFAULT_GROUP]
+	spec := specs[0]
 	require.NotNil(t, spec)
+	require.Equal(t, DEFAULT_GROUP, spec.Name)
 	require.Equal(t, data.Selector(map[string]string{
 		"image": "repo/image",
 	}), spec.Selector)

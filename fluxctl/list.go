@@ -79,7 +79,7 @@ func (opts *listOpts) run(_ *cobra.Command, args []string) {
 		exitWithErrorf("Unable to enumerate services: ", err)
 	}
 	for _, service := range svcs {
-		printService(service.Name, service)
+		printService(&service)
 		if opts.verbose {
 			rules := service.ContainerGroupSpecs
 			if err != nil {

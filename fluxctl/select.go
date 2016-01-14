@@ -31,7 +31,7 @@ func (opts *selectOpts) run(_ *cobra.Command, args []string) {
 	serviceName, name := args[0], args[1]
 
 	// Check that the service exists
-	_, err := opts.store.GetServiceDetails(serviceName)
+	err := opts.store.CheckRegisteredService(serviceName)
 	if err != nil {
 		exitWithErrorf("Error fetching service: ", err)
 	}

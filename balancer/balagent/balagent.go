@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path"
 	"text/template"
+	"time"
 
 	"github.com/squaremo/flux/balancer/etcdcontrol"
 	"github.com/squaremo/flux/balancer/model"
@@ -20,12 +22,16 @@ type BalancerAgent struct {
 	store      store.Store
 	filename   string
 	template   *template.Template
-	service    string
+	reloadCmd  string
 	controller model.Controller
 	stop       chan struct{}
-	tick       chan struct{}
 
-	services Services
+	services chan Services
+
+	// for tests:
+	generated        chan struct{}
+	updaterStopped   chan struct{}
+	generatorStopped chan struct{}
 }
 
 type Services map[string]*model.Service
@@ -60,6 +66,8 @@ func (a *BalancerAgent) parseArgs(args []string) error {
 	var templateFile string
 	fs.StringVar(&templateFile, "i", "nginx.tmpl",
 		"name of template file with which to generate the output file")
+	fs.StringVar(&a.reloadCmd, "o", "",
+		"command to run each time the file is regenerated")
 
 	var err error
 	if err = fs.Parse(args[1:]); err != nil {
@@ -83,55 +91,79 @@ func (a *BalancerAgent) start() error {
 
 	a.controller = controller
 	a.stop = make(chan struct{})
-	go a.run()
+	a.services = make(chan Services, 1)
+	go a.updater()
+	go a.generator()
 	return nil
 }
 
 func (a *BalancerAgent) Stop() {
 	if a.controller != nil {
 		a.controller.Close()
-	}
-
-	if a.stop != nil {
 		close(a.stop)
-		a.stop = nil
+		a.controller = nil
 	}
 }
 
-func (a *BalancerAgent) run() {
-	a.services = make(map[string]*model.Service)
+// Aggregates service updates, and sends snapshots of the full state
+// to the generator goroutine.
+func (a *BalancerAgent) updater() {
+	services := make(Services)
 	updates := a.controller.Updates()
 
 	for {
 		select {
 		case <-a.stop:
-			if a.tick != nil {
-				a.tick <- struct{}{}
+			if a.updaterStopped != nil {
+				a.updaterStopped <- struct{}{}
 			}
 			return
 
 		case u := <-updates:
-			a.handleUpdate(&u)
-			if a.tick != nil {
-				a.tick <- struct{}{}
+			if u.Delete {
+				delete(services, u.Name)
+			} else {
+				services[u.Name] = &u.Service
+			}
+		}
+
+		s := make(Services)
+		for k, v := range services {
+			s[k] = v
+		}
+
+		// remove any pending item sitting in a.services:
+		select {
+		case <-a.services:
+		default:
+		}
+
+		a.services <- s
+	}
+}
+
+func (a *BalancerAgent) generator() {
+	for {
+		select {
+		case <-a.stop:
+			if a.generatorStopped != nil {
+				a.generatorStopped <- struct{}{}
+			}
+			return
+
+		case services := <-a.services:
+			if err := a.regenerate(services); err != nil {
+				a.errorSink.Post(err)
+			}
+
+			if a.generated != nil {
+				a.generated <- struct{}{}
 			}
 		}
 	}
 }
 
-func (a *BalancerAgent) handleUpdate(u *model.ServiceUpdate) {
-	if u.Delete {
-		delete(a.services, u.Name)
-	} else {
-		a.services[u.Name] = &u.Service
-	}
-
-	if err := a.runTemplate(); err != nil {
-		a.errorSink.Post(err)
-	}
-}
-
-func (a *BalancerAgent) runTemplate() error {
+func (a *BalancerAgent) regenerate(services Services) error {
 	f, err := ioutil.TempFile(path.Dir(a.filename), path.Base(a.filename))
 	if err != nil {
 		return err
@@ -145,7 +177,7 @@ func (a *BalancerAgent) runTemplate() error {
 		}
 	}()
 
-	if err := a.template.Execute(f, a.services); err != nil {
+	if err := a.template.Execute(f, services); err != nil {
 		return err
 	}
 
@@ -158,5 +190,35 @@ func (a *BalancerAgent) runTemplate() error {
 	}
 
 	f = nil
-	return nil
+
+	return a.runReloadCmd()
+}
+
+func (a *BalancerAgent) runReloadCmd() error {
+	if a.reloadCmd == "" {
+		return nil
+	}
+
+	done := make(chan error)
+	go func() {
+		cmd := exec.Command("sh", "-c", a.reloadCmd)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+
+		if err := cmd.Start(); err != nil {
+			done <- err
+			return
+		}
+
+		done <- cmd.Wait()
+	}()
+
+	timeout := time.NewTimer(10 * time.Second)
+	select {
+	case <-timeout.C:
+		return fmt.Errorf("timeout waiting for reload command to complete")
+
+	case err := <-done:
+		return err
+	}
 }

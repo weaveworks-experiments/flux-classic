@@ -1,6 +1,7 @@
 package balagent
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path"
@@ -45,7 +46,10 @@ func newBalancerAgent(t *testing.T) *BalancerAgent {
 		errorSink: daemon.NewErrorSink(),
 		store:     inmem.NewInMemStore(),
 		filename:  path.Join(dir, "output"),
-		tick:      make(chan struct{}),
+
+		generated:        make(chan struct{}),
+		updaterStopped:   make(chan struct{}),
+		generatorStopped: make(chan struct{}),
 	}
 }
 
@@ -86,19 +90,19 @@ func TestBalancerAgent(t *testing.T) {
 	}))
 
 	a.start()
-	<-a.tick
+	<-a.generated
 	requireFile(t, a.filename, "service1:")
 
 	// Add an instance to the service:
 	require.Nil(t, a.store.AddInstance("service1", "inst1",
 		data.Instance{Address: "5.6.7.8", Port: 1}))
-	<-a.tick
+	<-a.generated
 	requireFile(t, a.filename, "service1: (inst1, 5.6.7.8:1)")
 
 	// And another instance:
 	require.Nil(t, a.store.AddInstance("service1", "inst2",
 		data.Instance{Address: "9.10.11.12", Port: 2}))
-	<-a.tick
+	<-a.generated
 	requireFile(t, a.filename, "service1: (inst1, 5.6.7.8:1) (inst2, 9.10.11.12:2)")
 
 	// Add another service:
@@ -106,17 +110,18 @@ func TestBalancerAgent(t *testing.T) {
 		Protocol: "http",
 		Address:  "13.14.15.16",
 	}))
-	<-a.tick
+	<-a.generated
 	requireFile(t, a.filename, `service1: (inst1, 5.6.7.8:1) (inst2, 9.10.11.12:2)
 service2:`)
 
 	// Delete first service:
 	require.Nil(t, a.store.RemoveService("service1"))
-	<-a.tick
+	<-a.generated
 	requireFile(t, a.filename, "service2:")
 
 	a.Stop()
-	<-a.tick
+	<-a.updaterStopped
+	<-a.generatorStopped
 
 	// Check that all temporary files got deleted
 	require.Nil(t, os.Remove(a.filename))
@@ -146,13 +151,39 @@ func TestBadTemplate(t *testing.T) {
 	}))
 
 	a.start()
-	<-a.tick
+	<-a.generated
 	a.Stop()
-	<-a.tick
+	<-a.updaterStopped
+	<-a.generatorStopped
 
 	select {
 	case <-a.errorSink:
 	default:
 		t.Fatal()
 	}
+}
+
+func TestReloadCmd(t *testing.T) {
+	a := newBalancerAgent(t)
+	defer cleanup(a, t)
+
+	var err error
+	a.template, err = template.New("template").Parse("ok")
+	require.Nil(t, err)
+
+	require.Nil(t, a.store.AddService("service1", data.Service{
+		Protocol: "http",
+		Address:  "1.2.3.4",
+	}))
+
+	tmp := a.filename + "-copy"
+	a.reloadCmd = fmt.Sprintf("cp %s %s", a.filename, tmp)
+
+	a.start()
+	<-a.generated
+	requireFile(t, tmp, "ok")
+
+	a.Stop()
+	<-a.updaterStopped
+	<-a.generatorStopped
 }

@@ -26,12 +26,13 @@ func newMockInspector() *mockInspector {
 }
 
 type container struct {
-	ID        string
-	IPAddress string
-	Image     string
-	Labels    map[string]string
-	Env       map[string]string
-	Ports     map[string]string
+	ID          string
+	IPAddress   string
+	Image       string
+	Labels      map[string]string
+	Env         map[string]string
+	Ports       map[string]string
+	NetworkMode string
 }
 
 func (m *mockInspector) startContainers(cs ...container) {
@@ -50,8 +51,15 @@ func (m *mockInspector) startContainers(cs ...container) {
 			}
 		}
 
+		netmode := c.NetworkMode
+		if netmode == "" {
+			netmode = "default"
+		}
 		c1 := &docker.Container{
 			ID: c.ID,
+			HostConfig: &docker.HostConfig{
+				NetworkMode: netmode,
+			},
 			Config: &docker.Config{
 				Image:  c.Image,
 				Env:    env,
@@ -255,6 +263,33 @@ func TestMappedPort(t *testing.T) {
 	store.ForeachInstance(st, "blorp-svc", func(_, _ string, inst data.Instance) error {
 		require.Equal(t, listener.hostIP, inst.Address)
 		require.Equal(t, 3456, inst.Port)
+		return nil
+	})
+}
+
+func TestHostNetworking(t *testing.T) {
+	listener, st, dc := setup("192.168.5.135")
+
+	st.AddService("blorp-svc", data.Service{})
+	addGroup(st, "blorp-svc", &data.AddressSpec{
+		Type: data.FIXED,
+		Port: 8080,
+	}, "image", "blorp-image")
+	dc.startContainers(container{
+		NetworkMode: "host",
+		ID:          "blorp-instance",
+		IPAddress:   "",
+		Image:       "blorp-image:tag",
+	})
+
+	listener.ReadInServices()
+	listener.ReadExistingContainers()
+	listener.reconcile()
+
+	require.Len(t, allInstances(st), 1)
+	store.ForeachInstance(st, "blorp-svc", func(_, _ string, inst data.Instance) error {
+		require.Equal(t, listener.hostIP, inst.Address)
+		require.Equal(t, 8080, inst.Port)
 		return nil
 	})
 }

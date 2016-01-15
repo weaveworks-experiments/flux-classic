@@ -227,6 +227,13 @@ func (l *Listener) getAddress(spec data.ContainerRule, container *docker.Contain
 	return "", 0
 }
 
+/*
+Extract a "mapped port" address. This mode assumes the balancer is
+connecting to containers via a port "mapped" (NATed) by
+Docker. Therefore it looks for the port mentioned in the list of
+published ports, and finds the host port it has been mapped to. The IP
+address is that given as the host's IP address.
+*/
 func (l *Listener) mappedPortAddress(container *docker.Container, port int) (string, int) {
 	p := docker.Port(fmt.Sprintf("%d/tcp", port))
 	if bindings, found := container.NetworkSettings.Ports[p]; found {
@@ -243,7 +250,19 @@ func (l *Listener) mappedPortAddress(container *docker.Container, port int) (str
 	return "", 0
 }
 
+/*
+Extract a "fixed port" address. This mode assumes that the balancer
+will be able to connect to the container, potentially across hosts,
+using the address Docker has assigned it.
+
+There's a special case, which is if the container has been run with
+`--net=host`; this means the container is using the host's networking
+stack, so we should just use the host IP address.
+*/
 func (l *Listener) fixedPortAddress(container *docker.Container, port int) (string, int) {
+	if container.HostConfig.NetworkMode == "host" {
+		return l.hostIP, port
+	}
 	return container.NetworkSettings.IPAddress, port
 }
 

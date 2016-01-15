@@ -32,7 +32,7 @@ func (opts *listOpts) addCommandTo(top *cobra.Command) {
 }
 
 type ruleInfo struct {
-	Service string
+	Service string `json:"service"`
 	*store.ContainerRuleInfo
 }
 

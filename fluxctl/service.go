@@ -30,7 +30,7 @@ func (opts *addOpts) makeCommand() *cobra.Command {
 	addCmd := &cobra.Command{
 		Use:   "service <name>",
 		Short: "define a service",
-		Long:  "Define service <name>, optionally giving an address at which it can be reached on each host, and optionally giving a specification for enrolling containers in the service.",
+		Long:  "Define service <name>, optionally giving an address at which it can be reached on each host, and optionally giving a rule for selecting containers as instances of the service.",
 		RunE:  opts.run,
 	}
 	addCmd.Flags().StringVar(&opts.address, "address", "", "in the format <ipaddr>:<port>[/<protocol>], the IP address and port at which the service should be made available on each host; optionally, the protocol to assume.")
@@ -93,7 +93,7 @@ func (opts *addOpts) run(cmd *cobra.Command, args []string) error {
 
 	spec, err := opts.makeSpec()
 	if err != nil {
-		return fmt.Errorf("Unable to extract spec from options: ", err)
+		return fmt.Errorf("Unable to extract rule from options: ", err)
 	}
 
 	if spec != nil {

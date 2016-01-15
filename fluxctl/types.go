@@ -47,10 +47,10 @@ func (opts *selector) makeSelector() data.Selector {
 }
 
 func (opts *selector) addSelectorVars(cmd *cobra.Command) {
-	cmd.Flags().StringVar(&opts.image, "image", "", "filter instances for this image")
-	cmd.Flags().StringVar(&opts.tag, "tag", "", "filter instances for this tag")
-	cmd.Flags().StringVar(&opts.labels, "labels", "", "filter instances for these labels, given as comma-delimited key=value pairs")
-	cmd.Flags().StringVar(&opts.labels, "env", "", "filter instances for these environment variable values, given as comma-delimited key=value pairs")
+	cmd.Flags().StringVar(&opts.image, "image", "", "select only containers with this image")
+	cmd.Flags().StringVar(&opts.tag, "tag", "", "select only containers with this tag")
+	cmd.Flags().StringVar(&opts.labels, "labels", "", "select only containers with these labels, given as comma-delimited key=value pairs")
+	cmd.Flags().StringVar(&opts.labels, "env", "", "select only containers with these environment variable values, given as comma-delimited key=value pairs")
 }
 
 type spec struct {
@@ -61,7 +61,7 @@ type spec struct {
 
 func (opts *spec) addSpecVars(cmd *cobra.Command) {
 	opts.addSelectorVars(cmd)
-	cmd.Flags().IntVar(&opts.fixed, "port-fixed", 0, "Use a fixed port, and get the IP address from docker inspect")
+	cmd.Flags().IntVar(&opts.fixed, "port-fixed", 0, "Use a fixed port, and get the IP address from docker network settings")
 	cmd.Flags().IntVar(&opts.mapped, "port-mapped", 0, "Use the host IP address, and the host port mapped to the given container port")
 }
 
@@ -72,7 +72,7 @@ func (opts *spec) makeSpec() (*data.ContainerRule, error) {
 
 	if !sel.Empty() {
 		if opts.mapped > 0 && opts.fixed > 0 {
-			return nil, fmt.Errorf("You cannot use both fixed and mapped port for a instance spec")
+			return nil, fmt.Errorf("You cannot use both fixed and mapped port for a rule")
 		}
 		if opts.mapped > 0 {
 			addrSpec = data.AddressSpec{Type: data.MAPPED, Port: opts.mapped}

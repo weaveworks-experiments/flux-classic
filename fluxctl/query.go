@@ -38,8 +38,8 @@ func printInstanceID(_, name string, _ data.Instance) error {
 }
 
 type instanceForFormat struct {
-	Service string
-	Name    string
+	Service string `json:"service"`
+	Name    string `json:"name"`
 	data.Instance
 }
 

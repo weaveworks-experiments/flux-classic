@@ -38,12 +38,12 @@ func (opts *selectOpts) run(_ *cobra.Command, args []string) {
 
 	spec, err := opts.makeSpec()
 	if err != nil {
-		exitWithErrorf("Unable to parse options into instance spec: ", err)
+		exitWithErrorf("Unable to parse options into rule: ", err)
 	}
 
 	if err = opts.store.SetContainerRule(serviceName, name, *spec); err != nil {
 		exitWithErrorf("Error updating service: ", err)
 	}
 
-	fmt.Println("Selected containers as ", name, "into service", serviceName)
+	fmt.Println(name)
 }

@@ -2,7 +2,7 @@ REPO:=squaremo
 PROJECT:=$(REPO)/flux
 BASEPKG:=github.com/$(PROJECT)
 
-BUILD_IMAGES=build webbuild
+BUILD_IMAGES=build webbuild site
 COMPONENTS:=balancer agent web fluxctl
 IMAGES:=$(COMPONENTS) edgebal
 GODIRS:=$(COMPONENTS) common

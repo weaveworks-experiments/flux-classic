@@ -1,11 +1,4 @@
-FROM ubuntu:trusty
-
-RUN apt-get update && apt-get install -y build-essential cmake curl \
-    && cd /tmp \
-    && curl -L https://github.com/krallin/tini/archive/v0.8.2.tar.gz | tar xzf - \
-    && cd tini-0.8.2 && cmake . && make && cp tini /usr/bin/tini \
-    && cd /tmp && rm -rf tini-0.8.2 \
-    && apt-get purge -y cmake && apt-get -y autoremove
+FROM krallin/ubuntu-tini:trusty
 
 ENTRYPOINT ["/usr/bin/tini", "-g", "--"]
 

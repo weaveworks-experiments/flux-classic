@@ -1,4 +1,7 @@
-FROM node
+FROM node:4.2.2
 ENV NPM_CONFIG_LOGLEVEL warn
+ENV PATH ./node_modules/.bin:$PATH
+WORKDIR /build
 COPY ./package.json ./
 RUN npm install --no-optional
+COPY ./.babelrc ./.eslintrc ./.eslintignore ./webpack.production.config.js ./

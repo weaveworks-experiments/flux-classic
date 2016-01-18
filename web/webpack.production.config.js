@@ -22,7 +22,7 @@ module.exports = {
 
   output: {
     publicPath: '/assets/',
-    path: path.join(__dirname, 'build/'),
+    path: path.join(__dirname, 'build/assets/'),
     filename: '[name].js'
   },
 

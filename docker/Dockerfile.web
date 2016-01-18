@@ -5,5 +5,5 @@ ENV HTTP_PORT=7070
 EXPOSE 7070
 COPY ./web /home/flux/server
 COPY ./index.html /home/flux/
-COPY ./* /home/flux/assets/
+ADD ./assets.tar /home/flux/assets/
 ENTRYPOINT ["/home/flux/server"]

@@ -4,4 +4,4 @@ ENV PATH ./node_modules/.bin:$PATH
 WORKDIR /build
 COPY ./package.json ./
 RUN npm install --no-optional
-COPY ./.babelrc ./.eslintrc ./.eslintignore ./webpack.production.config.js ./
+COPY ./.babelrc ./.eslintrc ./.eslintignore ./

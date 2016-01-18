@@ -7,9 +7,12 @@ import (
 
 func runOpts(opts commandOpts, args []string) (store.Store, error) {
 	st := inmem.NewInMemStore()
-	opts.setStore(st)
+	return st, runOptsWithStore(opts, st, args)
+}
+
+func runOptsWithStore(opts commandOpts, store store.Store, args []string) error {
+	opts.setStore(store)
 	cmd := opts.makeCommand()
 	cmd.SetArgs(args)
-	err := cmd.Execute()
-	return st, err
+	return cmd.Execute()
 }

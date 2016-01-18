@@ -1,3 +1,4 @@
 gen/*.css
 gen/*.js
 node_modules/
+support/

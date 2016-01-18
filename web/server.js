@@ -9,11 +9,12 @@ var app = express();
  *
  * Express routes for:
  *   - app.js
- *   - app-terminal.js
  *   - index.html
  *
  *   Proxy requests to:
- *     - /api -> :4040/api
+ *     - /api -> :7070/api
+ *   Or mock api
+ *     - /api/services
  *
  ************************************************************/
 
@@ -30,18 +31,27 @@ app.get(/app.js/, function(req, res) {
 
 // Proxy to backend
 
-var BACKEND_HOST = process.env.BACKEND_HOST || 'localhost:7070';
+var BACKEND_HOST = process.env.BACKEND_HOST;
+var proxy;
 
-var proxy = httpProxy.createProxy({
-  ws: true,
-  target: 'http://' + BACKEND_HOST
-});
+if (process.env.USE_MOCK_BACKEND) {
+  proxy = httpProxy.createProxy({
+    target: 'http://' + BACKEND_HOST
+  });
 
-proxy.on('error', function(err) {
-  console.error('Proxy error', err);
-});
+  proxy.on('error', function(err) {
+    console.error('Proxy error', err);
+  });
 
-app.all('/api*', proxy.web.bind(proxy));
+  app.all('/api*', proxy.web.bind(proxy));
+} else {
+  //
+  // MOCK BACKEND
+  //
+  app.get('/api/services', function(req, res) {
+    res.json(require('./support/services'));
+  });
+}
 
 // Serve index page
 
@@ -89,5 +99,3 @@ var server = app.listen(port, function () {
 
   console.log('Flux UI listening at http://%s:%s', host, port);
 });
-
-server.on('upgrade', proxy.ws.bind(proxy));

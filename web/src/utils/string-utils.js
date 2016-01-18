@@ -12,3 +12,10 @@ export function maybeTruncate(id) {
   }
   return id;
 }
+
+export function plural(text, count) {
+  if (count === 1) {
+    return text;
+  }
+  return `${text}s`;
+}

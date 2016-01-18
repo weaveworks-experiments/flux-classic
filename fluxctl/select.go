@@ -4,16 +4,14 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-
-	"github.com/squaremo/flux/common/store"
 )
 
 type selectOpts struct {
-	store store.Store
+	baseOpts
 	spec
 }
 
-func (opts *selectOpts) addCommandTo(top *cobra.Command) {
+func (opts *selectOpts) makeCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "select <service> <rule>",
 		Short: "include containers in a service",
@@ -21,7 +19,7 @@ func (opts *selectOpts) addCommandTo(top *cobra.Command) {
 		Run:   opts.run,
 	}
 	opts.addSpecVars(cmd)
-	top.AddCommand(cmd)
+	return cmd
 }
 
 func (opts *selectOpts) run(_ *cobra.Command, args []string) {

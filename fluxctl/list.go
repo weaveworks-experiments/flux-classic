@@ -11,14 +11,14 @@ import (
 )
 
 type listOpts struct {
-	store store.Store
+	baseOpts
 
 	format     string
 	formatRule string
 	verbose    bool
 }
 
-func (opts *listOpts) addCommandTo(top *cobra.Command) {
+func (opts *listOpts) makeCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "list the services defined",
@@ -28,7 +28,7 @@ func (opts *listOpts) addCommandTo(top *cobra.Command) {
 	cmd.Flags().StringVarP(&opts.format, "format", "f", "", "format each service with the go template expression given")
 	cmd.Flags().StringVar(&opts.formatRule, "format-rule", "", "format each rule with the go template expression given (implies --verbose)")
 	cmd.Flags().BoolVarP(&opts.verbose, "verbose", "v", false, "show the list of selection rules for each service")
-	top.AddCommand(cmd)
+	return cmd
 }
 
 type ruleInfo struct {

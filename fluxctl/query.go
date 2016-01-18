@@ -12,14 +12,14 @@ import (
 )
 
 type queryOpts struct {
-	store store.Store
+	baseOpts
+	selector
 
 	service string
 	format  string
-	selector
 }
 
-func (opts *queryOpts) addCommandTo(top *cobra.Command) {
+func (opts *queryOpts) makeCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "query",
 		Short: "display instances selected by the given filter",
@@ -29,7 +29,7 @@ func (opts *queryOpts) addCommandTo(top *cobra.Command) {
 	opts.addSelectorVars(cmd)
 	cmd.Flags().StringVarP(&opts.service, "service", "s", "", "print only instances in <service>")
 	cmd.Flags().StringVarP(&opts.format, "format", "f", "", "format each instance according to the go template given")
-	top.AddCommand(cmd)
+	return cmd
 }
 
 func printInstanceID(_, name string, _ data.Instance) error {

@@ -7,19 +7,7 @@ import (
 
 	"github.com/squaremo/flux/common/data"
 	"github.com/squaremo/flux/common/store"
-	"github.com/squaremo/flux/common/store/inmem"
 )
-
-func runCmd(args []string) (store.Store, error) {
-	st := inmem.NewInMemStore()
-	add := &addOpts{
-		store: st,
-	}
-	cmd := add.makeCommand()
-	cmd.SetArgs(args)
-	err := cmd.Execute()
-	return st, err
-}
 
 func allServices(t *testing.T, st store.Store) []store.ServiceInfo {
 	services, err := st.GetAllServices(store.QueryServiceOptions{})
@@ -28,13 +16,12 @@ func allServices(t *testing.T, st store.Store) []store.ServiceInfo {
 }
 
 func TestService(t *testing.T) {
-	_, err := runCmd([]string{})
+	_, err := runOpts(&addOpts{}, []string{})
 	require.Error(t, err)
 }
 
 func TestMinimal(t *testing.T) {
-	st, err := runCmd([]string{
-		"foo"})
+	st, err := runOpts(&addOpts{}, []string{"foo"})
 	require.NoError(t, err)
 	services := allServices(t, st)
 	require.Len(t, services, 1)
@@ -64,7 +51,7 @@ func TestParseAddress(t *testing.T) {
 }
 
 func TestServiceAddress(t *testing.T) {
-	st, err := runCmd([]string{
+	st, err := runOpts(&addOpts{}, []string{
 		"foo", "--address", "10.3.4.5:8000"})
 	require.NoError(t, err)
 	services := allServices(t, st)
@@ -75,14 +62,14 @@ func TestServiceAddress(t *testing.T) {
 }
 
 func TestServiceSelectMissingPortSpec(t *testing.T) {
-	_, err := runCmd([]string{
+	_, err := runOpts(&addOpts{}, []string{
 		"svc", "--image", "repo/image",
 	})
 	require.Error(t, err)
 }
 
 func TestServiceSelect(t *testing.T) {
-	st, err := runCmd([]string{
+	st, err := runOpts(&addOpts{}, []string{
 		"svc", "--image", "repo/image", "--port-fixed", "9000",
 	})
 	require.NoError(t, err)

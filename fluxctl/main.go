@@ -23,21 +23,18 @@ func main() {
 	}
 }
 
-type opts interface {
-	addCommandTo(cmd *cobra.Command)
-}
-
-func addSubCommand(c opts, cmd *cobra.Command) {
-	c.addCommandTo(cmd)
+func addSubCommand(c commandOpts, cmd *cobra.Command, st store.Store) {
+	c.setStore(st)
+	cmd.AddCommand(c.makeCommand())
 }
 
 func addSubCommands(cmd *cobra.Command, store store.Store) {
-	addSubCommand(&addOpts{store: store}, cmd)
-	addSubCommand(&listOpts{store: store}, cmd)
-	addSubCommand(&queryOpts{store: store}, cmd)
-	addSubCommand(&rmOpts{store: store}, cmd)
-	addSubCommand(&selectOpts{store: store}, cmd)
-	addSubCommand(&deselectOpts{store: store}, cmd)
+	addSubCommand(&addOpts{}, cmd, store)
+	addSubCommand(&listOpts{}, cmd, store)
+	addSubCommand(&queryOpts{}, cmd, store)
+	addSubCommand(&rmOpts{}, cmd, store)
+	addSubCommand(&selectOpts{}, cmd, store)
+	addSubCommand(&deselectOpts{}, cmd, store)
 }
 
 func exitWithErrorf(format string, vals ...interface{}) {

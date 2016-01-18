@@ -9,21 +9,16 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/squaremo/flux/common/data"
-	"github.com/squaremo/flux/common/store"
 )
 
 const DEFAULT_GROUP = string("default")
 
 type addOpts struct {
-	store store.Store
-
+	baseOpts
 	spec
+
 	address  string
 	protocol string
-}
-
-func (opts *addOpts) addCommandTo(top *cobra.Command) {
-	top.AddCommand(opts.makeCommand())
 }
 
 func (opts *addOpts) makeCommand() *cobra.Command {

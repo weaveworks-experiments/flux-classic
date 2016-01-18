@@ -2,22 +2,20 @@ package main
 
 import (
 	"github.com/spf13/cobra"
-
-	"github.com/squaremo/flux/common/store"
 )
 
 type rmOpts struct {
-	store store.Store
+	baseOpts
 }
 
-func (opts *rmOpts) addCommandTo(top *cobra.Command) {
+func (opts *rmOpts) makeCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "rm <service>|--all",
 		Short: "remove service definition(s)",
 		Long:  "Remove the service named <service>, or all services.",
 		Run:   opts.run,
 	}
-	top.AddCommand(cmd)
+	return cmd
 }
 
 func (opts *rmOpts) run(_ *cobra.Command, args []string) {

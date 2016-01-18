@@ -4,21 +4,20 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-
-	"github.com/squaremo/flux/common/store"
 )
 
 type deselectOpts struct {
-	store store.Store
+	baseOpts
 }
 
-func (opts *deselectOpts) addCommandTo(top *cobra.Command) {
-	top.AddCommand(&cobra.Command{
+func (opts *deselectOpts) makeCommand() *cobra.Command {
+	cmd := &cobra.Command{
 		Use:   "deselect <service> <rule>",
 		Short: "remove a container selection rule from a service",
 		Long:  "Remove container selection rule <rule> from <service>. Containers may still be selected by other rules.",
 		Run:   opts.run,
-	})
+	}
+	return cmd
 }
 
 func (opts *deselectOpts) run(_ *cobra.Command, args []string) {

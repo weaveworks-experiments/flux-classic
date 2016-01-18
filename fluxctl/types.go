@@ -7,7 +7,21 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/squaremo/flux/common/data"
+	"github.com/squaremo/flux/common/store"
 )
+
+type commandOpts interface {
+	setStore(store.Store)
+	makeCommand() *cobra.Command
+}
+
+type baseOpts struct {
+	store store.Store
+}
+
+func (cmd *baseOpts) setStore(st store.Store) {
+	cmd.store = st
+}
 
 type selector struct {
 	env    string

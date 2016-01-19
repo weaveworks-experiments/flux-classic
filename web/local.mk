@@ -1,20 +1,22 @@
-WEB_BABELGEN:=$(patsubst %.babel,%.js,$(shell find web/gen -name '*.babel'))
-WEB_LESSGEN:=$(patsubst %.less,%.css,$(shell find web/gen -name '*.less'))
-WEB_GEN:=$(WEB_LESSGEN) $(WEB_BABELGEN)
-WEB_STATIC:=web/index.html web/res/*.css web/res/*.js
+WEB_SRC:=$(shell find web/src -type f)
+WEB_STATIC:=web/src/index.html
+webpack_config:=webpack.production.config.js
 
-$(call image_stamp,web): $(WEB_STATIC) $(WEB_GEN)
+$(call image_stamp,web): $(WEB_STATIC)
+$(call image_stamp,web): web/build/assets.tar
 
-$(WEB_GEN): $(call image_stamp,webbuild)
+$(call image_stamp,webbuild): web/package.json web/.babelrc web/.eslintrc web/.eslintignore
 
-%.css: %.less
-	$(call run_build_container,webbuild,,,lessc $< $@)
-
-%.js: %.babel
-	$(call run_build_container,webbuild,,,babel $< -o $@)
+web/build/assets.tar: $(call image_stamp,webbuild) web/$(webpack_config) $(WEB_SRC)
+	mkdir -p web/build/assets
+	docker run --rm -v $(shell pwd)/web/src:/build/src:ro \
+		-v $$PWD/web/$(webpack_config):/build/$(webpack_config) \
+		-v $$PWD/web/build:/build/build \
+		$(call docker_tag,webbuild) npm run build
+	tar cvf $@ -C web/build/assets .
 
 .PHONY: clean-web
 clean:: clean-web
 
 clean-web::
-	rm -f $(WEB_GEN)
+	rm -rf ./web/build

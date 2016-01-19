@@ -50,7 +50,7 @@ func (api *api) router() http.Handler {
 
 	router.HandleFunc("/", homePage)
 	router.HandleFunc("/index.html", homePage)
-	router.PathPrefix("/res/").HandlerFunc(handleResource)
+	router.PathPrefix("/assets/").HandlerFunc(handleResource)
 
 	router.HandleFunc("/api/services", api.allServices)
 	router.PathPrefix("/stats/").HandlerFunc(api.proxyStats)

@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"text/template"
 
 	"github.com/spf13/cobra"
@@ -23,7 +22,7 @@ func (opts *listOpts) makeCommand() *cobra.Command {
 		Use:   "list",
 		Short: "list the services defined",
 		Long:  "List the services currently defined, optionally including the selection rules, and optionally formatting each result with a template rather than just printing the ID.",
-		Run:   opts.run,
+		RunE:  opts.run,
 	}
 	cmd.Flags().StringVarP(&opts.format, "format", "f", "", "format each service with the go template expression given")
 	cmd.Flags().StringVar(&opts.formatRule, "format-rule", "", "format each rule with the go template expression given (implies --verbose)")
@@ -36,19 +35,19 @@ type ruleInfo struct {
 	*store.ContainerRuleInfo
 }
 
-func (opts *listOpts) run(_ *cobra.Command, args []string) {
+func (opts *listOpts) run(_ *cobra.Command, args []string) error {
 	printService := func(s *store.ServiceInfo) error {
-		fmt.Println(s.Name)
+		fmt.Fprintln(opts.getStdout(), s.Name)
 		return nil
 	}
 	if opts.format != "" {
 		tmpl := template.Must(template.New("service").Funcs(extraTemplateFuncs).Parse(opts.format))
 		printService = func(info *store.ServiceInfo) error {
-			err := tmpl.Execute(os.Stdout, info)
+			err := tmpl.Execute(opts.getStdout(), info)
 			if err != nil {
 				panic(err)
 			}
-			fmt.Println()
+			fmt.Fprintln(opts.getStdout())
 			return nil
 		}
 	}
@@ -66,17 +65,17 @@ func (opts *listOpts) run(_ *cobra.Command, args []string) {
 			var info ruleInfo
 			info.ContainerRuleInfo = rule
 			info.Service = serviceName
-			err := tmpl.Execute(os.Stdout, info)
+			err := tmpl.Execute(opts.getStdout(), info)
 			if err != nil {
 				panic(err)
 			}
-			fmt.Println()
+			fmt.Fprintln(opts.getStdout())
 		}
 	}
 
 	svcs, err := opts.store.GetAllServices(store.QueryServiceOptions{WithContainerRules: opts.verbose})
 	if err != nil {
-		exitWithErrorf("Unable to enumerate services: ", err)
+		return fmt.Errorf("Unable to enumerate services: ", err)
 	}
 	for _, service := range svcs {
 		printService(&service)
@@ -90,4 +89,5 @@ func (opts *listOpts) run(_ *cobra.Command, args []string) {
 			}
 		}
 	}
+	return nil
 }

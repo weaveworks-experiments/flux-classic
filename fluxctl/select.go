@@ -42,11 +42,10 @@ func (opts *selectOpts) run(_ *cobra.Command, args []string) error {
 		return fmt.Errorf("Nothing will be selected by empty rule")
 	}
 
-	fmt.Printf("spec %s", spec)
 	if err = opts.store.SetContainerRule(serviceName, name, *spec); err != nil {
 		return fmt.Errorf("Error updating service: %s", err)
 	}
 
-	fmt.Println(name)
+	fmt.Fprintln(opts.getStdout(), name)
 	return nil
 }

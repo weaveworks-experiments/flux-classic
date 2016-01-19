@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"text/template"
 
 	"github.com/spf13/cobra"
@@ -24,17 +23,12 @@ func (opts *queryOpts) makeCommand() *cobra.Command {
 		Use:   "query",
 		Short: "display instances selected by the given filter",
 		Long:  "Display instances selected using the given filter, optionally for a single service only, and optionally formatting each result with a template rather than just printing the ID.",
-		Run:   opts.run,
+		RunE:  opts.run,
 	}
 	opts.addSelectorVars(cmd)
 	cmd.Flags().StringVarP(&opts.service, "service", "s", "", "print only instances in <service>")
 	cmd.Flags().StringVarP(&opts.format, "format", "f", "", "format each instance according to the go template given")
 	return cmd
-}
-
-func printInstanceID(_, name string, _ data.Instance) error {
-	fmt.Println(name)
-	return nil
 }
 
 type instanceForFormat struct {
@@ -43,14 +37,17 @@ type instanceForFormat struct {
 	data.Instance
 }
 
-func (opts *queryOpts) run(_ *cobra.Command, args []string) {
+func (opts *queryOpts) run(_ *cobra.Command, args []string) error {
 	sel := opts.makeSelector()
-	printInstance := printInstanceID
+	printInstance := func(_, name string, _ data.Instance) error {
+		fmt.Fprintln(opts.getStdout(), name)
+		return nil
+	}
 
 	if opts.format != "" {
 		tmpl := template.Must(template.New("instance").Funcs(extraTemplateFuncs).Parse(opts.format))
 		printInstance = func(serviceName, name string, inst data.Instance) error {
-			err := tmpl.Execute(os.Stdout, instanceForFormat{
+			err := tmpl.Execute(opts.getStdout(), instanceForFormat{
 				Service:  serviceName,
 				Name:     name,
 				Instance: inst,
@@ -58,14 +55,14 @@ func (opts *queryOpts) run(_ *cobra.Command, args []string) {
 			if err != nil {
 				panic(err)
 			}
-			fmt.Println()
+			fmt.Fprintln(opts.getStdout())
 			return nil
 		}
 	}
 
 	if opts.service == "" {
-		store.SelectInstances(opts.store, sel, printInstance)
+		return store.SelectInstances(opts.store, sel, printInstance)
 	} else {
-		store.SelectServiceInstances(opts.store, opts.service, sel, printInstance)
+		return store.SelectServiceInstances(opts.store, opts.service, sel, printInstance)
 	}
 }

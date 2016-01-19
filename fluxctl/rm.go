@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 )
 
@@ -13,15 +15,15 @@ func (opts *rmOpts) makeCommand() *cobra.Command {
 		Use:   "rm <service>|--all",
 		Short: "remove service definition(s)",
 		Long:  "Remove the service named <service>, or all services.",
-		Run:   opts.run,
+		RunE:  opts.run,
 	}
 	return cmd
 }
 
-func (opts *rmOpts) run(_ *cobra.Command, args []string) {
+func (opts *rmOpts) run(_ *cobra.Command, args []string) error {
 	var err error
 	if len(args) != 1 {
-		exitWithErrorf(`Please supply either a service name, or "--all"`)
+		return fmt.Errorf(`Please supply either a service name, or "--all"`)
 	}
 	if args[0] == "--all" {
 		err = opts.store.RemoveAllServices()
@@ -29,6 +31,7 @@ func (opts *rmOpts) run(_ *cobra.Command, args []string) {
 		err = opts.store.RemoveService(args[0])
 	}
 	if err != nil {
-		exitWithErrorf("Failed to delete: " + err.Error())
+		return fmt.Errorf("Failed to delete: %s", err)
 	}
+	return nil
 }

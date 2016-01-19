@@ -39,10 +39,15 @@ func TestSelect(t *testing.T) {
 	})
 	require.Error(t, err)
 
-	err = runOptsWithStore(&selectOpts{}, st, []string{
+	opts := &selectOpts{}
+	bout, berr := opts.tapOutput()
+	err = runOptsWithStore(opts, st, []string{
 		"foo-svc", "ok-rule", "--image", "foo/bar", "--port-fixed", "80",
 	})
 	require.NoError(t, err)
+	require.Equal(t, "ok-rule\n", bout.String())
+	require.Equal(t, "", berr.String())
+
 	svc, err := st.GetService("foo-svc", store.QueryServiceOptions{WithContainerRules: true})
 	require.NoError(t, err)
 	require.Len(t, svc.ContainerRules, 1)

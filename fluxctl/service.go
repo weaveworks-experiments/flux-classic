@@ -97,6 +97,6 @@ func (opts *addOpts) run(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	fmt.Println("Added service:", serviceName)
+	fmt.Fprintln(opts.getStdout(), serviceName)
 	return nil
 }

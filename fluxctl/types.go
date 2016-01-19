@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"io"
+	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -13,14 +15,36 @@ import (
 type commandOpts interface {
 	setStore(store.Store)
 	makeCommand() *cobra.Command
+	redirect(io.Writer, io.Writer)
 }
 
 type baseOpts struct {
-	store store.Store
+	store  store.Store
+	stdout io.Writer
+	stderr io.Writer
 }
 
 func (cmd *baseOpts) setStore(st store.Store) {
 	cmd.store = st
+}
+
+func (cmd *baseOpts) redirect(stdout io.Writer, stderr io.Writer) {
+	cmd.stdout = stdout
+	cmd.stderr = stderr
+}
+
+func (cmd *baseOpts) getStderr() io.Writer {
+	if cmd.stderr != nil {
+		return cmd.stderr
+	}
+	return os.Stderr
+}
+
+func (cmd *baseOpts) getStdout() io.Writer {
+	if cmd.stdout != nil {
+		return cmd.stdout
+	}
+	return os.Stdout
 }
 
 type selector struct {

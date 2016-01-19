@@ -9,11 +9,11 @@ $(call image_stamp,webbuild): web/package.json web/.babelrc web/.eslintrc web/.e
 
 web/build/assets.tar: $(call image_stamp,webbuild) web/$(webpack_config) $(WEB_SRC)
 	mkdir -p web/build/assets
-	docker run --rm -v $(shell pwd)/web/src:/build/src \
+	docker run --rm -v $(shell pwd)/web/src:/build/src:ro \
 		-v $$PWD/web/$(webpack_config):/build/$(webpack_config) \
 		-v $$PWD/web/build:/build/build \
 		$(call docker_tag,webbuild) npm run build
-	tar cWvf $@ -C web/build/assets .
+	tar cvf $@ -C web/build/assets .
 
 .PHONY: clean-web
 clean:: clean-web

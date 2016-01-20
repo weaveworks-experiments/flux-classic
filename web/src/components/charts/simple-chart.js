@@ -23,9 +23,6 @@ export default class SimpleChart extends React.Component {
     this.state = {
       selectedTime: null,
     };
-    this.onMouseOver = this.onMouseOver.bind(this);
-    this.onMouseOut = this.onMouseOut.bind(this);
-    this.onMouseMove = this.onMouseMove.bind(this);
   }
 
   componentDidUpdate() {
@@ -34,21 +31,6 @@ export default class SimpleChart extends React.Component {
 
   componentDidMount() {
     this.renderAxis();
-  }
-
-  onMouseOver() {
-    document.addEventListener('mousemove', this.onMouseMove);
-  }
-
-  onMouseOut() {
-    document.removeEventListener('mousemove', this.onMouseMove);
-  }
-
-  onMouseMove(ev) {
-    const xValue = ev.offsetX - 64;
-    const selectedTime = this.xScale.invert(xValue);
-    log(xValue, selectedTime);
-    this.setState({selectedTime});
   }
 
   renderAxis() {
@@ -96,10 +78,16 @@ export default class SimpleChart extends React.Component {
     const selectedX = x(this.state.selectedTime);
     log('sel', selectedX, this.state.selectedTime);
 
+    const voronoi = d3.geom.voronoi()
+      .x(d => x(d.date))
+      .y(d => y(d.value))
+      .clipExtent([[0, 0], [w, h]]);
+
+    const shapes = voronoi(data);
+    const toLine = (d) => ('M' + d.join('L') + 'Z');
+
     return (
       <div style={style}
-        onMouseOver={this.onMouseOver}
-        onMouseOut={this.onMouseOut}
         className="chart">
         <svg style={style}>
           <g transform={`translate(${margins.left}, ${margins.top})`}>
@@ -109,9 +97,7 @@ export default class SimpleChart extends React.Component {
             <g className="y axis" transform={`translate(-4, 0)`}
               ref={(ref) => this.yAxisRef = ref}></g>
             <path d={line(data)} />
-
-            <line className="selected" x1={selectedX} x2={selectedX} y1="0" y2={h} />
-            <circle cx={selectedX} cy={y(
+            {shapes.map((s, i) => <path className="voro" key={i} d={toLine(s)} />)}
           </g>
         </svg>
       </div>

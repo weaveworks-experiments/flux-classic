@@ -20,8 +20,7 @@
     "react-addons-transition-group": "0.14.6",
     "react-addons-update": "0.14.6",
     "react-dom": "0.14.6",
-    "reqwest": "~2.0.5",
-    "rickshaw": "1.5.1"
+    "reqwest": "~2.0.5"
   },
   "devDependencies": {
     "autoprefixer": "6.0.1",

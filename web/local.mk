@@ -1,17 +1,17 @@
 WEB_SRC:=$(shell find web/src -type f)
 WEB_STATIC:=web/src/index.html
-webpack_config:=webpack.production.config.js
+WEBPACK_CONFIG:=web/.babelrc web/.eslintrc web/.eslintignore web/webpack.production.config.js
 
 $(call image_stamp,web): $(WEB_STATIC)
 $(call image_stamp,web): web/build/assets.tar
 
-$(call image_stamp,webbuild): web/package.json web/.babelrc web/.eslintrc web/.eslintignore
+$(call image_stamp,webbuild): web/package.json
 
-web/build/assets.tar: $(call image_stamp,webbuild) web/$(webpack_config) $(WEB_SRC)
+web/build/assets.tar: $(call image_stamp,webbuild) web/package.json $(WEB_SRC) $(WEBPACK_CONFIG)
 	mkdir -p web/build/assets
-	docker run --rm -v $(shell pwd)/web/src:/build/src:ro \
-		-v $$PWD/web/$(webpack_config):/build/$(webpack_config) \
-		-v $$PWD/web/build:/build/build \
+	docker run --rm -v $(shell pwd)/web/src:/webbuild/src:ro \
+		$(foreach f,$(WEBPACK_CONFIG),-v $$PWD/$(f):/webbuild/$(notdir $(f)):ro) \
+		-v $$PWD/web/build:/webbuild/build \
 		$(call docker_tag,webbuild) npm run build
 	tar cvf $@ -C web/build/assets .
 

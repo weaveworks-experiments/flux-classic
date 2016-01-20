@@ -1,6 +1,5 @@
 import React from 'react';
 import reqwest from 'reqwest';
-import Rickshaw from 'rickshaw';
 
 import { INTERVAL_SECS } from '../constants/timer';
 
@@ -36,7 +35,8 @@ function zip(as, bs, fn) {
 
 export default class RateChart extends React.Component {
   getData(start, end, k) {
-    reqwest(statsURL(this.props.spec, start, end), {
+    reqwest({
+      url: statsURL(this.props.spec, start, end),
       success: function(json) {
         const result = json.data.result;
         let okData = [];
@@ -61,7 +61,7 @@ export default class RateChart extends React.Component {
   stepChart(chart, lastNow) {
     const now = +new Date() / 1000;
     this.getData(lastNow, now, function(okData, errData) {
-      if (this.isMounted()) {
+      if (this.mounted) {
         let nextNow = lastNow;
         const data = zip(okData, errData, function(ok, err) {
           return [{OK: Number(ok[1]), Error: Number(err[1])}, ok[0]];
@@ -81,53 +81,10 @@ export default class RateChart extends React.Component {
   componentDidMount() {
     const end = +new Date() / 1000;
     const start = end - 300;
+    this.mounted = true;
     this.getData(start, end, function(okData, errData) {
-      const base = start;
-      function toXY(xy) {
-        return {x: xy[0], y: Number(xy[1])};
-      }
-      const div = React.findDOMNode(this.refs.chart);
-      const lines = [{name: 'OK', color: 'blue', data: okData.map(toXY)},
-                   {name: 'Error', color: 'red', data: errData.map(toXY)}];
-      const series = new Rickshaw.Series.FixedDuration(
-        lines, /* palette */undefined,
-        {timeInterval: INTERVAL_SECS * 1000,
-         maxDataPoints: 300 / INTERVAL_SECS, timeBase: base});
-      const graph = new Rickshaw.Graph({
-        element: div,
-        renderer: 'line',
-        interpolation: 'linear',
-        series: series,
-        width: 500,
-        height: 100,
-      });
-
-      const xAxis = new Rickshaw.Graph.Axis.Time({
-        graph: graph,
-      });
-      const yAxis = new Rickshaw.Graph.Axis.Y({
-        graph: graph,
-        orientation: 'left',
-        height: 100,
-        ticks: 5,
-        element: React.findDOMNode(this.refs.chartY)
-      });
-
-      // const legend = new Rickshaw.Graph.Legend({
-      //   element: React.findDOMNode(this.refs.legend),
-      //   graph: graph
-      // });
-
-      const chart = {graph: graph, series: series, yAxis: yAxis, xAxis: xAxis};
-      this.renderChart(chart);
-      this.stepChart(chart, end);
-    }.bind(this));
-  }
-
-  renderChart(chart) {
-    chart.graph.render();
-    chart.yAxis.render();
-    chart.xAxis.render();
+      console.log(start, end, okData, errData);
+    });
   }
 
   render() {

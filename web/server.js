@@ -44,6 +44,7 @@ if (process.env.BACKEND_HOST) {
   });
 
   app.all('/api*', proxy.web.bind(proxy));
+  app.all('/stats*', proxy.web.bind(proxy));
 } else {
   //
   // MOCK BACKEND

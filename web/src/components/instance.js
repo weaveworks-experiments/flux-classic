@@ -1,5 +1,7 @@
 import React from 'react';
 
+import RateChart from './rate-chart';
+
 export default class Instance extends React.Component {
 
   renderOther() {
@@ -32,6 +34,7 @@ export default class Instance extends React.Component {
           {this.props.name}
         </div>
         {this.renderOther()}
+        <RateChart spec={{individual: [this.props.name]}}/>
       </div>
     );
   }

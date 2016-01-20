@@ -1,41 +1,17 @@
 import React from 'react';
-import reqwest from 'reqwest';
 
-import ServiceView from './service-view';
+import Service from './service';
 
-export default class InstanceList extends React.Component {
-
-  constructor(props, context) {
-    super(props, context);
-    this.state = {services: []};
-    this.refreshData = this.refreshData.bind(this);
-  }
-
-  refreshData() {
-    reqwest({
-      url: '/api/services',
-      type: 'json',
-      success: services => {
-        this.setState({services: services});
-        setTimeout(this.refreshData, 10000);
-      }
-    });
-  }
-
-  componentDidMount() {
-    this.refreshData();
-  }
+export default class ServicesList extends React.Component {
 
   render() {
-    const serviceNodes = this.state.services.map(function(service) {
-      return (<li key={service.name} className="">
-              <ServiceView service={service}/>
-              </li>);
-    });
+    const services = this.props.services.map(service =>
+      <Service {...service} key={service.name} />
+    );
     return (
-        <ul className="serviceList">
-        {serviceNodes}
-      </ul>
+      <div className="service-list">
+        {services}
+      </div>
     );
   }
 }

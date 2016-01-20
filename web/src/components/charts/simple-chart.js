@@ -1,6 +1,9 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
 import d3 from 'd3';
+import debug from 'debug';
+
+const log = debug('flux:simple-chart');
 
 const customTimeFormat = d3.time.format.multi([
   ['.%L', function(d) { return d.getMilliseconds(); }],
@@ -15,12 +18,37 @@ const customTimeFormat = d3.time.format.multi([
 
 export default class SimpleChart extends React.Component {
 
+  constructor(props, context) {
+    super(props, context);
+    this.state = {
+      selectedTime: null,
+    };
+    this.onMouseOver = this.onMouseOver.bind(this);
+    this.onMouseOut = this.onMouseOut.bind(this);
+    this.onMouseMove = this.onMouseMove.bind(this);
+  }
+
   componentDidUpdate() {
     this.renderAxis();
   }
 
   componentDidMount() {
     this.renderAxis();
+  }
+
+  onMouseOver() {
+    document.addEventListener('mousemove', this.onMouseMove);
+  }
+
+  onMouseOut() {
+    document.removeEventListener('mousemove', this.onMouseMove);
+  }
+
+  onMouseMove(ev) {
+    const xValue = ev.offsetX - 64;
+    const selectedTime = this.xScale.invert(xValue);
+    log(xValue, selectedTime);
+    this.setState({selectedTime});
   }
 
   renderAxis() {
@@ -33,13 +61,15 @@ export default class SimpleChart extends React.Component {
 
   render() {
     const {width: outerWidth, height: outerHeight, data} = this.props;
-    const margins = {top: 20, bottom: 20, left: 64, right: 30};
+    const margins = {top: 6, bottom: 16, left: 64, right: 16};
     const w = outerWidth - margins.left - margins.right;
     const h = outerHeight - margins.top - margins.bottom;
 
     const x = d3.time.scale()
       .range([0, w])
       .domain(d3.extent(data, d => d.date));
+
+    this.xScale = x;
 
     this.xAxis = d3.svg.axis()
       .ticks(4)
@@ -63,17 +93,25 @@ export default class SimpleChart extends React.Component {
       .y(d => y(d.value));
 
     const style = {width: outerWidth, height: outerHeight};
+    const selectedX = x(this.state.selectedTime);
+    log('sel', selectedX, this.state.selectedTime);
 
     return (
-      <div className="chart" style={style}>
+      <div style={style}
+        onMouseOver={this.onMouseOver}
+        onMouseOut={this.onMouseOut}
+        className="chart">
         <svg style={style}>
           <g transform={`translate(${margins.left}, ${margins.top})`}>
             <rect className="background" width={w} height={h} />
-            <g className="x-axis" transform={`translate(0, ${h + 4})`}
+            <g className="x axis" transform={`translate(0, ${h + 4})`}
               ref={(ref) => this.xAxisRef = ref}></g>
-            <g className="y-axis" transform={`translate(-4, 0)`}
+            <g className="y axis" transform={`translate(-4, 0)`}
               ref={(ref) => this.yAxisRef = ref}></g>
             <path d={line(data)} />
+
+            <line className="selected" x1={selectedX} x2={selectedX} y1="0" y2={h} />
+            <circle cx={selectedX} cy={y(
           </g>
         </svg>
       </div>

@@ -1,6 +1,6 @@
 import React from 'react';
 
-import RateChart from './rate-chart';
+import PrometheusChart from './charts/prometheus-chart';
 
 export default class Instance extends React.Component {
 
@@ -34,7 +34,7 @@ export default class Instance extends React.Component {
           {this.props.name}
         </div>
         {this.renderOther()}
-        <RateChart spec={{individual: [this.props.name]}}/>
+        <PrometheusChart spec={{individual: [this.props.name]}}/>
       </div>
     );
   }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"runtime"
 	"syscall"
 )
 
@@ -13,6 +14,8 @@ type Daemon interface {
 }
 
 func Main(start func(args []string, errorSink ErrorSink) Daemon) {
+	runtime.GOMAXPROCS(runtime.NumCPU())
+
 	sigs := make(chan os.Signal, 2)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 

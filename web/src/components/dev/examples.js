@@ -1,6 +1,7 @@
 import React from 'react';
 import SimpleChart from '../charts/simple-chart';
 import d3 from 'd3';
+import _ from 'lodash';
 
 // Inspired by Lee Byron's test data generator.
 function bumpLayer(n) {
@@ -21,9 +22,10 @@ function bumpLayer(n) {
   return a.map(function(d) { return Math.max(0, d * 100); });
 }
 
-const simpleData = [
-  1, 3, 2, 5, 7, 3, 1, 2, 6, 8, 7
-];
+const color = d3.scale.category20();
+
+const simpleData = [1, 3, 2, 5, 7, 3, 1, 2, 6, 8, 7];
+const simpleData2 = [0, 8, 6, 8, 4, 5, 1, 5, 4, 3, 5];
 
 function generateDates(interval, n) {
   const start = new Date('2016-01-10');
@@ -36,6 +38,31 @@ function zipValsDates(values, dates) {
     return {value: v, date: dates[i]};
   });
 }
+
+function dataSet(data) {
+  return [{
+    id: 'instance-01',
+    color: 'steelBlue',
+    data: data
+  }];
+}
+
+function dataSet2(data, data2) {
+  return [{
+    id: 'instance-01',
+    color: 'steelBlue',
+    data: data
+  }, {
+    id: 'instance-02',
+    color: 'green',
+    data: data2
+  }];
+}
+
+const DATASET2 = dataSet2(
+  zipValsDates(simpleData, generateDates(d3.time.hour, simpleData.length)),
+  zipValsDates(simpleData2, generateDates(d3.time.hour, simpleData2.length))
+);
 
 const INTERVALS = [
   d3.time.minute,
@@ -62,11 +89,17 @@ export default class ComponentExamples extends React.Component {
     this.setState({intervalIndex: nextIndex});
   }
 
-  getCurrentIntervalData() {
+  getCurrentIntervalData(nSeries = 1) {
     const n = d3.round(Math.random() * 100);
     const interval = INTERVALS[this.state.intervalIndex];
     const times = generateDates(interval, n);
-    return zipValsDates(bumpLayer(n), times);
+    return _.range(nSeries).map(i => {
+      return {
+        id: 'zing' + i,
+        color: color(i),
+        data: zipValsDates(bumpLayer(n), times)
+      };
+    });
   }
 
   swapWidthHeight() {
@@ -81,24 +114,31 @@ export default class ComponentExamples extends React.Component {
         <h2>Various time intervals</h2>
         {INTERVALS.map((interval, i) => {
           const times = generateDates(interval, simpleData.length);
-          const data = zipValsDates(simpleData, times);
+          const data = dataSet(zipValsDates(simpleData, times));
           return (
             <SimpleChart key={i} width={500} height={200} data={data} />
           );
         })}
 
         <h2>Various value ranges</h2>
-        {[10, 10000, 1000000].map((n, i) => {
+        {[10, 100000, 1000000].map((n, i) => {
           const times = generateDates(d3.time.hour, simpleData.length);
-          const data = zipValsDates(simpleData.map(v => v * n), times);
+          const data = dataSet(zipValsDates(simpleData.map(v => v * n), times));
           return (
             <SimpleChart key={i} width={500} height={200} data={data} />
           );
         })}
 
+        <h2>Multiple series</h2>
+        <SimpleChart width={500} height={200} data={DATASET2} />
+
         <h2>Updating data</h2>
         <button onClick={this.incrementIntervalIndex}>Next interval please</button>
-        <SimpleChart width={500} height={200} data={this.getCurrentIntervalData()} />
+        <SimpleChart width={500} height={200} data={this.getCurrentIntervalData(5)} />
+
+        <h2>Tiny</h2>
+        <button onClick={this.incrementIntervalIndex}>Next interval please</button>
+        <SimpleChart width={300} height={100} data={this.getCurrentIntervalData(5)} />
 
         <h2>Updating dimensions</h2>
         <button onClick={this.swapWidthHeight}>Swap w/h</button>

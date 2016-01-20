@@ -52,6 +52,9 @@ if (process.env.BACKEND_HOST) {
   app.get('/api/services', function(req, res) {
     res.json(require('./support/services'));
   });
+  app.get('/stats/*', function(req, res) {
+    res.json(require('./support/stats'));
+  });
 }
 
 // Serve index page

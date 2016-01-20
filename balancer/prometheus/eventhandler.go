@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"time"
 
+	log "github.com/Sirupsen/logrus"
 	prom "github.com/prometheus/client_golang/prometheus"
 
 	"github.com/squaremo/flux/balancer/events"
@@ -56,8 +57,7 @@ func NewEventHandler(address string) (events.Handler, error) {
 		return nil, err
 	}
 
-	// Don't care about an error from this
-	go http.Serve(listener, mux)
+	go func() { log.Error(http.Serve(listener, mux)) }()
 
 	return &handler{
 		connections:   connectionCounter,

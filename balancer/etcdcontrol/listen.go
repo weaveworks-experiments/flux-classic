@@ -48,6 +48,7 @@ func (l *Listener) send(serviceName string) {
 			IP:    ip,
 			Port:  instance.Port,
 		})
+		log.Debugf("Added instance %s with address %s:%d to service %s", instance.Name, instance.Address, instance.Port, service.Name)
 	}
 
 	l.updates <- model.ServiceUpdate{
@@ -75,12 +76,14 @@ func (l *Listener) Updates() <-chan model.ServiceUpdate {
 }
 
 func (l *Listener) run(errorSink daemon.ErrorSink) {
+	log.Debugf("Initialising state")
 	changes := make(chan data.ServiceChange)
 	l.store.WatchServices(changes, nil, errorSink,
 		store.QueryServiceOptions{WithInstances: true})
 
 	// Send initial state of each service
 	store.ForeachServiceInstance(l.store, func(name string, _ data.Service) error {
+		log.Debugf("Initialising state for service %s", name)
 		l.send(name)
 		return nil
 	}, nil)
@@ -93,6 +96,7 @@ func (l *Listener) run(errorSink daemon.ErrorSink) {
 				Delete:  true,
 			}
 		} else {
+			log.Debugf("Updating state for service %s", change.Name)
 			l.send(change.Name)
 		}
 	}

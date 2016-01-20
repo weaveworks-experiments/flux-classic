@@ -72,6 +72,7 @@ func (d *BalancerDaemon) start(args []string, ipTablesCmd IPTablesCmd) error {
 	if debug {
 		log.SetLevel(log.DebugLevel)
 	}
+	log.Debug("Debug logging on")
 
 	d.ipTables = newIPTables(d.netConfig, ipTablesCmd)
 	err := d.ipTables.start()

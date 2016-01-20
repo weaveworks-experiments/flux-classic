@@ -133,8 +133,8 @@ tires. Assuming you have a host with Docker running and accessible on
 
 ```bash
 docker run -d -p 4001:4001 \
-       -e "ETCD_LISTEN_CLIENT_URLS=http://0.0.0.0:4001"
-       -e "ETCD_ADVERTISE_CLIENT_URLS=http://$HOST_IP:4001"
+       -e "ETCD_LISTEN_CLIENT_URLS=http://0.0.0.0:4001" \
+       -e "ETCD_ADVERTISE_CLIENT_URLS=http://$HOST_IP:4001" \
        quay.io/coreos/etcd
 ```
 

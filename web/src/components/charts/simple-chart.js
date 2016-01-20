@@ -80,7 +80,7 @@ export default class SimpleChart extends React.Component {
 
     const voronoi = d3.geom.voronoi()
       .x(d => x(d.date))
-      .y(d => y(d.value))
+      .y(0)
       .clipExtent([[0, 0], [w, h]]);
 
     const shapes = voronoi(data);

@@ -333,6 +333,28 @@ h2 {
   }
 }
 
+.chart {
+  margin-bottom: 12px;
+
+  path {
+    fill: none;
+    stroke: steelBlue;
+    stroke-width: 2px;
+  }
+
+  line {
+    stroke: #eee;
+  }
+
+  path.domain {
+    stroke: none;
+  }
+
+  .background {
+    fill: white;
+  }
+}
+
 @keyframes status-loading {
   0%, 100% {
     background-color: darken(@background-color, 4%);

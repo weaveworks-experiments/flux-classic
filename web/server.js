@@ -20,7 +20,7 @@ var app = express();
 
 
 // Serve application file depending on environment
-app.get(/app.js/, function(req, res) {
+app.get(/(app|components).js/, function(req, res) {
   var filename = req.originalUrl.split('/').pop();
   if (process.env.NODE_ENV === 'production') {
     res.sendFile(__dirname + '/build/' + filename);

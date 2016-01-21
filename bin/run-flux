@@ -29,6 +29,14 @@ stop() {
     docker rm -f "fluxagent" "fluxbalancer" 2>/dev/null || true
 }
 
+usage() {
+    cat >&2 <<EOF
+Usage:
+
+  run-flux start|stop|restart
+EOF
+}
+
 case "$1" in
     start)
         start
@@ -39,5 +47,8 @@ case "$1" in
     restart)
         stop
         start
+        ;;
+    *)
+        usage
         ;;
 esac

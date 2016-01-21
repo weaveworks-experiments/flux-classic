@@ -71,7 +71,7 @@ func parseAddress(address string) (svc data.Service, err error) {
 }
 
 func (opts *addOpts) run(cmd *cobra.Command, args []string) error {
-	if len(args) < 1 {
+	if len(args) != 1 {
 		return fmt.Errorf("Expected argument <name>")
 	}
 	serviceName := args[0]

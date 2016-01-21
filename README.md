@@ -87,7 +87,7 @@ is often a version number).
 For example, a service definition could be
 
 ```bash
-fluxctl service search-svc 10.128.0.1:80 --protocol http
+fluxctl service search-svc --address 10.128.0.1:80 --protocol http
 fluxctl select search-svc default --port-mapped 8080 --image searchapi
 ```
 

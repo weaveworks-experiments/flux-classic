@@ -27,6 +27,11 @@ module.exports = {
       './src/main',
       'webpack-dev-server/client?http://localhost:7071',
       'webpack/hot/only-dev-server'
+    ],
+    'components': [
+      './src/components',
+      'webpack-dev-server/client?http://localhost:7071',
+      'webpack/hot/only-dev-server'
     ]
   },
 

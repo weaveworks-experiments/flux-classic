@@ -20,7 +20,7 @@ var app = express();
 
 
 // Serve application file depending on environment
-app.get(/app.js/, function(req, res) {
+app.get(/(app|components).js/, function(req, res) {
   var filename = req.originalUrl.split('/').pop();
   if (process.env.NODE_ENV === 'production') {
     res.sendFile(__dirname + '/build/' + filename);
@@ -44,12 +44,16 @@ if (process.env.BACKEND_HOST) {
   });
 
   app.all('/api*', proxy.web.bind(proxy));
+  app.all('/stats*', proxy.web.bind(proxy));
 } else {
   //
   // MOCK BACKEND
   //
   app.get('/api/services', function(req, res) {
     res.json(require('./support/services'));
+  });
+  app.get('/stats/*', function(req, res) {
+    res.json(require('./support/stats'));
   });
 }
 

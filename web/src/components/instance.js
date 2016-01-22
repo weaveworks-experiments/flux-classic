@@ -1,4 +1,7 @@
 import React from 'react';
+import classnames from 'classnames';
+
+import { formatMetric } from '../utils/string-utils';
 
 export default class Instance extends React.Component {
 
@@ -22,10 +25,15 @@ export default class Instance extends React.Component {
   }
 
   render() {
+    const heroMetric = this.props.heroMetric === undefined ? 'n/a' : formatMetric(this.props.heroMetric);
+    const className = classnames({
+      instance: true,
+      'instance-selected': this.props.selected
+    });
     return (
-      <div className="instance" key={this.props.name}>
+      <div className={className} key={this.props.name} onClick={this.props.handleClick}>
         <div className="instance-metric">
-          <span className="instance-metric-value">{Number(Math.random()).toFixed(2)}</span>
+          <span className="instance-metric-value">{heroMetric}</span>
           <span className="instance-metric-unit">QPS</span>
         </div>
         <div className="instance-title truncate" title={'Name: ' + this.props.name}>

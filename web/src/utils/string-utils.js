@@ -1,3 +1,7 @@
+import d3 from 'd3';
+
+export const formatLargeValue = d3.format('s');
+
 export function labels(kv) {
   const s = [];
   Object.keys(kv).forEach(k => {
@@ -18,4 +22,11 @@ export function plural(text, count) {
     return text;
   }
   return `${text}s`;
+}
+
+export function formatMetric(val) {
+  if (val < 1100 && val >= 0) {
+    return Number(val).toFixed(2);
+  }
+  return formatLargeValue(val);
 }

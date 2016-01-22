@@ -34,40 +34,34 @@ func (opts *addOpts) makeCommand() *cobra.Command {
 	return addCmd
 }
 
-func parseAddress(address string) (svc data.Service, err error) {
+func parseAddress(address string) (data.Service, error) {
+	var svc data.Service
 	if address == "" {
-		return
+		return svc, nil
 	}
 
 	addr := strings.Split(address, ":")
 	if len(addr) != 2 {
-		err = fmt.Errorf("Expected address in the format <ipaddress>:<port>[/<protocol>]")
-		return
+		return svc, fmt.Errorf("Expected address in the format <ipaddress>:<port>[/<protocol>]")
 	}
 
 	ip := net.ParseIP(addr[0])
 	if ip == nil {
-		err = fmt.Errorf("Invalid IP address: ", addr[0])
-		return
+		return svc, fmt.Errorf("Invalid IP address: ", addr[0])
 	}
-	svc.Address = addr[0]
 
-	var port int
-	portProt := strings.SplitN(addr[1], "/", 2)
-	port, err = strconv.Atoi(portProt[0])
-	// We may later use 0 to mean "please allocate"
+	port, err := strconv.Atoi(addr[1])
 	if err != nil {
-		return
-	} else if port < 1 || port > 65535 {
-		err = fmt.Errorf("Invalid port number; expected 0 < p < 65535, got %d", port)
-		return
+		return svc, err
 	}
-	svc.Port = port
 
-	if len(portProt) == 2 {
-		svc.Protocol = portProt[1]
+	if port < 1 || port > 65535 {
+		return svc, fmt.Errorf("Invalid port number; expected 0 < p < 65535, got %d", port)
 	}
-	return
+
+	svc.Address = addr[0]
+	svc.Port = port
+	return svc, nil
 }
 
 func (opts *addOpts) run(cmd *cobra.Command, args []string) error {

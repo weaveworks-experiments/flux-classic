@@ -39,15 +39,6 @@ func TestParseAddress(t *testing.T) {
 		Port:     8000,
 		Protocol: "",
 	}, svc)
-
-	svc, err = parseAddress("192.168.45.76:8000/http")
-	require.NoError(t, err)
-	require.Equal(t, data.Service{
-		Address:  "192.168.45.76",
-		Port:     8000,
-		Protocol: "http",
-	}, svc)
-
 }
 
 func TestServiceAddress(t *testing.T) {

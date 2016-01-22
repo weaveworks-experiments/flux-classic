@@ -37,7 +37,7 @@ Interaction with the system is via a command-line tool,
 To define a service, you use
 
 ```
-fluxctl service <service> <IP address>:<port>[/tcp|http]
+fluxctl service <service> <IP address>:<port> [ --protocol http ]
 ```
 
 The IP address and port are chosen by you. The IP address is a virtual
@@ -50,10 +50,9 @@ It's this IP address and port that clients will connect to when using
 the service, so you may also want to arrange for it to be in DNS, or
 `/etc/hosts` for client containers.
 
-The `/tcp|http` part of the address or the `--protocol` option control
-whether client connections should be treated as HTTP, or plain TCP;
-using HTTP means HTTP-specific metrics can be collected, but not all
-services will use HTTP.
+The `--protocol` option controls whether client connections should be
+treated as HTTP, or plain TCP; using HTTP means HTTP-specific metrics
+can be collected, but not all services will use HTTP.
 
 To enrol containers in the service, use
 

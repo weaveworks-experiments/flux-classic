@@ -167,7 +167,6 @@ func TestListenerReconcile(t *testing.T) {
 
 	listener.ReadInServices()
 	listener.ReadExistingContainers()
-	listener.reconcile()
 
 	require.Len(t, allInstances(st), 3)
 	for _, inst := range allInstances(st) {
@@ -257,7 +256,6 @@ func TestMappedPort(t *testing.T) {
 
 	listener.ReadInServices()
 	listener.ReadExistingContainers()
-	listener.reconcile()
 
 	require.Len(t, allInstances(st), 1)
 	store.ForeachInstance(st, "blorp-svc", func(_, _ string, inst data.Instance) error {
@@ -284,7 +282,6 @@ func TestHostNetworking(t *testing.T) {
 
 	listener.ReadInServices()
 	listener.ReadExistingContainers()
-	listener.reconcile()
 
 	require.Len(t, allInstances(st), 1)
 	store.ForeachInstance(st, "blorp-svc", func(_, _ string, inst data.Instance) error {
@@ -326,14 +323,12 @@ func TestOtherHostsEntries(t *testing.T) {
 	// let listener on the first host add its instances
 	listener1.ReadInServices()
 	listener1.ReadExistingContainers()
-	listener1.reconcile()
 
 	require.Len(t, allInstances(st), 2)
 
 	// let listener on the second host add its instances
 	listener2.ReadInServices()
 	listener2.ReadExistingContainers()
-	listener2.reconcile()
 
 	require.Len(t, allInstances(st), 4)
 
@@ -347,9 +342,8 @@ func TestOtherHostsEntries(t *testing.T) {
 		HostIP:    "192.168.11.5",
 		Inspector: dc2,
 	})
-	listener2.ReadInServices()
 	listener2.ReadExistingContainers()
-	listener2.reconcile()
+	listener2.ReadInServices()
 
 	require.Len(t, allInstances(st), 3)
 }

@@ -18,11 +18,31 @@ type inspector interface {
 	ListContainers(docker.ListContainersOptions) ([]docker.APIContainers, error)
 }
 
+type instanceSet map[string]struct{}
+
+type service struct {
+	*store.ServiceInfo
+	localInstances instanceSet
+}
+
+func (svc *service) includes(instanceName string) bool {
+	_, ok := svc.localInstances[instanceName]
+	return ok
+}
+
+func (svc *service) includeInstance(instanceName string) {
+	svc.localInstances[instanceName] = struct{}{}
+}
+
+func (svc *service) excludeInstance(instanceName string) {
+	delete(svc.localInstances, instanceName)
+}
+
 type Listener struct {
 	store     store.Store
 	inspector inspector
 
-	services   map[string]store.ServiceInfo
+	services   map[string]*service
 	containers map[string]*docker.Container
 	hostIP     string
 }
@@ -37,7 +57,7 @@ func NewListener(config Config) *Listener {
 	listener := &Listener{
 		store:      config.Store,
 		inspector:  config.Inspector,
-		services:   make(map[string]store.ServiceInfo),
+		services:   make(map[string]*service),
 		containers: make(map[string]*docker.Container),
 		hostIP:     config.HostIP,
 	}
@@ -54,103 +74,94 @@ func (l *Listener) owns(inst data.Instance) bool {
 	return l.ownerID() == inst.OwnerID
 }
 
+// instanceNameFor and instanceNameFromEvent encode the fact we just
+// use the container ID as the instance name.
 func instanceNameFor(c *docker.Container) string {
 	return c.ID
 }
 
-// Read in all info on registered services
+func instanceNameFromEvent(event *docker.APIEvents) string {
+	return event.ID
+}
+
+// Read in all info on registered services and evaluate known
+// containers against them.
 func (l *Listener) ReadInServices() error {
 	svcs, err := l.store.GetAllServices(store.QueryServiceOptions{WithContainerRules: true})
 	if err != nil {
 		return err
 	}
 	for _, svc := range svcs {
-		l.services[svc.Name] = svc
+		if err := l.redefineService(svc.Name, svc); err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
-// Read details of all running containers
+// Read details of all running containers and evaluate against known
+// services.
 func (l *Listener) ReadExistingContainers() error {
 	conts, err := l.inspector.ListContainers(docker.ListContainersOptions{})
 	if err != nil {
 		return err
 	}
 	for _, cont := range conts {
-		container, err := l.inspector.InspectContainer(cont.ID)
-		if err != nil {
-			log.Println("Failed to inspect container:", cont.ID, err)
-			continue
+		if err := l.containerStarted(cont.ID); err != nil {
+			return err
 		}
-		l.containers[instanceNameFor(container)] = container
 	}
 	return nil
 }
 
-// Assume we know all of the services, and all of the containers, and
-// make sure the matching instances (and only the matching instances)
-// are recorded.
-func (l *Listener) reconcile() error {
-	// Register all the  we know about
-	for _, container := range l.containers {
-		l.matchContainer(container)
-	}
-	// Remove instances for which there is no longer a running
-	// container
-	return store.ForeachServiceInstance(l.store, nil, func(serviceName string, instanceName string, inst data.Instance) error {
-		if _, found := l.containers[instanceName]; !found && l.owns(inst) {
-			log.Printf("Removing %.12s/%.12s", serviceName, instanceName)
-			return l.store.RemoveInstance(serviceName, instanceName)
-		}
-		return nil
-	})
-}
-
 // The service has been changed; re-evaluate which containers belong,
 // and which don't. Assume we have a correct list of containers.
-func (l *Listener) redefineService(serviceName string, service *store.ServiceInfo) error {
-	keep := make(map[string]struct{})
-	var (
-		inService bool
-		err       error
-	)
+func (l *Listener) redefineService(serviceName string, newService store.ServiceInfo) error {
+	svc, found := l.services[serviceName]
+	if !found {
+		svc = &service{}
+		l.services[serviceName] = svc
+	}
+	svc.ServiceInfo = &newService
+	svc.localInstances = make(instanceSet)
+	var err error
 	for _, container := range l.containers {
-		if inService, err = l.evaluate(container, service); err != nil {
+		if _, err = l.evaluate(container, svc); err != nil {
 			return err
-		}
-		if inService {
-			keep[instanceNameFor(container)] = struct{}{}
 		}
 	}
 	// remove any instances for this service that do not match
-	return store.ForeachInstance(l.store, serviceName, func(_, instanceName string, _ data.Instance) error {
-		if _, found := keep[instanceName]; !found {
+	return store.ForeachInstance(l.store, serviceName, func(_, instanceName string, inst data.Instance) error {
+		if !svc.includes(instanceName) && l.owns(inst) {
 			return l.store.RemoveInstance(serviceName, instanceName)
 		}
 		return nil
 	})
 }
 
-func (l *Listener) evaluate(container *docker.Container, service *store.ServiceInfo) (bool, error) {
-	for _, spec := range service.ContainerRules {
+func (l *Listener) evaluate(container *docker.Container, svc *service) (bool, error) {
+	for _, spec := range svc.ContainerRules {
 		if instance, ok := l.extractInstance(spec.ContainerRule, container); ok {
 			instance.ContainerRule = spec.Name
-			err := l.store.AddInstance(service.Name, container.ID, instance)
+			instName := instanceNameFor(container)
+			err := l.store.AddInstance(svc.Name, instName, instance)
 			if err != nil {
 				log.Println("Failed to register service:", err)
 				return false, err
 			}
-			log.Printf("Registered %s instance %.12s at %s:%d", service.Name, container.ID, instance.Address, instance.Port)
+			svc.includeInstance(instName)
+			log.Printf("Registered %s instance %.12s at %s:%d", svc.Name, instName, instance.Address, instance.Port)
 			return true, nil
 		}
 	}
 	return false, nil
 }
 
-func (l *Listener) matchContainer(container *docker.Container) error {
+func (l *Listener) addContainer(container *docker.Container) error {
+	l.containers[container.ID] = container
 	for _, service := range l.services {
 		log.Printf("Evaluating container %s against service %s", container.ID, service.Name)
-		if _, err := l.evaluate(container, &service); err != nil {
+		if _, err := l.evaluate(container, service); err != nil {
 			return err
 		}
 	}
@@ -202,15 +213,16 @@ func (l *Listener) extractInstance(spec data.ContainerRule, container *docker.Co
 	}, true
 }
 
-func (l *Listener) deregister(container *docker.Container) error {
-	for serviceName, _ := range l.services {
-		if l.store.CheckRegisteredService(serviceName) == nil {
-			err := l.store.RemoveInstance(serviceName, container.ID)
+func (l *Listener) removeContainer(instName string) error {
+	for serviceName, svc := range l.services {
+		if svc.includes(instName) {
+			err := l.store.RemoveInstance(serviceName, instName)
 			if err != nil {
 				log.Println("Failed to deregister service:", err)
 				return err
 			}
-			log.Printf("Deregistered %s instance %.12s", serviceName, container.ID)
+			log.Printf("Deregistered %s instance %.12s", serviceName, instName)
+			svc.excludeInstance(instName)
 		}
 	}
 	return nil
@@ -285,17 +297,7 @@ func (l *Listener) containerStarted(ID string) error {
 		log.Println("Failed to inspect container:", ID, err)
 		return err
 	}
-	l.containers[ID] = container
-	return l.matchContainer(container)
-}
-
-func (l *Listener) containerDied(ID string) error {
-	container, found := l.containers[ID]
-	if !found {
-		log.Println("Unknown container:", ID)
-		return nil
-	}
-	return l.deregister(container)
+	return l.addContainer(container)
 }
 
 func (l *Listener) serviceRemoved(name string) error {
@@ -310,22 +312,15 @@ func (l *Listener) serviceUpdated(name string) error {
 		return err
 	}
 
-	l.services[name] = svc
 	log.Println("Service", name, "updated:", svc)
 	// See which containers match now.
-	return l.redefineService(name, &svc)
+	return l.redefineService(name, svc)
 }
 
 func (l *Listener) Run(events <-chan *docker.APIEvents) {
 	changes := make(chan data.ServiceChange)
 	l.store.WatchServices(changes, nil, daemon.NewErrorSink(),
 		store.QueryServiceOptions{WithContainerRules: true})
-
-	// sync after we have initiated the watch
-	if err := l.reconcile(); err != nil {
-		log.Fatal("Error synchronising existing containers:", err)
-	}
-
 	for {
 		select {
 		case event := <-events:
@@ -343,7 +338,7 @@ func (l *Listener) processDockerEvent(event *docker.APIEvents) {
 			log.Println("error handling container start: ", err)
 		}
 	case "die":
-		if err := l.containerDied(event.ID); err != nil {
+		if err := l.removeContainer(instanceNameFromEvent(event)); err != nil {
 			log.Println("error handling container die: ", err)
 		}
 	}

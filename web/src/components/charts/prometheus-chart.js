@@ -6,15 +6,23 @@ import SimpleChart from './simple-chart';
 import { INTERVAL_SECS } from '../../constants/timer';
 import { now, requestRange, processValues } from '../../utils/prometheus-utils';
 
+const color = d3.scale.category10();
+// set colors for http codes for colors from https://github.com/mbostock/d3/wiki/Ordinal-Scales#categorical-colors
+color('301');
+color('404');
+color('200');
+color('500');
+color('400');
+
 function toSeriesSet(series) {
-  const color = d3.scale.category20();
-  return series.map((s, i) => {
+  return Object.keys(series).map((code, i) => {
     return {
       id: 'ewq' + i,
-      color: color(i),
-      data: s
+      color: color(code),
+      label: code,
+      data: series[code]
     };
-  });
+  }).reverse();
 }
 
 export default class PrometheusChart extends React.Component {
@@ -22,8 +30,7 @@ export default class PrometheusChart extends React.Component {
   constructor(props, context) {
     super(props, context);
     this.state = {
-      okData: [],
-      errData: [],
+      series: {},
       width: 0
     };
     this.chartTimer = null;
@@ -33,27 +40,17 @@ export default class PrometheusChart extends React.Component {
 
   receiveData(json) {
     const result = json.data.result;
-    let okData = [];
-    let errData = [];
-    for (let i = 0; i < result.length; i++) {
-      switch (result[i].metric.code) {
-      case '200':
-        okData = result[i].values.map(processValues);
-        break;
-      case '500':
-        errData = result[i].values.map(processValues);
-        break;
-      default:
-        break;
-      }
-    }
+    const series = {};
+    result.forEach(obj => {
+      series[obj.metric.code] = obj.values.map(processValues);
+    });
     // sync chart request to other requests by clocking into a slot
     const timeToNextSlot = (now() + INTERVAL_SECS) * 1000 - new Date;
     this.chartTimer = setTimeout(this.getData, timeToNextSlot);
     if (this.mounted) {
       const container = ReactDOM.findDOMNode(this).parentElement;
       const width = container.clientWidth || 100;
-      this.setState({okData, errData, width});
+      this.setState({series, width});
     }
   }
 
@@ -74,7 +71,7 @@ export default class PrometheusChart extends React.Component {
   }
 
   render() {
-    const data = toSeriesSet([this.state.okData, this.state.errData]);
-    return <SimpleChart data={data} label={this.props.label} height="100" width={this.state.width} />;
+    const data = toSeriesSet(this.state.series);
+    return <SimpleChart data={data} label={this.props.label} height="120" width={this.state.width} />;
   }
 }

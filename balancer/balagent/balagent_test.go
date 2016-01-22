@@ -95,13 +95,13 @@ func TestBalancerAgent(t *testing.T) {
 
 	// Add an instance to the service:
 	require.Nil(t, a.store.AddInstance("service1", "inst1",
-		data.Instance{Address: "5.6.7.8", Port: 1}))
+		data.Instance{State: data.LIVE, Address: "5.6.7.8", Port: 1}))
 	<-a.generated
 	requireFile(t, a.filename, "service1: (inst1, 5.6.7.8:1)")
 
 	// And another instance:
 	require.Nil(t, a.store.AddInstance("service1", "inst2",
-		data.Instance{Address: "9.10.11.12", Port: 2}))
+		data.Instance{State: data.LIVE, Address: "9.10.11.12", Port: 2}))
 	<-a.generated
 	requireFile(t, a.filename, "service1: (inst1, 5.6.7.8:1) (inst2, 9.10.11.12:2)")
 

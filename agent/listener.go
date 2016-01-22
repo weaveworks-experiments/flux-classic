@@ -184,15 +184,20 @@ func (container containerLabels) Label(label string) string {
 }
 
 func (l *Listener) extractInstance(spec data.ContainerRule, container *docker.Container) (data.Instance, bool) {
+	var inst data.Instance
 	if !spec.Includes(containerLabels{container}) {
-		return data.Instance{}, false
+		return inst, false
 	}
 
 	ipAddress, port := l.getAddress(spec, container)
 	if port == 0 {
-		log.Printf(`Cannot extract instance from container '%s', no address extractable from %+v`, container.ID, container.NetworkSettings)
-		return data.Instance{}, false
+		log.Infof(`Cannot extract address for instance, from container '%s'`, container.ID)
+		inst.State = data.NOADDR
+	} else {
+		inst.Address = ipAddress
+		inst.Port = port
 	}
+
 	labels := map[string]string{
 		"tag":   imageTag(container.Config.Image),
 		"image": imageName(container.Config.Image),
@@ -204,13 +209,9 @@ func (l *Listener) extractInstance(spec data.ContainerRule, container *docker.Co
 		kv := strings.SplitN(v, "=", 2)
 		labels["env."+kv[0]] = kv[1]
 	}
-
-	return data.Instance{
-		OwnerID: l.ownerID(),
-		Address: ipAddress,
-		Port:    port,
-		Labels:  labels,
-	}, true
+	inst.Labels = labels
+	inst.OwnerID = l.ownerID()
+	return inst, true
 }
 
 func (l *Listener) removeContainer(instName string) error {

@@ -46,7 +46,13 @@ type Service struct {
 	Protocol string `json:"protocol,omitempty"`
 }
 
+type InstanceState string
+
+const LIVE = "live"
+const NOADDR = "no address"
+
 type Instance struct {
+	State         InstanceState     `json:"state"`
 	OwnerID       string            `json:"ownerID"`
 	ContainerRule string            `json:"containerRule"`
 	Address       string            `json:"address,omitempty"`

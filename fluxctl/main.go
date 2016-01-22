@@ -19,7 +19,8 @@ func main() {
 	}
 	addSubCommands(topCmd, store)
 	if err := topCmd.Execute(); err != nil {
-		exitWithErrorf(err.Error())
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
 	}
 }
 
@@ -35,9 +36,4 @@ func addSubCommands(cmd *cobra.Command, store store.Store) {
 	addSubCommand(&rmOpts{}, cmd, store)
 	addSubCommand(&selectOpts{}, cmd, store)
 	addSubCommand(&deselectOpts{}, cmd, store)
-}
-
-func exitWithErrorf(format string, vals ...interface{}) {
-	fmt.Fprintf(os.Stderr, format, vals...)
-	os.Exit(1)
 }

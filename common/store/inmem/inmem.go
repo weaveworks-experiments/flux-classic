@@ -148,6 +148,11 @@ func (s *inmem) AddInstance(serviceName string, instanceName string, inst data.I
 }
 
 func (s *inmem) RemoveInstance(serviceName string, instanceName string) error {
+	if _, found := s.instances[serviceName][instanceName]; !found {
+		return fmt.Errorf("service '%s' has no instance '%s'",
+			serviceName, instanceName)
+	}
+
 	delete(s.instances[serviceName], instanceName)
 	s.fireEvent(data.ServiceChange{serviceName, false}, withInstanceChanges)
 	return nil

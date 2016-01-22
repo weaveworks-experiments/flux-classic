@@ -35,6 +35,13 @@ func (l *Listener) send(serviceName string) {
 
 	insts := []model.Instance{}
 	for _, instance := range service.Instances {
+		switch instance.State {
+		case data.LIVE:
+			break // i.e., proceed
+		default:
+			log.Debugf("Ignoring instance '%s', not marked as live", instance.Name)
+			continue // try next instance
+		}
 		ip := net.ParseIP(instance.Address)
 		if ip == nil {
 			log.Errorf("Bad address \"%s\" for instance %s/%s",

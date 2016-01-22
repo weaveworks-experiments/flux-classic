@@ -7,6 +7,7 @@ import debug from 'debug';
 import { formatMetric } from '../../utils/string-utils';
 
 const log = debug('flux:simple-chart');
+const MARGINS = {top: 0, bottom: 24, left: 48, right: 72};
 
 const customTimeFormat = d3.time.format.multi([
   ['.%L', function(d) { return d.getMilliseconds(); }],
@@ -58,20 +59,40 @@ export default class SimpleChart extends React.Component {
     d3.select(yAxisNode).call(this.yAxis);
   }
 
+  renderLegend(x, y, w, h, indexedSeries) {
+    const offsetX = w + 16;
+    const offsetY = 8;
+    return (
+      <g className="legend">
+        {Object.keys(indexedSeries).map((seriesId, i) => {
+          const series = indexedSeries[seriesId];
+          return (
+            <g className="legend-item" key={seriesId}>
+              <rect style={{fill: series.color}} x={offsetX} y={offsetY + 20 * i} width="12" height="2" />
+              <text style={{fill: series.color}} x={offsetX + 16} y={offsetY + 20 * i} dy="0.42em">{series.label}</text>
+            </g>
+          );
+        })}
+      </g>
+    );
+  }
+
   renderSelected(x, y, w, h, selectedTime, selectedData, indexedSeries) {
     const selectedX = x(selectedTime);
     const selectedFlagX = selectedX + 100 < w ? selectedX : (w - 100);
     const color = seriesId => indexedSeries[seriesId].color;
+    const label = seriesId => indexedSeries[seriesId].label;
 
     return (
       <g className="selected">
         <g transform={`translate(${selectedFlagX}, 0)`}>
           {Object.keys(selectedData).map((k, i) => {
             const v = selectedData[k];
+            const text = `${formatMetric(v)} (${label(k)})`;
             return (
               <g key={k}>
                 <rect style={{fill: color(k)}} x="0" y={20 * i} width="100" height="20" />
-                <text x="4" y={20 * i + 14}>{d3.round(v, 2)}</text>
+                <text x="4" y={20 * i + 14}>{text}</text>
               </g>
             );
           })}
@@ -118,9 +139,8 @@ export default class SimpleChart extends React.Component {
 
   render() {
     const {width: outerWidth, height: outerHeight, data: dataSet} = this.props;
-    const margins = {top: 0, bottom: 24, left: 48, right: 12};
-    const w = Math.max(outerWidth - margins.left - margins.right, 0);
-    const h = outerHeight - margins.top - margins.bottom;
+    const w = Math.max(outerWidth - MARGINS.left - MARGINS.right, 0);
+    const h = outerHeight - MARGINS.top - MARGINS.bottom;
     if (!dataSet || !dataSet.length) {
       return <div>Loading...</div>;
     }
@@ -173,7 +193,7 @@ export default class SimpleChart extends React.Component {
       <div style={style} className="chart"
         onMouseLeave={() => this.selectTime(null)}>
         <svg style={style}>
-          <g transform={`translate(${margins.left}, ${margins.top})`}>
+          <g transform={`translate(${MARGINS.left}, ${MARGINS.top})`}>
 
             <rect className="background" width={w} height={h} />
 
@@ -193,6 +213,8 @@ export default class SimpleChart extends React.Component {
                                                  selectedData, indexedSeries)}
 
             {this.renderHoverPaths(x, y, w, h, data)}
+
+            {this.renderLegend(x, y, w, h, indexedSeries)}
 
             <text className="label" y={y(0) - 4}>{this.props.label}</text>
           </g>

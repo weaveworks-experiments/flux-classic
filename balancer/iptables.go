@@ -29,7 +29,7 @@ func newIPTables(nc netConfig, cmd IPTablesCmd) *ipTables {
 }
 
 func (ipt *ipTables) start() error {
-	err := ipt.setupChain("nat", "PREROUTING")
+	err := ipt.setupChain("nat", "PREROUTING", "OUTPUT")
 	if err != nil {
 		return err
 	}
@@ -93,6 +93,19 @@ func (ipt *ipTables) doIPTables(args ...interface{}) error {
 	return nil
 }
 
+// Run an iptables command, but it's ok if it fails
+func (ipt *ipTables) doIPTablesRelaxed(args ...interface{}) (bool, error) {
+	if err := ipt.doIPTables(args...); err != nil {
+		if _, match := err.(ipTablesError); match {
+			return false, nil
+		}
+
+		return false, err
+	}
+
+	return true, nil
+}
+
 func sanitizeIPTablesOutput(output []byte) string {
 	limit := 200
 	return strings.Map(func(ch rune) rune {
@@ -109,7 +122,7 @@ func sanitizeIPTablesOutput(output []byte) string {
 }
 
 func (ipt *ipTables) chainRule() []interface{} {
-	return []interface{}{"-i", ipt.bridge, "-j", ipt.chain}
+	return []interface{}{"-j", ipt.chain}
 }
 
 func (ipt *ipTables) setupChain(table string, hookChains ...string) error {
@@ -135,32 +148,41 @@ func (ipt *ipTables) setupChain(table string, hookChains ...string) error {
 
 func (ipt *ipTables) deleteChain(table string, hookChains ...string) error {
 	// First, remove any rules in the chain
-	err := ipt.doIPTables("-t", table, "-F", ipt.chain)
-	if err != nil {
-		if _, ok := err.(ipTablesError); ok {
-			// this probably means the chain doesn't exist
-			return nil
-		}
+	ok, err := ipt.doIPTablesRelaxed("-t", table, "-F", ipt.chain)
+	if err == nil && !ok {
+		// this probably means the chain doesn't exist
+		return nil
 	}
 
 	// Remove rules that reference our chain
 	for _, hookChain := range hookChains {
-		for {
-			err := ipt.doIPTables("-t", table, "-D", hookChain,
-				ipt.chainRule())
-			if err != nil {
-				if _, ok := err.(ipTablesError); !ok {
-					return err
-				}
+		if err := ipt.deleteChainRule(table, hookChain, ipt.chainRule()); err != nil {
+			return err
+		}
 
-				// a "no such rule" error
-				break
-			}
+		// To delete the old chain rule.  Really we ought to
+		// scan for any and all references to our chain, but
+		// that would be fairly involved.
+		if err := ipt.deleteChainRule(table, hookChain,
+			[]interface{}{"-i", ipt.bridge, "-j", ipt.chain}); err != nil {
+			return err
 		}
 	}
 
 	// Actually delete the chain
 	return ipt.doIPTables("-t", table, "-X", ipt.chain)
+}
+
+func (ipt *ipTables) deleteChainRule(table string, hookChain string, rule []interface{}) error {
+	// The rule shouldn't be there multiple times, but in case it
+	// is, keep deleting until we fail.
+	for {
+		ok, err := ipt.doIPTablesRelaxed("-t", table, "-D", hookChain,
+			rule)
+		if !ok || err != nil {
+			return err
+		}
+	}
 }
 
 func (ipt *ipTables) addRule(table string, args []interface{}) error {

@@ -17,6 +17,6 @@ proxy, so that the IP addresses are those supplied by weave:
 
 ```bash
 docker run -d -e ETCD_ADDRESS=http://etcd:4001 \
-       -v /var/run/docker.sock:/var/run/docker.sock \
+       -v /var/run/weave/weave.sock:/var/run/docker.sock \
        flux/agent
 ```

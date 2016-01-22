@@ -3,13 +3,13 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	"net"
 	"os"
 
 	"github.com/squaremo/flux/agent"
 	"github.com/squaremo/flux/common/store/etcdstore"
 
+	log "github.com/Sirupsen/logrus"
 	docker "github.com/fsouza/go-dockerclient"
 )
 
@@ -22,7 +22,7 @@ func setupDockerClient() (*docker.Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("Using Docker %v", env)
+	log.Infof("Using Docker %+v", env)
 	return dc, nil
 }
 
@@ -35,14 +35,14 @@ func main() {
 
 	dc, err := setupDockerClient()
 	if err != nil {
-		log.Fatal("Error connecting to docker: ", err)
+		log.Fatalf("Error connecting to docker: %s", err)
 	}
 
 	hostIpFrom := "argument"
 
 	if hostIP == "" {
 		hostIP = os.Getenv("HOST_IP")
-		hostIpFrom = `"HOST_IP" in environment`
+		hostIpFrom = `$HOST_IP in environment`
 	}
 
 	if hostIP == "" {
@@ -55,10 +55,10 @@ func main() {
 			log.Fatalf("Unable to determine host IP via hostname: %s", err)
 		}
 		hostIP = ip.String()
-		hostIpFrom = fmt.Sprintf(`resolving hostname "%s"`, hostname)
+		hostIpFrom = fmt.Sprintf(`resolving hostname '%s'`, hostname)
 	}
 
-	log.Printf("Using host IP address %s from %s\n", hostIP, hostIpFrom)
+	log.Infof(`Using host IP address '%s' from %s`, hostIP, hostIpFrom)
 
 	listener := agent.NewListener(agent.Config{
 		HostIP:    hostIP,
@@ -71,11 +71,11 @@ func main() {
 		log.Fatalf("Unable to add listener to Docker API: %s", err)
 	}
 
-	if err := listener.ReadInServices(); err != nil {
-		log.Fatal("Error reading configuration: ", err)
-	}
 	if err := listener.ReadExistingContainers(); err != nil {
-		log.Fatal("Error reading existing containers:", err)
+		log.Fatalf("Error reading existing containers: %s", err)
+	}
+	if err := listener.ReadInServices(); err != nil {
+		log.Fatalf("Error reading configuration: %s", err)
 	}
 	listener.Run(events)
 }

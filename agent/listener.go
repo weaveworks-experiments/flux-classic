@@ -2,7 +2,6 @@ package agent
 
 import (
 	"fmt"
-	"log"
 	"strconv"
 	"strings"
 
@@ -10,6 +9,7 @@ import (
 	"github.com/squaremo/flux/common/data"
 	"github.com/squaremo/flux/common/store"
 
+	log "github.com/Sirupsen/logrus"
 	docker "github.com/fsouza/go-dockerclient"
 )
 
@@ -146,11 +146,11 @@ func (l *Listener) evaluate(container *docker.Container, svc *service) (bool, er
 			instName := instanceNameFor(container)
 			err := l.store.AddInstance(svc.Name, instName, instance)
 			if err != nil {
-				log.Println("Failed to register service:", err)
+				log.Errorf("Failed to register service: %s", err)
 				return false, err
 			}
 			svc.includeInstance(instName)
-			log.Printf("Registered %s instance %.12s at %s:%d", svc.Name, instName, instance.Address, instance.Port)
+			log.Infof(`Registered %s instance '%.12s' at %s:%d`, svc.Name, instName, instance.Address, instance.Port)
 			return true, nil
 		}
 	}
@@ -160,7 +160,7 @@ func (l *Listener) evaluate(container *docker.Container, svc *service) (bool, er
 func (l *Listener) addContainer(container *docker.Container) error {
 	l.containers[container.ID] = container
 	for _, service := range l.services {
-		log.Printf("Evaluating container %s against service %s", container.ID, service.Name)
+		log.Infof(`Evaluating container '%s' against service '%s'`, container.ID, service.Name)
 		if _, err := l.evaluate(container, service); err != nil {
 			return err
 		}
@@ -190,7 +190,7 @@ func (l *Listener) extractInstance(spec data.ContainerRule, container *docker.Co
 
 	ipAddress, port := l.getAddress(spec, container)
 	if port == 0 {
-		log.Printf("Cannot extract instance from container '%s', no address extractable from %+v\n", container.ID, container.NetworkSettings)
+		log.Printf(`Cannot extract instance from container '%s', no address extractable from %+v`, container.ID, container.NetworkSettings)
 		return data.Instance{}, false
 	}
 	labels := map[string]string{
@@ -218,10 +218,10 @@ func (l *Listener) removeContainer(instName string) error {
 		if svc.includes(instName) {
 			err := l.store.RemoveInstance(serviceName, instName)
 			if err != nil {
-				log.Println("Failed to deregister service:", err)
+				log.Errorf("Failed to deregister service: %s", err)
 				return err
 			}
-			log.Printf("Deregistered %s instance %.12s", serviceName, instName)
+			log.Infof("Deregistered service '%s' instance '%.12s'", serviceName, instName)
 			svc.excludeInstance(instName)
 		}
 	}
@@ -294,7 +294,7 @@ func envValue(env []string, key string) string {
 func (l *Listener) containerStarted(ID string) error {
 	container, err := l.inspector.InspectContainer(ID)
 	if err != nil {
-		log.Println("Failed to inspect container:", ID, err)
+		log.Errorf(`Failed to inspect container '%s': %s`, ID, err)
 		return err
 	}
 	return l.addContainer(container)
@@ -308,11 +308,11 @@ func (l *Listener) serviceRemoved(name string) error {
 func (l *Listener) serviceUpdated(name string) error {
 	svc, err := l.store.GetService(name, store.QueryServiceOptions{WithContainerRules: true})
 	if err != nil {
-		log.Println("Failed to retrieve service:", name, err)
+		log.Errorf(`Failed to retrieve service '%s': %s`, name, err)
 		return err
 	}
 
-	log.Println("Service", name, "updated:", svc)
+	log.Infof(`Service '%s' updated to %+v`, name, svc)
 	// See which containers match now.
 	return l.redefineService(name, svc)
 }
@@ -335,11 +335,11 @@ func (l *Listener) processDockerEvent(event *docker.APIEvents) {
 	switch event.Status {
 	case "start":
 		if err := l.containerStarted(event.ID); err != nil {
-			log.Println("error handling container start: ", err)
+			log.Errorf("error handling container start: %s", err)
 		}
 	case "die":
 		if err := l.removeContainer(instanceNameFromEvent(event)); err != nil {
-			log.Println("error handling container die: ", err)
+			log.Errorf("error handling container die: %s", err)
 		}
 	}
 }
@@ -347,11 +347,11 @@ func (l *Listener) processDockerEvent(event *docker.APIEvents) {
 func (l *Listener) processServiceChange(change data.ServiceChange) {
 	if change.ServiceDeleted {
 		if err := l.serviceRemoved(change.Name); err != nil {
-			log.Println("error handling service removal: ", err)
+			log.Errorf("error handling service removal: %s", err)
 		}
 	} else {
 		if err := l.serviceUpdated(change.Name); err != nil {
-			log.Println("error handling service update: ", err)
+			log.Errorf("error handling service update: %s", err)
 		}
 	}
 }

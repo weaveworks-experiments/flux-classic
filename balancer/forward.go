@@ -34,7 +34,7 @@ type forwarding struct {
 type shimFunc func(inbound, outbound *net.TCPConn, conn *events.Connection, eventHandler events.Handler) error
 
 func (fc forwardingConfig) start(svc *model.Service) (serviceState, error) {
-	log.Debugf("moving service %s to state 'forwarding'", svc.Name)
+	log.Info("forwarding service: ", svc.Summary())
 	ip, err := bridgeIP(fc.bridge)
 	if err != nil {
 		return nil, err
@@ -127,10 +127,15 @@ func (fwd *forwarding) update(svc *model.Service) (bool, error) {
 	fwd.lock.Lock()
 	defer fwd.lock.Unlock()
 
+	if svc.Equal(fwd.Service) {
+		return true, nil
+	}
+
 	if !svc.IP.Equal(fwd.Service.IP) || svc.Port != fwd.Service.Port {
 		return false, nil
 	}
 
+	log.Info("forwarding service: ", svc.Summary())
 	fwd.Service = svc
 	fwd.chooseShim()
 	return true, nil
@@ -158,7 +163,7 @@ func (fwd *forwarding) forward(inbound *net.TCPConn) {
 	inAddr := inbound.RemoteAddr().(*net.TCPAddr)
 	outAddr := inst.TCPAddr()
 
-	outbound, err := net.DialTCP("tcp", nil, &outAddr)
+	outbound, err := net.DialTCP("tcp", nil, outAddr)
 	if err != nil {
 		log.Error("connecting to ", outAddr, ": ", err)
 		return

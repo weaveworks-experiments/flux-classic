@@ -186,7 +186,7 @@ func (_ notforwarding) update(s *model.Service) (bool, error) {
 type rejecting func()
 
 func (svc *service) startRejecting(s *model.Service) (serviceState, error) {
-	log.Debugf("moving service %s to state 'rejecting'", s.Name)
+	log.Info("rejecting service: ", s.Summary())
 	rule := []interface{}{
 		"-p", "tcp",
 		"-d", s.IP,

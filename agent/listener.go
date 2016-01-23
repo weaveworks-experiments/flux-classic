@@ -116,13 +116,13 @@ func (l *Listener) ReadExistingContainers() error {
 
 // The service has been changed; re-evaluate which containers belong,
 // and which don't. Assume we have a correct list of containers.
-func (l *Listener) redefineService(serviceName string, newService store.ServiceInfo) error {
+func (l *Listener) redefineService(serviceName string, newService *store.ServiceInfo) error {
 	svc, found := l.services[serviceName]
 	if !found {
 		svc = &service{}
 		l.services[serviceName] = svc
 	}
-	svc.ServiceInfo = &newService
+	svc.ServiceInfo = newService
 	svc.localInstances = make(instanceSet)
 	var err error
 	for _, container := range l.containers {
@@ -319,7 +319,7 @@ func (l *Listener) serviceUpdated(name string) error {
 
 func (l *Listener) Run(events <-chan *docker.APIEvents) {
 	changes := make(chan data.ServiceChange)
-	l.store.WatchServices(changes, nil, daemon.NewErrorSink(),
+	l.store.WatchServices(nil, changes, daemon.NewErrorSink(),
 		store.QueryServiceOptions{WithContainerRules: true})
 	for {
 		select {

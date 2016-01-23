@@ -60,9 +60,14 @@ func main() {
 
 	log.Infof(`Using host IP address '%s' from %s`, hostIP, hostIpFrom)
 
+	store, err := etcdstore.NewFromEnv()
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	listener := agent.NewListener(agent.Config{
 		HostIP:    hostIP,
-		Store:     etcdstore.NewFromEnv(),
+		Store:     store,
 		Inspector: dc,
 	})
 

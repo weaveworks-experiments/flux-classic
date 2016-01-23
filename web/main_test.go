@@ -35,7 +35,7 @@ var testInstance = data.Instance{
 	Labels:        map[string]string{"key": "val"},
 }
 
-func allServices(t *testing.T, st store.Store) []store.ServiceInfo {
+func allServices(t *testing.T, st store.Store) []*store.ServiceInfo {
 	services, err := st.GetAllServices(store.QueryServiceOptions{WithInstances: true})
 	require.NoError(t, err)
 	return services
@@ -49,7 +49,7 @@ func TestListServices(t *testing.T) {
 	resp := doRequest(t, st, "/api/services")
 	require.Equal(t, 200, resp.Code)
 
-	var deets []store.ServiceInfo
+	var deets []*store.ServiceInfo
 	require.Nil(t, json.Unmarshal(resp.Body.Bytes(), &deets))
 	services := allServices(t, st)
 	require.Equal(t, services, deets)

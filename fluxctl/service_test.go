@@ -9,7 +9,7 @@ import (
 	"github.com/squaremo/flux/common/store"
 )
 
-func allServices(t *testing.T, st store.Store) []store.ServiceInfo {
+func allServices(t *testing.T, st store.Store) []*store.ServiceInfo {
 	services, err := st.GetAllServices(store.QueryServiceOptions{})
 	require.NoError(t, err)
 	return services

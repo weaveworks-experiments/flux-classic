@@ -183,7 +183,7 @@ func TestListenerEvents(t *testing.T) {
 	changes := make(chan data.ServiceChange, 1)
 
 	dc.listenToEvents(events)
-	st.WatchServices(changes, nil, daemon.NewErrorSink(),
+	st.WatchServices(nil, changes, daemon.NewErrorSink(),
 		store.QueryServiceOptions{WithContainerRules: true})
 
 	// no services defined

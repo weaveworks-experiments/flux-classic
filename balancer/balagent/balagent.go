@@ -41,10 +41,7 @@ func (Services) Getenv(name string) string {
 }
 
 func StartBalancerAgent(args []string, errorSink daemon.ErrorSink) *BalancerAgent {
-	a := &BalancerAgent{
-		errorSink: errorSink,
-		store:     etcdstore.NewFromEnv(),
-	}
+	a := &BalancerAgent{errorSink: errorSink}
 
 	if err := a.parseArgs(args); err != nil {
 		errorSink.Post(err)
@@ -79,8 +76,8 @@ func (a *BalancerAgent) parseArgs(args []string) error {
 		return fmt.Errorf(`unable to parse file "%s": %s`, templateFile, err)
 	}
 
-	a.store = etcdstore.NewFromEnv()
-	return nil
+	a.store, err = etcdstore.NewFromEnv()
+	return err
 }
 
 func (a *BalancerAgent) start() error {

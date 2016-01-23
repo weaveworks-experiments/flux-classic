@@ -90,8 +90,12 @@ func (d *BalancerDaemon) start(args []string, ipTablesCmd IPTablesCmd) error {
 		d.eventHandler = handler
 	}
 
-	d.controller, err = etcdcontrol.NewListener(etcdstore.NewFromEnv(),
-		d.errorSink)
+	store, err := etcdstore.NewFromEnv()
+	if err != nil {
+		return err
+	}
+
+	d.controller, err = etcdcontrol.NewListener(store, d.errorSink)
 	if err != nil {
 		return err
 	}

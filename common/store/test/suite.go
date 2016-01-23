@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"golang.org/x/net/context"
 
 	"github.com/squaremo/flux/common/daemon"
 	"github.com/squaremo/flux/common/data"
@@ -96,7 +97,7 @@ func testRules(s store.Store, t *testing.T) {
 	require.Nil(t, s.RemoveContainerRule("svc", "group"))
 	svc, err = s.GetService("svc", store.QueryServiceOptions{WithContainerRules: true})
 	require.Nil(t, err)
-	require.Equal(t, []store.ContainerRuleInfo{}, svc.ContainerRules)
+	require.Empty(t, svc.ContainerRules)
 }
 
 var testInst = data.Instance{
@@ -146,8 +147,10 @@ type watcher struct {
 func newWatcher(s store.Store, opts store.QueryServiceOptions) *watcher {
 	w := &watcher{stopCh: make(chan struct{}), done: make(chan struct{})}
 	changes := make(chan data.ServiceChange)
-	stopWatch := make(chan struct{})
-	s.WatchServices(changes, stopWatch, daemon.NewErrorSink(), opts)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	s.WatchServices(ctx, changes, daemon.NewErrorSink(), opts)
+
 	go func() {
 		defer close(w.done)
 		for {
@@ -155,11 +158,12 @@ func newWatcher(s store.Store, opts store.QueryServiceOptions) *watcher {
 			case change := <-changes:
 				w.changes = append(w.changes, change)
 			case <-w.stopCh:
-				close(stopWatch)
+				cancel()
 				return
 			}
 		}
 	}()
+
 	return w
 }
 

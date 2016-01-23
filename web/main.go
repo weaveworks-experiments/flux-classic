@@ -19,10 +19,15 @@ func main() {
 		prom = "http://localhost:9090"
 	}
 
-	store := etcdstore.NewFromEnv()
+	store, err := etcdstore.NewFromEnv()
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	if err := store.Ping(); err != nil {
 		log.Fatal(err)
 	}
+
 	log.Printf("Connected to backend\n")
 	api := &api{store, prom}
 

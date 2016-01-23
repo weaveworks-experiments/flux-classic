@@ -78,7 +78,7 @@ func (l *Listener) Updates() <-chan model.ServiceUpdate {
 func (l *Listener) run(errorSink daemon.ErrorSink) {
 	log.Debugf("Initialising state")
 	changes := make(chan data.ServiceChange)
-	l.store.WatchServices(changes, nil, errorSink,
+	l.store.WatchServices(nil, changes, errorSink,
 		store.QueryServiceOptions{WithInstances: true})
 
 	// Send initial state of each service

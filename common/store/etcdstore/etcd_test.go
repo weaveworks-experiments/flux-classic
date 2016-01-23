@@ -32,5 +32,7 @@ func TestEtcdStore(t *testing.T) {
 	require.Nil(t, err)
 	defer func() { require.Nil(t, etcd.Destroy()) }()
 	addr := fmt.Sprintf("http://localhost:%d", etcd.Port)
-	test.RunStoreTestSuite(&testableEtcdStore{New(addr), addr}, t)
+	st, err := New(addr)
+	require.Nil(t, err)
+	test.RunStoreTestSuite(&testableEtcdStore{st, addr}, t)
 }

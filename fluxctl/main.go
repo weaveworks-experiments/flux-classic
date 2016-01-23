@@ -11,13 +11,19 @@ import (
 )
 
 func main() {
-	store := etcdstore.NewFromEnv()
+	store, err := etcdstore.NewFromEnv()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+
 	var topCmd = &cobra.Command{
 		Use:   "fluxctl",
 		Short: "control flux",
 		Long:  `Define services and enrol instances in them`,
 	}
 	addSubCommands(topCmd, store)
+
 	if err := topCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

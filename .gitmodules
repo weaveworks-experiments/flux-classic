@@ -43,18 +43,12 @@
 [submodule "vendor/github.com/matttproud/golang_protobuf_extensions"]
 	path = vendor/github.com/matttproud/golang_protobuf_extensions
 	url = https://github.com/matttproud/golang_protobuf_extensions
-[submodule "vendor/github.com/ugorji/go"]
-	path = vendor/github.com/ugorji/go
-	url = https://github.com/ugorji/go
 [submodule "vendor/github.com/cpuguy83/go-md2man"]
 	path = vendor/github.com/cpuguy83/go-md2man
 	url = https://github.com/cpuguy83/go-md2man
 [submodule "vendor/github.com/coreos/etcd"]
 	path = vendor/github.com/coreos/etcd
 	url = https://github.com/coreos/etcd
-[submodule "vendor/github.com/coreos/go-etcd"]
-	path = vendor/github.com/coreos/go-etcd
-	url = https://github.com/coreos/go-etcd
 [submodule "vendor/github.com/golang/protobuf"]
 	path = vendor/github.com/golang/protobuf
 	url = https://github.com/golang/protobuf
@@ -67,3 +61,6 @@
 [submodule "vendor/github.com/spf13/cobra"]
 	path = vendor/github.com/spf13/cobra
 	url = https://github.com/spf13/cobra
+[submodule "vendor/golang.org/x/net"]
+	path = vendor/golang.org/x/net
+	url = https://go.googlesource.com/net

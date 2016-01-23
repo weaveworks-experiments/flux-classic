@@ -5,6 +5,8 @@ import (
 	"log"
 	"sync"
 
+	"golang.org/x/net/context"
+
 	"github.com/squaremo/flux/common/daemon"
 	"github.com/squaremo/flux/common/data"
 	"github.com/squaremo/flux/common/store"
@@ -27,9 +29,16 @@ type inmem struct {
 }
 
 type watcher struct {
+	ctx  context.Context
 	ch   chan<- data.ServiceChange
-	stop <-chan struct{}
 	opts store.QueryServiceOptions
+}
+
+func (w watcher) Done() <-chan struct{} {
+	if w.ctx == nil {
+		return nil
+	}
+	return w.ctx.Done()
 }
 
 func (s *inmem) fireEvent(ev data.ServiceChange, optsFilter func(store.QueryServiceOptions) bool) {
@@ -41,7 +50,7 @@ func (s *inmem) fireEvent(ev data.ServiceChange, optsFilter func(store.QueryServ
 		if optsFilter == nil || optsFilter(watcher.opts) {
 			select {
 			case watcher.ch <- ev:
-			case <-watcher.stop:
+			case <-watcher.Done():
 			}
 		}
 	}
@@ -85,29 +94,45 @@ func (s *inmem) RemoveAllServices() error {
 	return nil
 }
 
-func (s *inmem) GetService(name string, opts store.QueryServiceOptions) (store.ServiceInfo, error) {
+func (s *inmem) GetService(name string, opts store.QueryServiceOptions) (*store.ServiceInfo, error) {
 	svc, found := s.services[name]
 	if !found {
-		return store.ServiceInfo{}, fmt.Errorf(`Not found "%s"`, name)
+		return nil, fmt.Errorf(`Not found "%s"`, name)
 	}
-	info := store.ServiceInfo{
+
+	return s.makeServiceInfo(name, svc, opts), nil
+}
+
+func (s *inmem) makeServiceInfo(name string, svc data.Service, opts store.QueryServiceOptions) *store.ServiceInfo {
+	info := &store.ServiceInfo{
 		Name:    name,
 		Service: svc,
 	}
-	s.populateServiceInfo(&info, opts)
-	return info, nil
+
+	if opts.WithInstances {
+		for n, i := range s.instances[info.Name] {
+			info.Instances = append(info.Instances,
+				store.InstanceInfo{Name: n, Instance: i})
+		}
+	}
+
+	if opts.WithContainerRules {
+		for n, g := range s.groupSpecs[info.Name] {
+			info.ContainerRules = append(info.ContainerRules,
+				store.ContainerRuleInfo{Name: n, ContainerRule: g})
+		}
+	}
+
+	return info
 }
 
-func (s *inmem) GetAllServices(opts store.QueryServiceOptions) ([]store.ServiceInfo, error) {
-	svcs := []store.ServiceInfo{}
-	for n, svc := range s.services {
-		info := store.ServiceInfo{
-			Name:    n,
-			Service: svc,
-		}
-		s.populateServiceInfo(&info, opts)
-		svcs = append(svcs, info)
+func (s *inmem) GetAllServices(opts store.QueryServiceOptions) ([]*store.ServiceInfo, error) {
+	var svcs []*store.ServiceInfo
+
+	for name, svc := range s.services {
+		svcs = append(svcs, s.makeServiceInfo(name, svc, opts))
 	}
+
 	return svcs, nil
 }
 
@@ -158,13 +183,15 @@ func (s *inmem) RemoveInstance(serviceName string, instanceName string) error {
 	return nil
 }
 
-func (s *inmem) WatchServices(res chan<- data.ServiceChange, stop <-chan struct{}, _ daemon.ErrorSink, opts store.QueryServiceOptions) {
+func (s *inmem) WatchServices(ctx context.Context, res chan<- data.ServiceChange, _ daemon.ErrorSink, opts store.QueryServiceOptions) {
 	s.watchersLock.Lock()
 	defer s.watchersLock.Unlock()
-	s.watchers = append(s.watchers, watcher{res, stop, opts})
+	w := watcher{ctx, res, opts}
+	s.watchers = append(s.watchers, w)
 
+	// discard the watcher upon cancellation
 	go func() {
-		<-stop
+		<-w.Done()
 
 		s.watchersLock.Lock()
 		defer s.watchersLock.Unlock()
@@ -172,32 +199,8 @@ func (s *inmem) WatchServices(res chan<- data.ServiceChange, stop <-chan struct{
 			if w.ch == res {
 				// need to make a copy
 				s.watchers = append(append([]watcher{}, s.watchers[:i]...), s.watchers[i+1:]...)
+				break
 			}
 		}
 	}()
-}
-
-// ===
-
-func (s *inmem) populateServiceInfo(info *store.ServiceInfo, opts store.QueryServiceOptions) {
-	if opts.WithInstances {
-		insts := make([]store.InstanceInfo, 0)
-		for n, i := range s.instances[info.Name] {
-			insts = append(insts, store.InstanceInfo{
-				Name:     n,
-				Instance: i,
-			})
-		}
-		info.Instances = insts
-	}
-	if opts.WithContainerRules {
-		groups := make([]store.ContainerRuleInfo, 0)
-		for n, g := range s.groupSpecs[info.Name] {
-			groups = append(groups, store.ContainerRuleInfo{
-				Name:          n,
-				ContainerRule: g,
-			})
-		}
-		info.ContainerRules = groups
-	}
 }

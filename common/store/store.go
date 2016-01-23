@@ -1,6 +1,8 @@
 package store
 
 import (
+	"golang.org/x/net/context"
+
 	"github.com/squaremo/flux/common/daemon"
 	"github.com/squaremo/flux/common/data"
 )
@@ -35,8 +37,8 @@ type Store interface {
 	RemoveService(serviceName string) error
 	RemoveAllServices() error
 
-	GetService(serviceName string, opts QueryServiceOptions) (ServiceInfo, error)
-	GetAllServices(opts QueryServiceOptions) ([]ServiceInfo, error)
+	GetService(serviceName string, opts QueryServiceOptions) (*ServiceInfo, error)
+	GetAllServices(opts QueryServiceOptions) ([]*ServiceInfo, error)
 
 	SetContainerRule(serviceName string, ruleName string, spec data.ContainerRule) error
 	RemoveContainerRule(serviceName string, ruleName string) error
@@ -44,5 +46,5 @@ type Store interface {
 	AddInstance(serviceName, instanceName string, details data.Instance) error
 	RemoveInstance(serviceName, instanceName string) error
 
-	WatchServices(resCh chan<- data.ServiceChange, stopCh <-chan struct{}, errorSink daemon.ErrorSink, opts QueryServiceOptions)
+	WatchServices(ctx context.Context, resCh chan<- data.ServiceChange, errorSink daemon.ErrorSink, opts QueryServiceOptions)
 }

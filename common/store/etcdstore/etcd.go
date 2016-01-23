@@ -6,8 +6,8 @@ import (
 	"os"
 	"strings"
 
-	etcd_errors "github.com/coreos/etcd/error"
-	"github.com/coreos/go-etcd/etcd"
+	"github.com/coreos/etcd/client"
+	"golang.org/x/net/context"
 
 	"github.com/squaremo/flux/common/daemon"
 	"github.com/squaremo/flux/common/data"
@@ -15,10 +15,12 @@ import (
 )
 
 type etcdStore struct {
-	client *etcd.Client
+	client client.Client
+	kapi   client.KeysAPI
+	ctx    context.Context
 }
 
-func NewFromEnv() store.Store {
+func NewFromEnv() (store.Store, error) {
 	etcd_address := os.Getenv("ETCD_PORT")
 	if etcd_address == "" {
 		etcd_address = os.Getenv("ETCD_ADDRESS")
@@ -33,18 +35,26 @@ func NewFromEnv() store.Store {
 	return New(etcd_address)
 }
 
-func New(addr string) store.Store {
-	return &etcdStore{client: etcd.NewClient([]string{addr})}
+func New(addr string) (store.Store, error) {
+	c, err := client.New(client.Config{Endpoints: []string{addr}})
+	if err != nil {
+		return nil, err
+	}
+
+	return &etcdStore{
+		client: c,
+		kapi:   client.NewKeysAPI(c),
+		ctx:    context.Background(),
+	}, nil
 }
 
 // Check if we can talk to etcd
 func (es *etcdStore) Ping() error {
-	rr := etcd.NewRawRequest("GET", "version", nil, nil)
-	_, err := es.client.SendRequest(rr)
+	_, err := client.NewMembersAPI(es.client).List(es.ctx)
 	return err
 }
 
-const ROOT = "/weave/service/"
+const ROOT = "/weave-flux/service/"
 
 func serviceRootKey(serviceName string) string {
 	return ROOT + serviceName
@@ -122,7 +132,7 @@ func parseKey(key string) interface{} {
 }
 
 func (es *etcdStore) CheckRegisteredService(serviceName string) error {
-	_, err := es.client.Get(serviceRootKey(serviceName), false, false)
+	_, err := es.kapi.Get(es.ctx, serviceRootKey(serviceName), nil)
 	return err
 }
 
@@ -131,194 +141,200 @@ func (es *etcdStore) AddService(name string, details data.Service) error {
 	if err != nil {
 		return fmt.Errorf("Failed to encode: %s", err)
 	}
-	_, err = es.client.Set(serviceKey(name), string(json), 0)
+
+	_, err = es.kapi.Set(es.ctx, serviceKey(name), string(json), nil)
 	return err
 }
 
 func (es *etcdStore) RemoveService(serviceName string) error {
-	_, err := es.client.Delete(serviceRootKey(serviceName), true)
-	return err
+	return es.deleteRecursive(serviceRootKey(serviceName))
 }
 
 func (es *etcdStore) RemoveAllServices() error {
-	_, err := es.client.Delete(ROOT, true)
+	return es.deleteRecursive(ROOT)
+}
+
+func (es *etcdStore) deleteRecursive(key string) error {
+	_, err := es.kapi.Delete(es.ctx, key,
+		&client.DeleteOptions{Recursive: true})
 	return err
 }
 
-func (es *etcdStore) GetService(serviceName string, opts store.QueryServiceOptions) (store.ServiceInfo, error) {
-	var svc store.ServiceInfo
-	if opts.WithInstances {
-		svc.Instances = make([]store.InstanceInfo, 0)
-	}
-	if opts.WithContainerRules {
-		svc.ContainerRules = make([]store.ContainerRuleInfo, 0)
-	}
-	return svc, es.traverse(serviceRootKey(serviceName), visitService(&svc, opts))
-}
-
-func (es *etcdStore) GetAllServices(opts store.QueryServiceOptions) ([]store.ServiceInfo, error) {
-	svcs := make([]store.ServiceInfo, 0)
-	err := es.traverse(ROOT, func(node *etcd.Node) error {
-		if isServiceRoot(node) {
-			var svc store.ServiceInfo
-			err := traverse(node, visitService(&svc, opts))
-			if err != nil {
-				return err
-			}
-			svcs = append(svcs, svc)
-			return nil
-		}
-		return nil
-	})
-	return svcs, err
-}
-
-// ===== helpers
-
-func isServiceRoot(node *etcd.Node) bool {
-	if !node.Dir {
-		return false
-	}
-	switch parseKey(node.Key).(type) {
-	case parsedServiceRootKey:
-		return true
-	}
-	return false
-}
-
-type visitor func(*etcd.Node) error
-
-func visitService(svc *store.ServiceInfo, opts store.QueryServiceOptions) visitor {
-	return func(node *etcd.Node) error {
-		if node.Dir {
-			return traverse(node, visitService(svc, opts))
-		}
-
-		switch key := parseKey(node.Key).(type) {
-		case parsedServiceKey:
-			svc.Name = key.serviceName
-			err := unmarshalIntoService(&svc.Service, node)
-			if err != nil {
-				return err
-			}
-		case parsedInstanceKey:
-			if opts.WithInstances {
-				inst, err := unmarshalInstance(key.instanceName, node)
-				if err != nil {
-					return err
-				}
-				svc.Instances = append(svc.Instances, store.InstanceInfo{
-					Name:     key.instanceName,
-					Instance: inst,
-				})
-			}
-		case parsedRuleKey:
-			if opts.WithContainerRules {
-				spec, err := unmarshalRule(key.ruleName, node)
-				if err != nil {
-					return err
-				}
-				svc.ContainerRules = append(svc.ContainerRules, store.ContainerRuleInfo{
-					Name:          key.ruleName,
-					ContainerRule: spec,
-				})
-			}
-		}
-		return nil
-	}
-}
-
-func unmarshalIntoService(svc *data.Service, node *etcd.Node) error {
-	return json.Unmarshal([]byte(node.Value), &svc)
-}
-
-func unmarshalRule(name string, node *etcd.Node) (data.ContainerRule, error) {
-	var gs data.ContainerRule
-	return gs, json.Unmarshal([]byte(node.Value), &gs)
-}
-
-func unmarshalInstance(name string, node *etcd.Node) (data.Instance, error) {
-	var instance data.Instance
-	return instance, json.Unmarshal([]byte(node.Value), &instance)
-}
-
-func traverse(node *etcd.Node, visit visitor) error {
-	for _, child := range node.Nodes {
-		if err := visit(child); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (es *etcdStore) traverse(key string, visit visitor) error {
-	r, err := es.client.Get(key, false, true)
+func (es *etcdStore) GetService(serviceName string, opts store.QueryServiceOptions) (*store.ServiceInfo, error) {
+	node, _, err := es.getDirNode(serviceRootKey(serviceName), false,
+		opts.WithInstances || opts.WithContainerRules)
 	if err != nil {
-		if etcderr, ok := err.(*etcd.EtcdError); ok && etcderr.ErrorCode == etcd_errors.EcodeKeyNotFound {
-			return nil
-		}
-		return err
+		return nil, err
 	}
 
-	return traverse(r.Node, visit)
+	return serviceInfoFromNode(serviceName, node, opts)
+}
+
+func (es *etcdStore) GetAllServices(opts store.QueryServiceOptions) ([]*store.ServiceInfo, error) {
+	node, _, err := es.getDirNode(ROOT, true, true)
+	if err != nil {
+		return nil, err
+	}
+
+	var svcs []*store.ServiceInfo
+
+	for name, n := range indexDir(node) {
+		if !n.Dir {
+			continue
+		}
+
+		svc, err := serviceInfoFromNode(name, n, opts)
+		if err != nil {
+			return nil, err
+		}
+
+		svcs = append(svcs, svc)
+	}
+
+	return svcs, nil
+}
+
+func (es *etcdStore) getDirNode(key string, missingOk bool, recursive bool) (*client.Node, uint64, error) {
+	resp, err := es.kapi.Get(es.ctx, key,
+		&client.GetOptions{Recursive: recursive})
+	if err != nil {
+		if cerr, ok := err.(client.Error); ok && cerr.Code == client.ErrorCodeKeyNotFound && missingOk {
+			return nil, cerr.Index, nil
+		}
+
+		return nil, 0, err
+	}
+
+	if !resp.Node.Dir {
+		return nil, 0, fmt.Errorf("expected a dir at etcd key %s", key)
+	}
+
+	return resp.Node, resp.Index, nil
+}
+
+func indexDir(node *client.Node) map[string]*client.Node {
+	res := make(map[string]*client.Node)
+
+	if node != nil {
+		for _, n := range node.Nodes {
+			key := n.Key
+			lastSlash := strings.LastIndex(key, "/")
+			if lastSlash >= 0 {
+				key = key[lastSlash+1:]
+			}
+
+			res[key] = n
+		}
+	}
+
+	return res
+}
+
+func serviceInfoFromNode(name string, node *client.Node, opts store.QueryServiceOptions) (*store.ServiceInfo, error) {
+	dir := indexDir(node)
+
+	details := dir["details"]
+	if details == nil {
+		return nil, fmt.Errorf("missing services details in etcd node %s", node.Key)
+	}
+
+	var err error
+	svc := &store.ServiceInfo{
+		Name:    name,
+		Service: unmarshalService(details, &err),
+	}
+
+	if opts.WithInstances {
+		for name, n := range indexDir(dir["instance"]) {
+			svc.Instances = append(svc.Instances,
+				store.InstanceInfo{
+					Name:     name,
+					Instance: unmarshalInstance(n, &err),
+				})
+		}
+	}
+
+	if opts.WithContainerRules {
+		for name, n := range indexDir(dir["groupspec"]) {
+			svc.ContainerRules = append(svc.ContainerRules,
+				store.ContainerRuleInfo{
+					Name:          name,
+					ContainerRule: unmarshalRule(n, &err),
+				})
+		}
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return svc, nil
+}
+
+func unmarshalService(node *client.Node, errp *error) data.Service {
+	var svc data.Service
+
+	if *errp == nil {
+		*errp = json.Unmarshal([]byte(node.Value), &svc)
+	}
+
+	return svc
+}
+
+func unmarshalRule(node *client.Node, errp *error) data.ContainerRule {
+	var gs data.ContainerRule
+
+	if *errp == nil {
+		*errp = json.Unmarshal([]byte(node.Value), &gs)
+	}
+
+	return gs
+}
+
+func unmarshalInstance(node *client.Node, errp *error) data.Instance {
+	var instance data.Instance
+
+	if *errp == nil {
+		*errp = json.Unmarshal([]byte(node.Value), &instance)
+	}
+
+	return instance
 }
 
 func (es *etcdStore) SetContainerRule(serviceName string, ruleName string, spec data.ContainerRule) error {
-	json, err := json.Marshal(spec)
-	if err != nil {
-		return err
-	}
-
-	if _, err := es.client.Set(ruleKey(serviceName, ruleName), string(json), 0); err != nil {
-		return err
-	}
-
-	return err
+	return es.setJSON(ruleKey(serviceName, ruleName), spec)
 }
 
 func (es *etcdStore) RemoveContainerRule(serviceName string, ruleName string) error {
-	_, err := es.client.Delete(ruleKey(serviceName, ruleName), true)
-	return err
+	return es.deleteRecursive(ruleKey(serviceName, ruleName))
 }
 
-func (es *etcdStore) AddInstance(serviceName string, instanceName string, details data.Instance) error {
-	json, err := json.Marshal(details)
-	if err != nil {
-		return fmt.Errorf("Failed to encode: %s", err)
-	}
-	if _, err := es.client.Set(instanceKey(serviceName, instanceName), string(json), 0); err != nil {
-		return fmt.Errorf("Unable to write: %s", err)
-	}
-	return nil
+func (es *etcdStore) AddInstance(serviceName string, instanceName string, inst data.Instance) error {
+	return es.setJSON(instanceKey(serviceName, instanceName), inst)
 }
 
 func (es *etcdStore) RemoveInstance(serviceName, instanceName string) error {
-	_, err := es.client.Delete(instanceKey(serviceName, instanceName), true)
+	return es.deleteRecursive(instanceKey(serviceName, instanceName))
+}
+
+func (es *etcdStore) setJSON(key string, val interface{}) error {
+	json, err := json.Marshal(val)
+	if err != nil {
+		return err
+	}
+
+	_, err = es.kapi.Set(es.ctx, key, string(json), nil)
 	return err
 }
 
-func (es *etcdStore) WatchServices(resCh chan<- data.ServiceChange, stopCh <-chan struct{}, errorSink daemon.ErrorSink, opts store.QueryServiceOptions) {
-	etcdCh := make(chan *etcd.Response, 1)
-	watchStopCh := make(chan bool, 1)
-	go func() {
-		_, err := es.client.Watch(ROOT, 0, true, etcdCh, nil)
-		if err != nil {
-			errorSink.Post(err)
-		}
-	}()
+func (es *etcdStore) WatchServices(ctx context.Context, resCh chan<- data.ServiceChange, errorSink daemon.ErrorSink, opts store.QueryServiceOptions) {
+	if ctx == nil {
+		ctx = es.ctx
+	}
 
 	svcs := make(map[string]struct{})
-	store.ForeachServiceInstance(es, func(name string, svc data.Service) error {
-		svcs[name] = struct{}{}
-		return nil
-	}, nil)
 
-	handleResponse := func(r *etcd.Response) {
-		// r is nil on error
-		if r == nil {
-			return
-		}
-
+	handleResponse := func(r *client.Response) {
 		switch r.Action {
 		case "delete":
 			switch key := parseKey(r.Node.Key).(type) {
@@ -356,16 +372,35 @@ func (es *etcdStore) WatchServices(resCh chan<- data.ServiceChange, stopCh <-cha
 		}
 	}
 
-	go func() {
-		for {
-			select {
-			case <-stopCh:
-				watchStopCh <- true
-				return
+	// Get the initial service list, so that we can report them as
+	// deleted if the root node is deleted.  This also gets the
+	// initial index for the watch. (Though perhaps that should
+	// really be based on the ModifieedIndex of the nodes
+	// themselves?)
+	node, startIndex, err := es.getDirNode(ROOT, true, false)
+	if err != nil {
+		errorSink.Post(err)
+		return
+	}
 
-			case r := <-etcdCh:
-				handleResponse(r)
+	for name := range indexDir(node) {
+		svcs[name] = struct{}{}
+	}
+	go func() {
+		watcher := es.kapi.Watcher(ROOT,
+			&client.WatcherOptions{
+				AfterIndex: startIndex,
+				Recursive:  true,
+			})
+
+		for {
+			next, err := watcher.Next(ctx)
+			if err != nil {
+				errorSink.Post(err)
+				break
 			}
+
+			handleResponse(next)
 		}
 	}()
 }

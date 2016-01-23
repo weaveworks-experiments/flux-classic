@@ -18,6 +18,7 @@ type mockIPTables struct {
 
 var builtinChains = []string{
 	"nat PREROUTING",
+	"nat OUTPUT",
 	"filter FORWARD",
 	"filter INPUT",
 }

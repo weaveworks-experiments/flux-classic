@@ -51,7 +51,7 @@ func TestServices(t *testing.T) {
 		eventHandler: events.DiscardOthers{},
 		errorSink:    errorSink,
 		done:         done,
-	}.new()
+	}.start()
 
 	ip := net.ParseIP("127.42.0.1")
 	port := 8888

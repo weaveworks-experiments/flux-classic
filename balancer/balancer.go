@@ -26,25 +26,19 @@ type netConfig struct {
 }
 
 type BalancerDaemon struct {
-	errorSink    daemon.ErrorSink
-	ipTables     *ipTables
-	netConfig    netConfig
+	errorSink   daemon.ErrorSink
+	ipTablesCmd IPTablesCmd
+
+	// From flags
 	controller   model.Controller
 	eventHandler events.Handler
-	services     *services
+	netConfig    netConfig
+
+	ipTables *ipTables
+	services *services
 }
 
-func StartBalancer(args []string, errorSink daemon.ErrorSink, ipTablesCmd IPTablesCmd) *BalancerDaemon {
-	d := &BalancerDaemon{errorSink: errorSink}
-	err := d.start(args, ipTablesCmd)
-	if err != nil {
-		errorSink.Post(err)
-	}
-
-	return d
-}
-
-func (d *BalancerDaemon) start(args []string, ipTablesCmd IPTablesCmd) error {
+func (d *BalancerDaemon) parseArgs(args []string) error {
 	fs := flag.NewFlagSet(args[0], flag.ContinueOnError)
 
 	var exposePrometheus string
@@ -74,12 +68,6 @@ func (d *BalancerDaemon) start(args []string, ipTablesCmd IPTablesCmd) error {
 	}
 	log.Debug("Debug logging on")
 
-	d.ipTables = newIPTables(d.netConfig, ipTablesCmd)
-	err := d.ipTables.start()
-	if err != nil {
-		return err
-	}
-
 	if exposePrometheus == "" {
 		d.eventHandler = eventlogger.EventLogger{}
 	} else {
@@ -100,13 +88,40 @@ func (d *BalancerDaemon) start(args []string, ipTablesCmd IPTablesCmd) error {
 		return err
 	}
 
+	return nil
+}
+
+func StartBalancer(args []string, errorSink daemon.ErrorSink, ipTablesCmd IPTablesCmd) *BalancerDaemon {
+	d := &BalancerDaemon{
+		errorSink:   errorSink,
+		ipTablesCmd: ipTablesCmd,
+	}
+
+	if err := d.parseArgs(args); err != nil {
+		errorSink.Post(err)
+		return d
+	}
+
+	if err := d.start(); err != nil {
+		errorSink.Post(err)
+	}
+
+	return d
+}
+
+func (d *BalancerDaemon) start() error {
+	d.ipTables = newIPTables(d.netConfig, d.ipTablesCmd)
+	if err := d.ipTables.start(); err != nil {
+		return err
+	}
+
 	d.services = servicesConfig{
 		netConfig:    d.netConfig,
 		updates:      d.controller.Updates(),
 		eventHandler: d.eventHandler,
 		ipTables:     d.ipTables,
 		errorSink:    d.errorSink,
-	}.new()
+	}.start()
 	return nil
 }
 

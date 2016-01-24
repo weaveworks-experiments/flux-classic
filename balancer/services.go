@@ -27,7 +27,7 @@ type services struct {
 	services map[string]*service
 }
 
-func (cf servicesConfig) new() *services {
+func (cf servicesConfig) start() *services {
 	svcs := &services{
 		servicesConfig: cf,
 

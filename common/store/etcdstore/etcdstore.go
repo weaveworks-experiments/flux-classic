@@ -3,54 +3,42 @@ package etcdstore
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"strings"
 
-	"github.com/coreos/etcd/client"
+	etcd "github.com/coreos/etcd/client"
 	"golang.org/x/net/context"
 
 	"github.com/squaremo/flux/common/daemon"
 	"github.com/squaremo/flux/common/data"
+	"github.com/squaremo/flux/common/etcdutil"
 	"github.com/squaremo/flux/common/store"
 )
 
 type etcdStore struct {
-	client client.Client
-	kapi   client.KeysAPI
-	ctx    context.Context
+	etcdutil.Client
+	ctx context.Context
 }
 
 func NewFromEnv() (store.Store, error) {
-	etcd_address := os.Getenv("ETCD_PORT")
-	if etcd_address == "" {
-		etcd_address = os.Getenv("ETCD_ADDRESS")
-	}
-	if strings.HasPrefix(etcd_address, "tcp:") {
-		etcd_address = "http:" + etcd_address[4:]
-	}
-	if etcd_address == "" {
-		etcd_address = "http://127.0.0.1:4001"
-	}
-
-	return New(etcd_address)
-}
-
-func New(addr string) (store.Store, error) {
-	c, err := client.New(client.Config{Endpoints: []string{addr}})
+	c, err := etcdutil.NewClientFromEnv()
 	if err != nil {
 		return nil, err
 	}
 
-	return &etcdStore{
-		client: c,
-		kapi:   client.NewKeysAPI(c),
-		ctx:    context.Background(),
-	}, nil
+	return newEtcdStore(c), nil
+}
+
+func New(c etcdutil.Client) store.Store {
+	return newEtcdStore(c)
+}
+
+func newEtcdStore(c etcdutil.Client) *etcdStore {
+	return &etcdStore{Client: c, ctx: context.Background()}
 }
 
 // Check if we can talk to etcd
 func (es *etcdStore) Ping() error {
-	_, err := client.NewMembersAPI(es.client).List(es.ctx)
+	_, err := etcd.NewMembersAPI(es.EtcdClient()).List(es.ctx)
 	return err
 }
 
@@ -132,7 +120,7 @@ func parseKey(key string) interface{} {
 }
 
 func (es *etcdStore) CheckRegisteredService(serviceName string) error {
-	_, err := es.kapi.Get(es.ctx, serviceRootKey(serviceName), nil)
+	_, err := es.Get(es.ctx, serviceRootKey(serviceName), nil)
 	return err
 }
 
@@ -142,7 +130,7 @@ func (es *etcdStore) AddService(name string, details data.Service) error {
 		return fmt.Errorf("Failed to encode: %s", err)
 	}
 
-	_, err = es.kapi.Set(es.ctx, serviceKey(name), string(json), nil)
+	_, err = es.Set(es.ctx, serviceKey(name), string(json), nil)
 	return err
 }
 
@@ -155,8 +143,8 @@ func (es *etcdStore) RemoveAllServices() error {
 }
 
 func (es *etcdStore) deleteRecursive(key string) error {
-	_, err := es.kapi.Delete(es.ctx, key,
-		&client.DeleteOptions{Recursive: true})
+	_, err := es.Delete(es.ctx, key,
+		&etcd.DeleteOptions{Recursive: true})
 	return err
 }
 
@@ -194,11 +182,11 @@ func (es *etcdStore) GetAllServices(opts store.QueryServiceOptions) ([]*store.Se
 	return svcs, nil
 }
 
-func (es *etcdStore) getDirNode(key string, missingOk bool, recursive bool) (*client.Node, uint64, error) {
-	resp, err := es.kapi.Get(es.ctx, key,
-		&client.GetOptions{Recursive: recursive})
+func (es *etcdStore) getDirNode(key string, missingOk bool, recursive bool) (*etcd.Node, uint64, error) {
+	resp, err := es.Get(es.ctx, key,
+		&etcd.GetOptions{Recursive: recursive})
 	if err != nil {
-		if cerr, ok := err.(client.Error); ok && cerr.Code == client.ErrorCodeKeyNotFound && missingOk {
+		if cerr, ok := err.(etcd.Error); ok && cerr.Code == etcd.ErrorCodeKeyNotFound && missingOk {
 			return nil, cerr.Index, nil
 		}
 
@@ -212,8 +200,8 @@ func (es *etcdStore) getDirNode(key string, missingOk bool, recursive bool) (*cl
 	return resp.Node, resp.Index, nil
 }
 
-func indexDir(node *client.Node) map[string]*client.Node {
-	res := make(map[string]*client.Node)
+func indexDir(node *etcd.Node) map[string]*etcd.Node {
+	res := make(map[string]*etcd.Node)
 
 	if node != nil {
 		for _, n := range node.Nodes {
@@ -230,7 +218,7 @@ func indexDir(node *client.Node) map[string]*client.Node {
 	return res
 }
 
-func serviceInfoFromNode(name string, node *client.Node, opts store.QueryServiceOptions) (*store.ServiceInfo, error) {
+func serviceInfoFromNode(name string, node *etcd.Node, opts store.QueryServiceOptions) (*store.ServiceInfo, error) {
 	dir := indexDir(node)
 
 	details := dir["details"]
@@ -271,7 +259,7 @@ func serviceInfoFromNode(name string, node *client.Node, opts store.QueryService
 	return svc, nil
 }
 
-func unmarshalService(node *client.Node, errp *error) data.Service {
+func unmarshalService(node *etcd.Node, errp *error) data.Service {
 	var svc data.Service
 
 	if *errp == nil {
@@ -281,7 +269,7 @@ func unmarshalService(node *client.Node, errp *error) data.Service {
 	return svc
 }
 
-func unmarshalRule(node *client.Node, errp *error) data.ContainerRule {
+func unmarshalRule(node *etcd.Node, errp *error) data.ContainerRule {
 	var gs data.ContainerRule
 
 	if *errp == nil {
@@ -291,7 +279,7 @@ func unmarshalRule(node *client.Node, errp *error) data.ContainerRule {
 	return gs
 }
 
-func unmarshalInstance(node *client.Node, errp *error) data.Instance {
+func unmarshalInstance(node *etcd.Node, errp *error) data.Instance {
 	var instance data.Instance
 
 	if *errp == nil {
@@ -323,7 +311,7 @@ func (es *etcdStore) setJSON(key string, val interface{}) error {
 		return err
 	}
 
-	_, err = es.kapi.Set(es.ctx, key, string(json), nil)
+	_, err = es.Set(es.ctx, key, string(json), nil)
 	return err
 }
 
@@ -334,7 +322,7 @@ func (es *etcdStore) WatchServices(ctx context.Context, resCh chan<- data.Servic
 
 	svcs := make(map[string]struct{})
 
-	handleResponse := func(r *client.Response) {
+	handleResponse := func(r *etcd.Response) {
 		switch r.Action {
 		case "delete":
 			switch key := parseKey(r.Node.Key).(type) {
@@ -387,8 +375,8 @@ func (es *etcdStore) WatchServices(ctx context.Context, resCh chan<- data.Servic
 		svcs[name] = struct{}{}
 	}
 	go func() {
-		watcher := es.kapi.Watcher(ROOT,
-			&client.WatcherOptions{
+		watcher := es.Watcher(ROOT,
+			&etcd.WatcherOptions{
 				AfterIndex: startIndex,
 				Recursive:  true,
 			})

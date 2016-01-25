@@ -34,7 +34,9 @@ func Main(start func(args []string, errorSink ErrorSink) Daemon) {
 	case exitSignal = <-sigs:
 	}
 
-	d.Stop()
+	if d != nil {
+		d.Stop()
+	}
 
 	if sig, ok := exitSignal.(syscall.Signal); ok {
 		// Now we have cleaned up, re-kill the process with

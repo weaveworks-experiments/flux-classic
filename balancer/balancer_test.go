@@ -23,7 +23,8 @@ func TestBalancer(t *testing.T) {
 		},
 	}
 
-	require.Nil(t, d.start())
+	d.Start()
+	require.Empty(t, d.errorSink)
 	d.Stop()
 
 	// check that iptables was cleaned up

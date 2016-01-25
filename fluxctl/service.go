@@ -2,13 +2,11 @@ package main
 
 import (
 	"fmt"
-	"net"
-	"strconv"
-	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/squaremo/flux/common/data"
+	"github.com/squaremo/flux/common/netutil"
 )
 
 const DEFAULT_GROUP = string("default")
@@ -40,28 +38,9 @@ func parseAddress(address string) (data.Service, error) {
 		return svc, nil
 	}
 
-	addr := strings.Split(address, ":")
-	if len(addr) != 2 {
-		return svc, fmt.Errorf("Expected address in the format <ipaddress>:<port>[/<protocol>]")
-	}
-
-	ip := net.ParseIP(addr[0])
-	if ip == nil {
-		return svc, fmt.Errorf("Invalid IP address: ", addr[0])
-	}
-
-	port, err := strconv.Atoi(addr[1])
-	if err != nil {
-		return svc, err
-	}
-
-	if port < 1 || port > 65535 {
-		return svc, fmt.Errorf("Invalid port number; expected 0 < p < 65535, got %d", port)
-	}
-
-	svc.Address = addr[0]
-	svc.Port = port
-	return svc, nil
+	var err error
+	svc.Address, svc.Port, err = netutil.SplitAddressPort(address, "", false)
+	return svc, err
 }
 
 func (opts *addOpts) run(cmd *cobra.Command, args []string) error {

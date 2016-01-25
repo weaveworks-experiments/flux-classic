@@ -11,6 +11,7 @@ import (
 	"github.com/squaremo/flux/balancer/model"
 	"github.com/squaremo/flux/balancer/prometheus"
 	"github.com/squaremo/flux/common/daemon"
+	"github.com/squaremo/flux/common/etcdutil"
 	"github.com/squaremo/flux/common/store/etcdstore"
 )
 
@@ -41,7 +42,7 @@ type BalancerDaemon struct {
 func (d *BalancerDaemon) parseArgs(args []string) error {
 	fs := flag.NewFlagSet(args[0], flag.ContinueOnError)
 
-	var exposePrometheus string
+	var promCf prometheus.Config
 	var debug bool
 
 	// The bridge specified should be the one where packets sent
@@ -51,9 +52,13 @@ func (d *BalancerDaemon) parseArgs(args []string) error {
 		"bridge", "docker0", "bridge device")
 	fs.StringVar(&d.netConfig.chain,
 		"chain", "FLUX", "iptables chain name")
-	fs.StringVar(&exposePrometheus,
-		"expose-prometheus", "",
-		"expose stats to Prometheus on this IPaddress and port; e.g., :9000")
+	fs.StringVar(&promCf.ListenAddr,
+		"listen-prometheus", "",
+		"listen for connections from Prometheus on this IP address and port; e.g., :9000")
+	fs.StringVar(&promCf.AdvertiseAddr,
+		"advertise-prometheus", "",
+		"IP address and port to advertise to Prometheus; e.g. 192.168.42.221:9000")
+
 	fs.BoolVar(&debug, "debug", false, "output debugging logs")
 	if err := fs.Parse(args[1:]); err != nil {
 		return err
@@ -68,51 +73,58 @@ func (d *BalancerDaemon) parseArgs(args []string) error {
 	}
 	log.Debug("Debug logging on")
 
-	if exposePrometheus == "" {
+	etcdclient, err := etcdutil.NewClientFromEnv()
+	if err != nil {
+		return err
+	}
+
+	d.controller, err = etcdcontrol.NewListener(etcdstore.New(etcdclient),
+		d.errorSink)
+	if err != nil {
+		return err
+	}
+
+	if promCf.ListenAddr == "" {
+		if promCf.AdvertiseAddr != "" {
+			return fmt.Errorf("-advertise-prometheus option must be accompanied by -listen-prometheus")
+		}
+
 		d.eventHandler = eventlogger.EventLogger{}
 	} else {
-		handler, err := prometheus.NewEventHandler(exposePrometheus)
+		if promCf.AdvertiseAddr == "" {
+			promCf.AdvertiseAddr = promCf.ListenAddr
+		}
+
+		promCf.ErrorSink = d.errorSink
+		promCf.EtcdClient = etcdclient
+		handler, err := prometheus.NewEventHandler(promCf)
 		if err != nil {
 			return err
 		}
 		d.eventHandler = handler
 	}
 
-	store, err := etcdstore.NewFromEnv()
-	if err != nil {
-		return err
-	}
-
-	d.controller, err = etcdcontrol.NewListener(store, d.errorSink)
-	if err != nil {
-		return err
-	}
-
 	return nil
 }
 
-func StartBalancer(args []string, errorSink daemon.ErrorSink, ipTablesCmd IPTablesCmd) *BalancerDaemon {
+func NewBalancer(args []string, errorSink daemon.ErrorSink, ipTablesCmd IPTablesCmd) (*BalancerDaemon, error) {
 	d := &BalancerDaemon{
 		errorSink:   errorSink,
 		ipTablesCmd: ipTablesCmd,
 	}
 
 	if err := d.parseArgs(args); err != nil {
-		errorSink.Post(err)
-		return d
+		return nil, err
 	}
 
-	if err := d.start(); err != nil {
-		errorSink.Post(err)
-	}
-
-	return d
+	return d, nil
 }
 
-func (d *BalancerDaemon) start() error {
+func (d *BalancerDaemon) Start() {
 	d.ipTables = newIPTables(d.netConfig, d.ipTablesCmd)
 	if err := d.ipTables.start(); err != nil {
-		return err
+		d.errorSink.Post(err)
+		return
 	}
 
 	d.services = servicesConfig{
@@ -122,19 +134,25 @@ func (d *BalancerDaemon) start() error {
 		ipTables:     d.ipTables,
 		errorSink:    d.errorSink,
 	}.start()
-	return nil
+
+	d.eventHandler.Start()
 }
 
 func (d *BalancerDaemon) Stop() {
-	if d.controller != nil {
-		d.controller.Close()
+	d.eventHandler.Stop()
+
+	if controller := d.controller; controller != nil {
+		d.controller = nil
+		controller.Close()
 	}
 
-	if d.services != nil {
-		d.services.close()
+	if services := d.services; services != nil {
+		d.services = nil
+		services.close()
 	}
 
-	if d.ipTables != nil {
-		d.ipTables.close()
+	if ipTables := d.ipTables; ipTables != nil {
+		d.ipTables = nil
+		ipTables.close()
 	}
 }

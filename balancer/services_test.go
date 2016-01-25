@@ -48,7 +48,7 @@ func TestServices(t *testing.T) {
 		netConfig:    nc,
 		updates:      updates,
 		ipTables:     ipTables,
-		eventHandler: events.DiscardOthers{},
+		eventHandler: events.NullHandler{},
 		errorSink:    errorSink,
 		done:         done,
 	}.start()

@@ -11,6 +11,12 @@ import (
 type Handler interface {
 	Connection(*Connection)
 	HttpExchange(*HttpExchange)
+
+	// Fully activate the handler
+	Start()
+
+	// Release any resources
+	Stop()
 }
 
 type Connection struct {
@@ -32,3 +38,8 @@ type DiscardOthers struct{}
 func (DiscardOthers) Connection(*Connection) {}
 
 func (DiscardOthers) HttpExchange(*HttpExchange) {}
+
+type NullHandler struct{ DiscardOthers }
+
+func (NullHandler) Start() {}
+func (NullHandler) Stop()  {}

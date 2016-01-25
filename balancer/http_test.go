@@ -22,7 +22,7 @@ type shimWrapper struct {
 	baseUrl     string
 	exchanges   chan *events.HttpExchange
 	connections int
-	events.DiscardOthers
+	events.NullHandler
 }
 
 func wrapShim(shim shimFunc, target *net.TCPAddr, t *testing.T) *shimWrapper {

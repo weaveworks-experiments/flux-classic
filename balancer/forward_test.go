@@ -36,7 +36,7 @@ func TestForward(t *testing.T) {
 	ss, err := forwardingConfig{
 		netConfig:    nc,
 		ipTables:     ipTables,
-		eventHandler: events.DiscardOthers{},
+		eventHandler: events.NullHandler{},
 		errorSink:    errorSink,
 	}.start(&model.Service{
 		Name:     "service",

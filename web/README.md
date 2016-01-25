@@ -14,13 +14,13 @@ The `run-flux` script assumes this is what you want, and does it for
 you.
 
 If you're running the balancer yourself, though, to tell it to expose
-stats for Prometheus, supply the `--expose-prometheus` option, with a
+stats for Prometheus, supply the `-listen-prometheus` option, with a
 listening address (`:9000` is fine):
 
 ```bash
 docker run -d --net=host --privileged \
        -e ETCD_ADDRESS \
-       squaremo/flux-balancer --expose-prometheus :9000
+       squaremo/flux-balancer -listen-prometheus :9000
 ```
 
 ### Running Prometheus
@@ -59,7 +59,7 @@ scrape_configs:
 ```
 
 Note the port numbers, which match whatever you told the balancer to
-listen on with `--expose-prometheus` (or `9000` if you use
+listen on with `-listen-prometheus` (or `9000` if you use
 `run-flux`).
 
 You can then give the Prometheus container the IP addresses (and the

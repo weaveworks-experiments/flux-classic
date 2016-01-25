@@ -7,7 +7,11 @@ This documentation site uses
 and bundler [Bundler](http://bundler.io) (see there for how to install
 it) to manage dependencies, which both run on Ruby.
 
-Once you have Ruby and bundler, do
+You can run a local server in a container by doing `make run-site` in
+the top-level directory.
+
+Or to do things the old-fashioned way, install Ruby and bundler, and
+do
 
 ```bash
 bundler install

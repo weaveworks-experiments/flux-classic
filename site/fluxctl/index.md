@@ -151,9 +151,10 @@ Usage:
 
 Flags:
       --env="": select only containers with these environment variable values, given as comma-delimited key=value pairs
-  -f, --format="": format each instance according to the go template given
+  -f, --format="": format each instance according to the go template given (overrides --quiet)
       --image="": select only containers with this image
       --labels="": select only containers with these labels, given as comma-delimited key=value pairs
+  -q, --quiet[=false]: print only instance names, one to a line
   -s, --service="": print only instances in <service>
       --tag="": select only containers with this tag
 ```

@@ -37,7 +37,7 @@ Interaction with the system is via a command-line tool,
 To define a service, you use
 
 ```
-fluxctl service <service> <IP address>:<port> [ --protocol http ]
+fluxctl service <service> --address <IP address>:<port> [ --protocol http ]
 ```
 
 The IP address and port are chosen by you. The IP address is a virtual
@@ -94,8 +94,10 @@ Any container using the image `searchapi` will be enrolled as an
 instance of `search-svc`, and the service will be available on each
 host at 10.128.0.1:80.
 
-See the [command-line README](fluxctl/README.md#readme) for details
-on defining services, selecting containers, and querying the system.
+See the
+[command-line reference](blob/master/site/fluxctl/index.md#readme) for
+details on defining services, selecting containers, and querying the
+system.
 
 ### Running the web interface
 
@@ -106,7 +108,7 @@ The web interface needs to know how to connect to etcd (using the
 environment entry `ETCD_ADDRESS`) and to Prometheus (using the
 environment entry `PROM_ADDRESS`). Some help with running Prometheus,
 and configuring the system to use it, is given in the web interface
-[README](web/README.md#readme).
+[README](blob/master/web/README.md#readme).
 
 To run it under Docker, assuming you are running etcd and Prometheus
 as given in the examples here,

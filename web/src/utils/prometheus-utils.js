@@ -1,6 +1,6 @@
 import reqwest from 'reqwest';
 
-import { INTERVAL_SECS } from '../constants/timer';
+import { INTERVAL_SECS, QUERY_WINDOW_SECS } from '../constants/timer';
 
 // Turn a specification into a Prometheus label match expression
 function matchExpr(spec) {
@@ -38,7 +38,7 @@ function processLastValues(result) {
 
 export function requestLastValues(instances, cb) {
   const spec = {individual: instances};
-  const query = 'query=sum(rate(flux_http_total{' + matchExpr(spec) + '}[5m])) by (individual)';
+  const query = 'query=sum(rate(flux_http_total{' + matchExpr(spec) + '}[' + QUERY_WINDOW_SECS + 's])) by (individual)';
   const url = '/stats/api/v1/query?' + query;
   const success = json => cb(processLastValues(json.data.result));
   reqwest({url, success});

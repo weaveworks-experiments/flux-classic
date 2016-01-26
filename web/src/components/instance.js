@@ -2,6 +2,7 @@ import React from 'react';
 import classnames from 'classnames';
 
 import { formatMetric } from '../utils/string-utils';
+import { QUERY_WINDOW_SECS } from '../constants/timer';
 
 export default class Instance extends React.Component {
 
@@ -25,7 +26,7 @@ export default class Instance extends React.Component {
   }
 
   render() {
-    const heroMetric = this.props.heroMetric === undefined ? 'n/a' : formatMetric(this.props.heroMetric);
+    const heroMetric = this.props.heroMetric === undefined ? '--' : formatMetric(this.props.heroMetric);
     const className = classnames({
       instance: true,
       'instance-selected': this.props.selected
@@ -34,7 +35,7 @@ export default class Instance extends React.Component {
       <div className={className} key={this.props.name} onClick={this.props.handleClick}>
         <div className="instance-metric">
           <span className="instance-metric-value">{heroMetric}</span>
-          <span className="instance-metric-unit">QPS</span>
+            <span className="instance-metric-unit">QPS (last {QUERY_WINDOW_SECS}s)</span>
         </div>
         <div className="instance-title truncate" title={'Name: ' + this.props.name}>
           {this.props.name}

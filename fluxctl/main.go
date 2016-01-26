@@ -42,4 +42,5 @@ func addSubCommands(cmd *cobra.Command, store store.Store) {
 	addSubCommand(&rmOpts{}, cmd, store)
 	addSubCommand(&selectOpts{}, cmd, store)
 	addSubCommand(&deselectOpts{}, cmd, store)
+	addSubCommand(&versionOpts{}, cmd, store)
 }

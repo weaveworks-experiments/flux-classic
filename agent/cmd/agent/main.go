@@ -8,6 +8,7 @@ import (
 
 	"github.com/squaremo/flux/agent"
 	"github.com/squaremo/flux/common/store/etcdstore"
+	"github.com/squaremo/flux/common/version"
 
 	log "github.com/Sirupsen/logrus"
 	docker "github.com/fsouza/go-dockerclient"
@@ -27,6 +28,7 @@ func setupDockerClient() (*docker.Client, error) {
 }
 
 func main() {
+	log.Infof("flux agent version %s", version.Version())
 	var (
 		hostIP string
 	)

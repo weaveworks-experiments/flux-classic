@@ -9,11 +9,13 @@ import (
 
 	"github.com/squaremo/flux/common/store"
 	"github.com/squaremo/flux/common/store/etcdstore"
+	"github.com/squaremo/flux/common/version"
 
 	"github.com/gorilla/mux"
 )
 
 func main() {
+	log.Printf("flux web version %s\n", version.Version())
 	prom := os.Getenv("PROM_ADDRESS")
 	if prom == "" {
 		prom = "http://localhost:9090"

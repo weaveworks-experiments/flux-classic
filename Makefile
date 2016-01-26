@@ -1,6 +1,9 @@
 REPO:=squaremo
 PROJECT:=$(REPO)/flux
 BASEPKG:=github.com/$(PROJECT)
+REVISION:="$(shell git rev-parse --short=12 HEAD)"
+VERSION:="head"
+GOFLAGS:=-ldflags "-X $(BASEPKG)/common/version.version=$(VERSION) -X $(BASEPKG)/common/version.revision=$(REVISION)"
 
 BUILD_IMAGES=build webbuild site
 COMPONENTS:=balancer agent web fluxctl
@@ -67,7 +70,7 @@ get_vendor_submodules=@git submodule update --init
 build/bin/%: $(call image_stamp,build) docker/build-wrapper.sh $(GO_SRCS_common)
 	$(get_vendor_submodules)
 	rm -f $@
-	$(call run_build_container,build,-e GOPATH=/build,$(CMD_DIR_$(*F)),go install .)
+	$(call run_build_container,build,-e GOPATH=/build,$(CMD_DIR_$(*F)),go install $(GOFLAGS) .)
 
 .PHONY: $(foreach i,$(GODIRS),test-$(i))
 $(foreach i,$(GODIRS),test-$(i)): test-%: $(call image_stamp,build)

@@ -41,7 +41,7 @@ type instanceForFormat struct {
 }
 
 const (
-	tableHeaders     = "Service\tInstance name\tAddress\t\n"
+	tableHeaders     = "SERVICE\tINSTANCE\tADDRESS\t\n"
 	tableRowTemplate = "{{.Service}}\t{{.Name}}\t{{.Address}}:{{.Port}}\t\n"
 )
 
@@ -70,7 +70,7 @@ func (opts *queryOpts) run(_ *cobra.Command, args []string) error {
 			return nil
 		}
 	} else {
-		out := tabwriter.NewWriter(opts.getStdout(), 4, 0, 1, ' ', 0)
+		out := tabwriter.NewWriter(opts.getStdout(), 4, 0, 2, ' ', 0)
 		defer out.Flush()
 		tmpl := template.Must(template.New("row").Parse(tableRowTemplate))
 		printInstance = func(serviceName, instanceName string, inst data.Instance) error {

@@ -28,4 +28,4 @@ docker run -d -e ETCD_ADDRESS -e PROM_ADDRESS -p 7070:7070 \
 ```
 
 See <a href="/prometheus/">"Integrating with Prometheus"</a> for how
-to set Prometheus up.
+to configure and run Prometheus.

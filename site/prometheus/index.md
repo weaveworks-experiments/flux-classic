@@ -1,32 +1,32 @@
-## Web interface
+---
+layout: page
+title: Integrating with Prometheus
+---
 
-### Prerequisites
+Flux has a two-part integration with [Prometheus][prom-site]: firstly,
+the balancer exposes metrics that Prometheus can scrape; and secondly,
+the web dashboard will query those metrics to populate its charts and
+gauges.
 
-The web interface depends both on etcd (as covered in the
-[main README](../README.md#readme)), and on
-[Prometheus][prom-site]. Prometheus needs some configuration to be
-able to collect stats -- some help on this is given
-[below](#configuring-prometheus).
-
-### Exposing stats to Prometheus
-
-The `run-flux` script assumes this is what you want, and does it for
-you.
+## Exposing stats to Prometheus from the balancer
 
 If you're running the balancer yourself, though, to tell it to expose
-stats for Prometheus, supply the `-listen-prometheus` option, with a
-listening address (`:9000` is fine):
+stats for Prometheus, supply the `--listen-prometheus` option, with a
+listening address (`:9000` is fine).
 
 ```bash
 docker run -d --net=host --privileged \
        -e ETCD_ADDRESS \
-       squaremo/flux-balancer -listen-prometheus :9000
+       squaremo/flux-balancer --listen-prometheus :9000
 ```
 
-### Running Prometheus
+The `run-flux` script assumes this is what you want, and does it for
+you.
+
+## Running Prometheus
 
 It's easy to run Prometheus under Docker; however, you will need some
-way of telling Prometheus about all of the hosts running Weave Flux,
+way of telling Prometheus about all of the hosts running the balancer,
 so it knows to scrape them for stats. See below for some ways to do
 that.
 
@@ -59,7 +59,7 @@ scrape_configs:
 ```
 
 Note the port numbers, which match whatever you told the balancer to
-listen on with `-listen-prometheus` (or `9000` if you use
+listen on with `--listen-prometheus` (or `9000` if you use
 `run-flux`).
 
 You can then give the Prometheus container the IP addresses (and the
@@ -108,6 +108,6 @@ The `$(weave expose)` is needed to give the host an IP address on the
 Weave network, since the balancer runs in the host's network
 namespace.
 
-[prom-sd]: http://prometheus.io/docs/operating/configuration/#scrape-configurations-scrape_config
 [prom-site]: https://github.com/prometheus/prometheus
+[prom-sd]: http://prometheus.io/docs/operating/configuration/#scrape-configurations-scrape_config
 [weave-site]: https://github.com/weaveworks/weave

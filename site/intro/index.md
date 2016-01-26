@@ -9,7 +9,7 @@ servers, which connected to a database.  The benefits of microservices
 come at the cost of a more complicated architecture.  Weave Flux aims
 to help tame this complexity:
 
-* When there's a problem, went wrong, it can be hard to identify which
+* When there's a problem, it can be hard to identify which
 microservice is at fault.  Flux can show you information about the
 requests between microservices, to help isolate problems.
 

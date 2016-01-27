@@ -94,27 +94,27 @@ a:visited { color: #205caa; }
 .site-footer .column { float: left; margin-bottom: 15px; }
 
 .footer-col-1 {
-  width: 270px; /*fallback*/
-  width: -webkit-calc(35% - 10px);
-  width: -moz-calc(35% - 10px);
-  width: -o-calc(35% - 10px);
-  width: calc(35% - 10px);
+  width: 250px; /*fallback*/
+  width: -webkit-calc(33% - 10px);
+  width: -moz-calc(33% - 10px);
+  width: -o-calc(33% - 10px);
+  width: calc(33% - 10px);
   margin-right: 10px
 }
 .footer-col-2 {
-  width: 175px; /*fallback*/
-  width: -webkit-calc(23.125% - 10px);
-  width: -moz-calc(23.125% - 10px);
-  width: -o-calc(23.125% - 10px);
-  width: calc(23.125% - 10px);
+  width: 250px; /*fallback*/
+  width: -webkit-calc(33% - 10px);
+  width: -moz-calc(33% - 10px);
+  width: -o-calc(33% - 10px);
+  width: calc(33% - 10px);
   margin-right: 10px
 }
 .footer-col-3 {
-  width: 335px; /*fallback*/
-  width: -webkit-calc(41.875%);
-  width: -moz-calc(41.875%);
-  width: -o-calc(41.875%);
-  width: calc(41.875%);
+  width: 250px; /*fallback*/
+  width: -webkit-calc(33%);
+  width: -moz-calc(33%);
+  width: -o-calc(33%);
+  width: calc(33%);
 }
 
 .site-footer ul { list-style: none; }

@@ -41,8 +41,8 @@ type instanceForFormat struct {
 }
 
 const (
-	tableHeaders     = "SERVICE\tINSTANCE\tADDRESS\t\n"
-	tableRowTemplate = "{{.Service}}\t{{.Name}}\t{{.Address}}:{{.Port}}\t\n"
+	tableHeaders     = "SERVICE\tINSTANCE\tADDRESS\tSTATE\t\n"
+	tableRowTemplate = "{{.Service}}\t{{.Name}}\t{{.Address}}:{{.Port}}\t{{.State}}\n"
 )
 
 func (opts *queryOpts) run(_ *cobra.Command, args []string) error {

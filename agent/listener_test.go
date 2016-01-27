@@ -261,6 +261,34 @@ func TestMappedPort(t *testing.T) {
 	store.ForeachInstance(st, "blorp-svc", func(_, _ string, inst data.Instance) error {
 		require.Equal(t, listener.hostIP, inst.Address)
 		require.Equal(t, 3456, inst.Port)
+		require.Equal(t, data.LIVE, inst.State)
+		return nil
+	})
+}
+
+func TestNoAddress(t *testing.T) {
+	listener, st, dc := setup("192.168.3.4")
+
+	st.AddService("important-svc", data.Service{})
+	addGroup(st, "important-svc", &data.AddressSpec{
+		Type: data.MAPPED,
+		Port: 8080,
+	}, "image", "important-image")
+	dc.startContainers(container{
+		ID:        "oops-instance",
+		IPAddress: "10.13.14.15",
+		Image:     "important-image:greatest",
+		// No published port
+	})
+
+	listener.ReadInServices()
+	listener.ReadExistingContainers()
+
+	require.Len(t, allInstances(st), 1)
+	store.ForeachInstance(st, "blorp-svc", func(_, _ string, inst data.Instance) error {
+		require.Equal(t, listener.hostIP, inst.Address)
+		require.Equal(t, 3456, inst.Port)
+		require.Equal(t, data.NOADDR, inst.State)
 		return nil
 	})
 }
@@ -287,6 +315,7 @@ func TestHostNetworking(t *testing.T) {
 	store.ForeachInstance(st, "blorp-svc", func(_, _ string, inst data.Instance) error {
 		require.Equal(t, listener.hostIP, inst.Address)
 		require.Equal(t, 8080, inst.Port)
+		require.Equal(t, data.LIVE, inst.State)
 		return nil
 	})
 }

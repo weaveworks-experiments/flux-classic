@@ -196,6 +196,7 @@ func (l *Listener) extractInstance(spec data.ContainerRule, container *docker.Co
 	} else {
 		inst.Address = ipAddress
 		inst.Port = port
+		inst.State = data.LIVE
 	}
 
 	labels := map[string]string{

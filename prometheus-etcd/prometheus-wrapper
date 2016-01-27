@@ -1,0 +1,7 @@
+#!/bin/sh
+
+if [ -n "$ETCD_ADDRESS" ] ; then
+    sed -i -e "s|@ETCD_ADDRESS@|$ETCD_ADDRESS|g" /etc/prometheus/prometheus.yml
+fi
+
+exec prometheus "$@"

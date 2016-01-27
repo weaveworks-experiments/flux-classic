@@ -1,0 +1,9 @@
+global:
+
+scrape_configs:
+  - job_name: 'flux'
+    scrape_interval: 5s
+    scrape_timeout: 10s
+    etcd_sd_configs:
+      - endpoints: ['@ETCD_ADDRESS@']
+        directory_key: '/weave-flux/prometheus-targets'

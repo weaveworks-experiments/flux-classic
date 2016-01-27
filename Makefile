@@ -7,7 +7,7 @@ GOFLAGS:=-ldflags "-X $(BASEPKG)/common/version.version=$(VERSION) -X $(BASEPKG)
 
 BUILD_IMAGES=build webbuild site
 COMPONENTS:=balancer agent web fluxctl
-IMAGES:=$(COMPONENTS) edgebal
+IMAGES:=$(COMPONENTS) edgebal prometheus-etcd
 GODIRS:=$(COMPONENTS) common
 CMDS:=$(COMPONENTS) balagent
 

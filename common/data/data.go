@@ -48,8 +48,10 @@ type Service struct {
 
 type InstanceState string
 
-var LIVE = InstanceState("live")
-var NOADDR = InstanceState("no address")
+const (
+	LIVE   InstanceState = "live"
+	NOADDR InstanceState = "no address"
+)
 
 type Instance struct {
 	State         InstanceState     `json:"state"`

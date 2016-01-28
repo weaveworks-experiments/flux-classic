@@ -16,7 +16,7 @@ import (
 
 func main() {
 	log.Printf("flux web version %s\n", version.Version())
-	prom := os.Getenv("PROM_ADDRESS")
+	prom := os.Getenv("PROMETHEUS_ADDRESS")
 	if prom == "" {
 		prom = "http://localhost:9090"
 	}

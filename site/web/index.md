@@ -12,7 +12,7 @@ It is available as the Docker image `squaremo/flux-web`.
 To run it, you need to supply the following environment entries:
 
  - `ETCD_ADDRESS`: an etcd endpoint, e.g., `http://192.168.99.100:2379`
- - `PROM_ADDRESS`: the URL of the Prometheus server, e.g.,
+ - `PROMETHEUS_ADDRESS`: the URL of the Prometheus server, e.g.,
   `http://192.168.99.100:9090`
 
 You will usually want to publish the port `7070` so you can access the
@@ -23,7 +23,7 @@ Here is an example of running the image, which assumes you have those
 environment entries above:
 
 ```
-docker run -d -e ETCD_ADDRESS -e PROM_ADDRESS -p 7070:7070 \
+docker run -d -e ETCD_ADDRESS -e PROMETHEUS_ADDRESS -p 7070:7070 \
     name=fluxweb squaremo/flux-web
 ```
 

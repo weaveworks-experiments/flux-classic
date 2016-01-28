@@ -192,8 +192,8 @@ configured to integrate with the other components of Flux via etcd.)
 Next we start the Flux web UI, telling it how to connect to Prometheus:
 
 ```sh
-$ export PROM_ADDRESS=http://$(docker port prometheus 9090)
-$ docker run --name=flux-web -d -e ETCD_ADDRESS -e PROM_ADDRESS -P \
+$ export PROMETHEUS_ADDRESS=http://$(docker port prometheus 9090)
+$ docker run --name=flux-web -d -e ETCD_ADDRESS -e PROMETHEUS_ADDRESS -P \
     squaremo/flux-web
 ```
 

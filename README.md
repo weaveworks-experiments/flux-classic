@@ -106,20 +106,20 @@ the services.
 
 The web interface needs to know how to connect to etcd (using the
 environment entry `ETCD_ADDRESS`) and to Prometheus (using the
-environment entry `PROM_ADDRESS`). Some help with running Prometheus,
-and configuring the system to use it, is given in the web interface
-[README](blob/master/web/README.md#readme).
+environment entry `PROMETHEUS_ADDRESS`). Some help with running
+Prometheus, and configuring the system to use it, is given in the web
+interface [README](blob/master/web/README.md#readme).
 
 To run it under Docker, assuming you are running etcd and Prometheus
 as given in the examples here,
 
 ```bash
 export ETCD_ADDRESS=http://192.168.99.100:2379
-export PROM_ADDRESS=http://192.168.99.100:9090
+export PROMETHEUS_ADDRESS=http://192.168.99.100:9090
 
 docker run -d -p 7070:7070 \
        -e ETCD_ADDRESS \
-       -e PROM_ADDRESS \
+       -e PROMETHEUS_ADDRESS \
        squaremo/flux-web
 ```
 

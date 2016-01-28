@@ -19,11 +19,12 @@ some parts will be relevant to using Flux in other contexts.
 
 First, we'll create a Swarm cluster.  We'll use [Docker
 Machine](http://www.docker.com/products/docker-machine) to do
-this. Docker Machine is a simple tool to set up VMs that act as Docker
-hosts and has some built in support for Swarm.  See the [instructions
-on creating a Swarm development
+this. Docker Machine is a tool that makes it simple to spin up docker
+host VMs, and it has some built-in support for Swarm.  See Docker's
+[instructions on creating a Swarm development
 cluster](https://docs.docker.com/swarm/install-manual/) for more
-details.  Here we'll create a modest cluster of two VMs:
+details.  Here we'll create a modest cluster of two VMs (replacing
+`$driver` with the Docker Machine driver you wish to use):
 
 ```sh
 $ cluster_id=$(docker run --rm swarm create)

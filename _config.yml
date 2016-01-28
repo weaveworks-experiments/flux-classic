@@ -1,0 +1,19 @@
+# Site settings
+title: Weave Flux
+description: Weave Flux
+email: help@weave.works
+baseurl: "/flux"
+url: "https://weaveworks.github.io/flux"
+twitter_username: weavenetwork
+github_username:  weaveworks
+
+# Build settings
+markdown: kramdown
+#permalink: pretty
+exclude: ["README.md", "Gemfile", "Gemfile.lock"]
+
+kramdown:
+        input: GFM
+        syntax_highlighter: rouge
+        hard_wrap: false
+        auto_ids: true

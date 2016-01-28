@@ -6,7 +6,9 @@ title: Weave Flux Documentation
 Welcome to the Weave Flux documentation! TODO: one sentence summary of
 flux here.
 
-TODO short bullet-point feature list
+* TODO short bullet-point feature list
+* Flux does not require the use of Weave Net or any other Docker network
+plugin, although it does work with them.
 
 If you are new to Flux, you might want to start with
 [the Introduction](/intro/).

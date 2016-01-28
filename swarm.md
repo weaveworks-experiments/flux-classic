@@ -12,6 +12,13 @@ follow this guide if you are familiar with Docker, even if you don't
 know Swarm.  And these instructions are not hugely Swarm-specific, so
 some parts will be relevant to using Flux in other contexts.
 
+This guide shows the full details of the commands needed to create a
+Docker Swarm cluster and deploy Flux to it, before using Flux.  If the
+process seems onerous, skip to the section [_A simple service
+example_](#a-simple-service-example) to see what the typical use of
+Flux involves.  If you are deploying Flux on a regular basis, we
+recommend that you script or otherwise automate the relevant steps.
+
 * ToC
 {:toc}
 
@@ -51,7 +58,7 @@ it is working ok:
 
 ```sh
 $ eval $(docker-machine env --swarm swarm-master)
-$ $ docker run --rm hello-world
+$ docker run --rm hello-world
 
 Hello from Docker.
 [...]
@@ -105,7 +112,7 @@ $ for h in $hosts ; do \
 
 You have now deployed Flux!
 
-## A simple service example with httpd and curl
+## A simple service example
 
 In this section, we'll define a service consisting of some Apache
 httpd containers, and then send requests to the service with curl.  In
@@ -113,12 +120,20 @@ practical use, clients and service instances connected by Flux are
 more likely to be microservices within an application.  But httpd and
 curl provides a simple way to demonstrate the basic use of Flux.
 
-First, we'll use the `fluxctl service` administrative command to
+Flux is administered using a command-line tool called `fluxctl`.
+We'll be running `fluxctl` in a container, and because we will be
+using it a few times, we'll define a variable `$fluxctl` so we don't
+have to keep repeating the necessary `docker run` arguments:
+
+```sh
+$ fluxctl="docker run --rm -e ETCD_ADDRESS weaveworks/flux-fluxctl"
+```
+
+First, we'll use the `fluxctl service` subcommand to
 define a _service_.  Services are the central abstraction of Flux.
 
 ```sh
-$ docker run --rm -e ETCD_ADDRESS weaveworks/flux-fluxctl service httpd \
-        --address 10.128.0.1:80 --protocol http
+$ $fluxctl service httpd --address 10.128.0.1:80 --protocol http
 ```
 
 Here, we have defined a service called `httpd`.  The `--address
@@ -136,27 +151,26 @@ use the `-P` option to `docker run` to make the ports exposed by the
 container accessible from all machines in the cluster):
 
 ```sh
-docker run -d -P httpd
-docker run -d -P httpd
+$ docker run -d -P httpd
+$ docker run -d -P httpd
 ```
 
 Flux does not yet know that these containers should be associated with
 the service.  We tell it that by defining a _selection rule_, using
-the `fluxctl select` command:
+the `fluxctl select` subcommand:
 
 ```sh
-docker run --rm -e ETCD_ADDRESS weaveworks/flux-fluxctl select httpd default \
-        --image httpd --port-mapped 80
+$ $fluxctl select httpd default --image httpd --port-mapped 80
 ```
 
 This specifies that containers using the Docker image `httpd` should
 be associated with the `httpd` service, with connections to the
 service forwarded to port 80 of the container.
 
-We can see the result of this using the `fluxctl info` command:
+We can see the result of this using the `fluxctl info` subcommand:
 
 ```sh
-$ docker run --rm -e ETCD_ADDRESS weaveworks/flux-fluxctl info
+$ $fluxctl info
 httpd
   RULES
     default {"image":"httpd"}

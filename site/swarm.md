@@ -201,7 +201,7 @@ $ docker run --name=flux-web -d -e ETCD_ADDRESS -e PROMETHEUS_ADDRESS -P \
 Now we can point a browser to the address given by `docker port
 flux-web 7070` in order to view the UI:
 
-<img src="swarm-ui-httpd.jpg" alt="Flux UI" width="800" height="522"/>
+<img src="/images/swarm-ui-httpd.jpg" alt="Flux UI" width="800" height="522"/>
 
 Here we see information about the service, including the instances
 associated with it.  By selecting some instances, the UI will show
@@ -216,10 +216,10 @@ $ docker run --rm tutum/curl sh -c 'while true ; do curl -s http://1128.0.1/ >/d
 
 Then view the request rates as a chart:
 
-<img src="swarm-ui-httpd-chart.jpg" alt="Flux UI" width="800" height="522"/>
+<img src="/images/swarm-ui-httpd-chart.jpg" alt="Flux UI" width="800" height="522"/>
 
 If we change the URL used in the curl command to one that does not
 exist, the chart shows the change in HTTP status code indicating the
 error:
 
-<img src="swarm-ui-httpd-chart-nosuch.jpg" alt="Flux UI" width="800" height="522"/>
+<img src="/images/swarm-ui-httpd-chart-nosuch.jpg" alt="Flux UI" width="800" height="522"/>

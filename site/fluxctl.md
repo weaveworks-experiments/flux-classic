@@ -16,14 +16,54 @@ Usage:
 Available Commands:
   service     define a service
   list        list the services defined
+  info        display info on all services
   query       display instances selected by the given filter
   rm          remove service definition(s)
-  select      add a selection rule to a service
-  deselect    remove a selection rule from a service
+  select      include containers in a service
+  deselect    remove a container selection rule from a service
+  version     print version and exit
 
 Flags:
   -h, --help[=false]: help for fluxctl
 ```
+
+### See system state
+
+The most useful command, at least to start with, is `fluxctl
+info`. This tells you what is known about the system, including the
+configuration of the services, and instances that have been added to
+the services.
+
+```
+Usage:
+  fluxctl info [flags]
+
+Flags:
+  -s, --service="": display only this service
+```
+
+The output looks like this:
+
+```
+hello
+  RULES
+    default {"image":"tutum/hello-world"}
+  INSTANCES
+    968a80583167b510a4915e0397d86563027507ec0803581965825c214d0d3034 192.168.3.165:32769 live
+    6c222af1f1fc392319f94cca299ac53e49dff82cbf835653aef951fae48adb70 192.168.3.165:32770 live
+    4419e651cc298f40463294b4aad9e23c5b530607dc3f9e164718a9f93ebe8a26 192.168.3.165:32768 live
+```
+
+At the top is a service name, `hello`; after that are the selection
+rules (this one indicates that containers using the image
+`"tutum/hello-world"` should be selected for the `hello`
+service). Last, for each service, is a list of instances, each with
+its address and state.
+
+`live` here means the instance is on-line. Other states may indicate
+problems with the instance; for example `no address` means the
+container matched the selection rules, but an address could not be
+determined for it (probably because it didn't have a published port).
 
 ### Define and remove services
 
@@ -37,7 +77,7 @@ option. (Using HTTP means you get extra, HTTP-specific metrics.)
 
 It's possible to create a service that has no address. You might do
 this if you were going to use it only to control an external load
-balancer (like [the edgebal image](../edgebal/)).
+balancer (like [the edgebal image](edgebal)).
 
 There are also options for selecting containers to be instances, as a
 shortcut to using a subsequent `fluxctl select ...` command.
@@ -47,7 +87,7 @@ Usage:
   fluxctl service <name> [flags]
 
 Flags:
-      --address="": in the format <ipaddr>:<port>[/<protocol>], the IP address and port at which the service should be made available on each host; optionally, the protocol to assume.
+      --address="": in the format <ipaddr>:<port>, the IP address and port at which the service should be made available on each host.
       --env="": select only containers with these environment variable values, given as comma-delimited key=value pairs
       --image="": select only containers with this image
       --labels="": select only containers with these labels, given as comma-delimited key=value pairs
@@ -159,8 +199,9 @@ Flags:
       --tag="": select only containers with this tag
 ```
 
-By default, `fluxctl query` will print the IDs of matching instances,
-one to a line. You can supply a template expression to format the
+By default, `fluxctl query` will print a table of matching
+instances. You can tell it to show just the instance names with
+`--quiet`; or, you can supply a template expression to format the
 instance data on each line; for example,
 
 ```

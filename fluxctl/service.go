@@ -26,7 +26,7 @@ func (opts *addOpts) makeCommand() *cobra.Command {
 		Long:  "Define service <name>, optionally giving an address at which it can be reached on each host, and optionally giving a rule for selecting containers as instances of the service.",
 		RunE:  opts.run,
 	}
-	addCmd.Flags().StringVar(&opts.address, "address", "", "in the format <ipaddr>:<port>[/<protocol>], the IP address and port at which the service should be made available on each host; optionally, the protocol to assume.")
+	addCmd.Flags().StringVar(&opts.address, "address", "", "in the format <ipaddr>:<port>, the IP address and port at which the service should be made available on each host.")
 	addCmd.Flags().StringVarP(&opts.protocol, "protocol", "p", "", `the protocol to assume for connections to the service; either "http" or "tcp". Overrides the protocol given in --address if present.`)
 	opts.addSpecVars(addCmd)
 	return addCmd

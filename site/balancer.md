@@ -29,7 +29,7 @@ docker run -d -e ETCD_ADDRESS --cap-add=NET_ADMIN --net=host \
        --listen-prometheus :9000 --advertise-prometheus $HOST_IP:9000
 ```
 
-The `run-flux` script starts the balancer and the [agent](/agent/)
+The `run-flux` script starts the balancer and the [agent](agent)
 images using appropriate Docker commands, given the environment
 entries mentioned above.
 

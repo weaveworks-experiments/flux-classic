@@ -11,7 +11,7 @@ flux here.
 plugin, although it does work with them.
 
 If you are new to Flux, you might want to start with
-[the Introduction](/intro/).
+[the Introduction](intro).
 
 The current release of Flux is preliminary.  We would love to hear
 your feedback.  If you try Flux, are interested but have some

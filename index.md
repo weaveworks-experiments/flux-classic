@@ -7,12 +7,21 @@ Flux is a service routing layer that lets you control how containers
 are accessed as services, without dictating how the containers are
 created, placed or otherwise orchestrated.
 
- * You can dynamically select containers to become instances of a
-   service
- * Flux will transparently load-balance requests among instances of a
-   service
- * Flux works with Weave Net and other Docker network plugins, but
-   does not require them
+Here are some example use cases of Flux:
+
+* Internal load balancing of requests between microservices
+* Allow service containers to be moved between hosts without
+  restarting client containers
+* Rolling upgrades and blue-green deployments of containers
+* When troubleshooting an issue in a microservice architectures,
+  tracking down the microservice to blame
+* Automatic configuration of an edge load balancer (currently nginx is
+  supported)
+
+Flux is not a platform, and does not require changes to your
+application code. It can work with other Docker-based tooling, such as
+container schedulers.  Flux works with Weave Net and other Docker
+network plugins, but does not require them
 
 If you are new to Flux, please read on to <a
 href="#introduction-to-flux">the introduction</a>. Otherwise, guides
@@ -59,9 +68,3 @@ You can have different versions of a service running side-by-side, and
 manage whether flux routes request to the new version, the old
 version, or load balances across both.  And it helps you watch for
 signs of trouble as you switch over.
-
-Flux is not a platform, and does not require changes to your
-application code. It can work with other Docker-based tooling, such as
-container schedulers.  It is agnostic about what Docker network plugin
-you use, if any.
-

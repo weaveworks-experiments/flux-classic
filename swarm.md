@@ -15,7 +15,7 @@ some parts will be relevant to using Flux in other contexts.
 * ToC
 {:toc}
 
-# Preliminaries
+## Preliminaries
 
 First, we'll create a Swarm cluster.  We'll use [Docker
 Machine](http://www.docker.com/products/docker-machine) to do
@@ -58,7 +58,7 @@ Hello from Docker.
 
 ```
 
-# Deploying Flux
+## Deploying Flux
 
 In this section, we'll deploy the basic Flux components to the Swarm
 cluster.
@@ -80,7 +80,7 @@ ask `docker-machine` to list the hosts and use a Swarm scheduling
 constraint to run an agent on each.
 
 ```sh
-$ hosts=$(docker-machine ls -f '{{.Name}}')
+$ hosts=$(docker-machine ls -f {% raw %}'{{.Name}}'{% endraw %})
 $ for h in $hosts ; do \
         docker run -d -e constraint:node==$h -e ETCD_ADDRESS \
             -v /var/run/docker.sock:/var/run/docker.sock \
@@ -105,7 +105,7 @@ $ for h in $hosts ; do \
 
 You have now deployed Flux!
 
-# A simple service example with httpd and curl
+## A simple service example with httpd and curl
 
 In this section, we'll define a service consisting of some Apache
 httpd containers, and then send requests to the service with curl.  In
@@ -114,7 +114,7 @@ more likely to be microservices within an application.  But httpd and
 curl provides a simple way to demonstrate the basic use of Flux.
 
 First, we'll use the `fluxctl service` administrative command to
-define a *service*.  Services are the central abstraction of Flux.
+define a _service_.  Services are the central abstraction of Flux.
 
 ```sh
 $ docker run --rm -e ETCD_ADDRESS weaveworks/flux-fluxctl service httpd \
@@ -123,8 +123,8 @@ $ docker run --rm -e ETCD_ADDRESS weaveworks/flux-fluxctl service httpd \
 
 Here, we have defined a service called `httpd`.  The `--address
 10.128.0.1:80` option assigns that IP address and port to the
-service. This is a *floating address*; it doesn't correspond to any
-host, but when clients attempt to connect to it, their connection will
+service. This is a _floating address_; it doesn't correspond to any
+host, but when clients attempt to connect to it, their connections will
 be transparently forwarded to a service instance (so you should ensure
 that the addresses you assign to services do not correspond to any
 real IP addresses in your network environment).  The `--protocol http`
@@ -141,7 +141,7 @@ docker run -d -P httpd
 ```
 
 Flux does not yet know that these containers should be associated with
-the service.  We tell it that by defining a *selection rule*, using
+the service.  We tell it that by defining a _selection rule_, using
 the `fluxctl select` command:
 
 ```sh
@@ -175,7 +175,7 @@ $ docker run --rm tutum/curl curl -s http://10.128.0.1/
 Flux load-balances requests across the service instances, so this
 request might have been served by either httpd container.
 
-# The Flux web UI
+## The Flux web UI
 
 Flux features a web-based UI.  This section explains how to get
 started with it.
@@ -211,7 +211,7 @@ We can use the `curl` container image to produce a stream of requests
 to the service:
 
 ```sh
-$ docker run --rm tutum/curl sh -c 'while true ; do curl -s http://1128.0.1/ >/dev/null ; done'
+$ docker run --rm tutum/curl sh -c 'while true ; do curl -s http://10.128.0.1/ >/dev/null ; done'
 ```
 
 Then view the request rates as a chart:

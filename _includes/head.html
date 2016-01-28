@@ -1,5 +1,4 @@
 <head>
-    <base href="{{ site.baseurl }}/index.html">
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <title>{% if page.title %}{{ site.title}}: {{ page.title }}{% else %}{{ site.description }}{% endif %}</title>
@@ -8,6 +7,6 @@
     <link rel="canonical" href="{{ page.url | replace:'index.html','' | prepend: site.url }}">
 
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="{{ site.baseurl }}/css/main.css">
 
 </head>

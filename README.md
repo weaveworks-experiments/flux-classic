@@ -22,7 +22,7 @@ address `192.168.99.100`:
 
 ```bash
 HOST_IP=192.168.99.100
-ETCD_ADDRESS=http://$HOST_IP:4001
+ETCD_ADDRESS=http://$HOST_IP:2379
 export ETCD_ADDRESS HOST_IP
 ./bin/run-flux
 ```
@@ -114,7 +114,7 @@ To run it under Docker, assuming you are running etcd and Prometheus
 as given in the examples here,
 
 ```bash
-export ETCD_ADDRESS=http://192.168.99.100:4001
+export ETCD_ADDRESS=http://192.168.99.100:2379
 export PROM_ADDRESS=http://192.168.99.100:9090
 
 docker run -d -p 7070:7070 \
@@ -133,13 +133,13 @@ tires. Assuming you have a host with Docker running and accessible on
 `HOST_IP`, do
 
 ```bash
-docker run -d -p 4001:4001 \
-       -e "ETCD_LISTEN_CLIENT_URLS=http://0.0.0.0:4001" \
-       -e "ETCD_ADVERTISE_CLIENT_URLS=http://$HOST_IP:4001" \
+docker run -d -p 2379:2379 \
+       -e "ETCD_LISTEN_CLIENT_URLS=http://0.0.0.0:2379" \
+       -e "ETCD_ADVERTISE_CLIENT_URLS=http://$HOST_IP:2379" \
        quay.io/coreos/etcd
 ```
 
-Now you have an etcd available on `http://$HOST_IP:4001`.
+Now you have an etcd available on `http://$HOST_IP:2379`.
 
 If you run the web interface, you will also need an instance of
 Prometheus. See the [web interface README](web/README.md) for more

@@ -3,8 +3,9 @@
 set -eo pipefail
 
 if [[ -z "$ETCD_ADDRESS" ]]; then
-    ETCD_ADDRESS=http://127.0.0.1:4001
+    ETCD_ADDRESS=http://127.0.0.1:2379x
 fi
 export ETCD_ADDRESS
 
 docker run --rm -e ETCD_ADDRESS squaremo/flux-fluxctl "$@"
+E

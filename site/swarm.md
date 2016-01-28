@@ -15,7 +15,7 @@ some parts will be relevant to using Flux in other contexts.
 * ToC
 {:toc}
 
-# Preliminaries
+## Preliminaries
 
 First, we'll create a Swarm cluster.  We'll use [Docker
 Machine](http://www.docker.com/products/docker-machine) to do
@@ -58,7 +58,7 @@ Hello from Docker.
 
 ```
 
-# Deploying Flux
+## Deploying Flux
 
 In this section, we'll deploy the basic Flux components to the Swarm
 cluster.
@@ -105,7 +105,7 @@ $ for h in $hosts ; do \
 
 You have now deployed Flux!
 
-# A simple service example with httpd and curl
+## A simple service example with httpd and curl
 
 In this section, we'll define a service consisting of some Apache
 httpd containers, and then send requests to the service with curl.  In
@@ -175,7 +175,7 @@ $ docker run --rm tutum/curl curl -s http://10.128.0.1/
 Flux load-balances requests across the service instances, so this
 request might have been served by either httpd container.
 
-# The Flux web UI
+## The Flux web UI
 
 Flux features a web-based UI.  This section explains how to get
 started with it.

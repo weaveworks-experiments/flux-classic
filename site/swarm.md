@@ -114,7 +114,7 @@ more likely to be microservices within an application.  But httpd and
 curl provides a simple way to demonstrate the basic use of Flux.
 
 First, we'll use the `fluxctl service` administrative command to
-define a *service*.  Services are the central abstraction of Flux.
+define a _service_.  Services are the central abstraction of Flux.
 
 ```sh
 $ docker run --rm -e ETCD_ADDRESS weaveworks/flux-fluxctl service httpd \
@@ -123,8 +123,8 @@ $ docker run --rm -e ETCD_ADDRESS weaveworks/flux-fluxctl service httpd \
 
 Here, we have defined a service called `httpd`.  The `--address
 10.128.0.1:80` option assigns that IP address and port to the
-service. This is a *floating address*; it doesn't correspond to any
-host, but when clients attempt to connect to it, their connection will
+service. This is a _floating address_; it doesn't correspond to any
+host, but when clients attempt to connect to it, their connections will
 be transparently forwarded to a service instance (so you should ensure
 that the addresses you assign to services do not correspond to any
 real IP addresses in your network environment).  The `--protocol http`
@@ -141,7 +141,7 @@ docker run -d -P httpd
 ```
 
 Flux does not yet know that these containers should be associated with
-the service.  We tell it that by defining a *selection rule*, using
+the service.  We tell it that by defining a _selection rule_, using
 the `fluxctl select` command:
 
 ```sh

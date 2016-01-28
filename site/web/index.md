@@ -7,7 +7,7 @@ Flux provides a view of your services' configuration and performance
 with a web app. As long as it can reach etcd and prometheus, you can
 run it anywhere in your infrastructure.
 
-It is available as the Docker image `squaremo/flux-web`.
+It is available as the Docker image `weaveworks/flux-web`.
 
 To run it, you need to supply the following environment entries:
 
@@ -24,7 +24,7 @@ environment entries above:
 
 ```
 docker run -d -e ETCD_ADDRESS -e PROMETHEUS_ADDRESS -p 7070:7070 \
-    name=fluxweb squaremo/flux-web
+    name=fluxweb weaveworks/flux-web
 ```
 
 See <a href="/prometheus/">"Integrating with Prometheus"</a> for how

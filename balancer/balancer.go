@@ -5,14 +5,14 @@ import (
 	"fmt"
 	log "github.com/Sirupsen/logrus"
 
-	"github.com/squaremo/flux/balancer/etcdcontrol"
-	"github.com/squaremo/flux/balancer/eventlogger"
-	"github.com/squaremo/flux/balancer/events"
-	"github.com/squaremo/flux/balancer/model"
-	"github.com/squaremo/flux/balancer/prometheus"
-	"github.com/squaremo/flux/common/daemon"
-	"github.com/squaremo/flux/common/etcdutil"
-	"github.com/squaremo/flux/common/store/etcdstore"
+	"github.com/weaveworks/flux/balancer/etcdcontrol"
+	"github.com/weaveworks/flux/balancer/eventlogger"
+	"github.com/weaveworks/flux/balancer/events"
+	"github.com/weaveworks/flux/balancer/model"
+	"github.com/weaveworks/flux/balancer/prometheus"
+	"github.com/weaveworks/flux/common/daemon"
+	"github.com/weaveworks/flux/common/etcdutil"
+	"github.com/weaveworks/flux/common/store/etcdstore"
 )
 
 func logError(err error, args ...interface{}) {

@@ -5,8 +5,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/squaremo/flux/common/data"
-	"github.com/squaremo/flux/common/store/inmem"
+	"github.com/weaveworks/flux/common/data"
+	"github.com/weaveworks/flux/common/store/inmem"
 )
 
 func TestList(t *testing.T) {

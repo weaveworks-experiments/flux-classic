@@ -6,9 +6,9 @@ import (
 	"net"
 	"os"
 
-	"github.com/squaremo/flux/agent"
-	"github.com/squaremo/flux/common/store/etcdstore"
-	"github.com/squaremo/flux/common/version"
+	"github.com/weaveworks/flux/agent"
+	"github.com/weaveworks/flux/common/store/etcdstore"
+	"github.com/weaveworks/flux/common/version"
 
 	log "github.com/Sirupsen/logrus"
 	docker "github.com/fsouza/go-dockerclient"

@@ -12,10 +12,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/squaremo/flux/balancer/model"
-	"github.com/squaremo/flux/common/daemon"
-	"github.com/squaremo/flux/common/data"
-	"github.com/squaremo/flux/common/store/inmem"
+	"github.com/weaveworks/flux/balancer/model"
+	"github.com/weaveworks/flux/common/daemon"
+	"github.com/weaveworks/flux/common/data"
+	"github.com/weaveworks/flux/common/store/inmem"
 )
 
 type instances []model.Instance

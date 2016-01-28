@@ -7,9 +7,9 @@ import (
 	etcd "github.com/coreos/etcd/client"
 	"github.com/stretchr/testify/require"
 
-	"github.com/squaremo/flux/common/etcdutil"
-	"github.com/squaremo/flux/common/store/test"
-	"github.com/squaremo/flux/common/test/embeddedetcd"
+	"github.com/weaveworks/flux/common/etcdutil"
+	"github.com/weaveworks/flux/common/store/test"
+	"github.com/weaveworks/flux/common/test/embeddedetcd"
 )
 
 func (es *etcdStore) Reset(t *testing.T) {

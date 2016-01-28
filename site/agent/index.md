@@ -9,7 +9,7 @@ on each Docker host. As containers are started, it will test them
 against the service definitions, and add any containers that match. It
 also removes containers when they die.
 
-The agent is available as a Docker image called `squaremo/flux-agent`.
+The agent is available as a Docker image called `weaveworks/flux-agent`.
 
 ## Operating the agent
 
@@ -30,7 +30,7 @@ environment already, a Docker command line looks like this:
 docker run -d --name "fluxagent" \
        -e HOST_IP -e ETCD_ADDRESS \
        -v "/var/run/docker.sock:/var/run/docker.sock" \
-       squaremo/flux-agent
+       weaveworks/flux-agent
 ```
 
 The `run-flux` script starts a Docker image using an appropriate

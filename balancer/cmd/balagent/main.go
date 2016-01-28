@@ -3,9 +3,9 @@ package main
 import (
 	log "github.com/Sirupsen/logrus"
 
-	"github.com/squaremo/flux/balancer/balagent"
-	"github.com/squaremo/flux/common/daemon"
-	"github.com/squaremo/flux/common/version"
+	"github.com/weaveworks/flux/balancer/balagent"
+	"github.com/weaveworks/flux/common/daemon"
+	"github.com/weaveworks/flux/common/version"
 )
 
 func main() {

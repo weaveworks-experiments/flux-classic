@@ -68,7 +68,7 @@ production etcd deployment already, you can set `$ETCD_ADDRESS` to
 point to it instead.
 
 ```sh
-$ docker run --name etcd -d -P quay.io/coreos/etcd -listen-client-urls http://0.0.0.0:2379 -advertise-client-urls=http://localhost:2379
+$ docker run --name=etcd -d -P quay.io/coreos/etcd -listen-client-urls http://0.0.0.0:2379 -advertise-client-urls=http://localhost:2379
 a43f43b6f2958a3143a7c15643b42329768551b87858e965ab2f64b30ce8ac2d
 $ export ETCD_ADDRESS=http://$(docker port etcd 2379)
 ```
@@ -83,7 +83,7 @@ $ hosts=$(docker-machine ls -f '{{.Name}}')
 $ for h in $hosts ; do \
         docker run -d -e constraint:node==$h -e ETCD_ADDRESS \
             -v /var/run/docker.sock:/var/run/docker.sock \
-            squaremo/flux-agent -host-ip $(docker-machine ip $h) ; \
+            weaveworks/flux-agent -host-ip $(docker-machine ip $h) ; \
   done
 6004ddd81bbcf01cb8fa4214546ad12c198fc96dccdd8f0573f9583bc25d9a79
 df705d7e3a3c8b7a1c4e95b9e6c2d005f9bae2088155ac637f0d88802318b014
@@ -94,7 +94,7 @@ The balancer container must also be run on each host:
 ```sh
 $ for h in $hosts ; do \
         docker run -d -e constraint:node==$h -e ETCD_ADDRESS \
-        --net=host --cap-add=NET_ADMIN squaremo/flux-balancer \
+        --net=host --cap-add=NET_ADMIN weaveworks/flux-balancer \
         -listen-prometheus=:9000 \
         -advertise-prometheus=$(docker-machine ip $h):9000 ; \
   done
@@ -116,7 +116,7 @@ First, we'll use the `fluxctl service` administrative command to
 define a *service*.  Services are the central abstraction of Flux.
 
 ```sh
-$ docker run --rm -e ETCD_ADDRESS squaremo/flux-fluxctl service httpd \
+$ docker run --rm -e ETCD_ADDRESS weaveworks/flux-fluxctl service httpd \
         --address 10.128.0.1:80 --protocol http
 ```
 
@@ -144,7 +144,7 @@ the service.  We tell it that by defining a *selection rule*, using
 the `fluxctl select` command:
 
 ```sh
-docker run --rm -e ETCD_ADDRESS squaremo/flux-fluxctl select httpd default \
+docker run --rm -e ETCD_ADDRESS weaveworks/flux-fluxctl select httpd default \
         --image httpd --port-mapped 80
 ```
 
@@ -155,7 +155,7 @@ service forwarded to port 80 of the container.
 We can see the result of this using the `fluxctl info` command:
 
 ```sh
-$ docker run --rm -e ETCD_ADDRESS squaremo/flux-fluxctl info
+$ docker run --rm -e ETCD_ADDRESS weaveworks/flux-fluxctl info
 httpd
   RULES
     default {"image":"httpd"}
@@ -183,7 +183,7 @@ The Prometheus time series database is a prerequisite for the UI.  So
 first we start it in a container:
 
 ```sh
-$ docker run --name=prometheus -d -e ETCD_ADDRESS -P squaremo/flux-prometheus-etcd
+$ docker run --name=prometheus -d -e ETCD_ADDRESS -P weaveworks/flux-prometheus-etcd
 ```
 
 (The `flux-prometheus-etcd` image is a version of Prometheus
@@ -194,7 +194,7 @@ Next we start the Flux web UI, telling it how to connect to Prometheus:
 ```sh
 $ export PROMETHEUS_ADDRESS=http://$(docker port prometheus 9090)
 $ docker run --name=flux-web -d -e ETCD_ADDRESS -e PROMETHEUS_ADDRESS -P \
-    squaremo/flux-web
+    weaveworks/flux-web
 ```
 
 Now we can point a browser to the address given by `docker port

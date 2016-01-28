@@ -8,10 +8,10 @@ import (
 	etcd "github.com/coreos/etcd/client"
 	"golang.org/x/net/context"
 
-	"github.com/squaremo/flux/common/daemon"
-	"github.com/squaremo/flux/common/data"
-	"github.com/squaremo/flux/common/etcdutil"
-	"github.com/squaremo/flux/common/store"
+	"github.com/weaveworks/flux/common/daemon"
+	"github.com/weaveworks/flux/common/data"
+	"github.com/weaveworks/flux/common/etcdutil"
+	"github.com/weaveworks/flux/common/store"
 )
 
 type etcdStore struct {

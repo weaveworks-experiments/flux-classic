@@ -10,7 +10,7 @@ rather than from the internet -- load-balancing them across the
 services' instances.
 
 The load balancer is available as a Docker image called
-`squaremo/flux-balancer`.
+`weaveworks/flux-balancer`.
 
 ## Operating the load balancer
 
@@ -25,7 +25,7 @@ address reachable by your other hosts) in the environment:
 
 ```
 docker run -d -e ETCD_ADDRESS --cap-add=NET_ADMIN --net=host \
-       squaremo/flux-balancer \
+       weaveworks/flux-balancer \
        --listen-prometheus :9000 --advertise-prometheus $HOST_IP:9000
 ```
 

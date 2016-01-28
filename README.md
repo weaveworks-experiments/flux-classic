@@ -120,7 +120,7 @@ export PROMETHEUS_ADDRESS=http://192.168.99.100:9090
 docker run -d -p 7070:7070 \
        -e ETCD_ADDRESS \
        -e PROMETHEUS_ADDRESS \
-       squaremo/flux-web
+       weaveworks/flux-web
 ```
 
 You should now see the web interface on `http://192.168.99.100:7070/`.

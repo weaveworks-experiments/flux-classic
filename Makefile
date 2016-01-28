@@ -1,4 +1,4 @@
-REPO:=squaremo
+REPO:=weaveworks
 PROJECT:=$(REPO)/flux
 BASEPKG:=github.com/$(PROJECT)
 REVISION:="$(shell git rev-parse --short=12 HEAD)"

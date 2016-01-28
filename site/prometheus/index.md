@@ -17,7 +17,7 @@ listening address (`:9000` is fine).
 ```bash
 docker run -d --net=host --privileged \
        -e ETCD_ADDRESS \
-       squaremo/flux-balancer --listen-prometheus :9000
+       weaveworks/flux-balancer --listen-prometheus :9000
 ```
 
 The `run-flux` script assumes this is what you want, and does it for

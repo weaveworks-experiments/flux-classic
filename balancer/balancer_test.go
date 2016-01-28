@@ -5,9 +5,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/squaremo/flux/balancer/eventlogger"
-	"github.com/squaremo/flux/balancer/model"
-	"github.com/squaremo/flux/common/daemon"
+	"github.com/weaveworks/flux/balancer/eventlogger"
+	"github.com/weaveworks/flux/balancer/model"
+	"github.com/weaveworks/flux/common/daemon"
 )
 
 func TestBalancer(t *testing.T) {

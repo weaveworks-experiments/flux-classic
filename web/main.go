@@ -7,9 +7,9 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/squaremo/flux/common/store"
-	"github.com/squaremo/flux/common/store/etcdstore"
-	"github.com/squaremo/flux/common/version"
+	"github.com/weaveworks/flux/common/store"
+	"github.com/weaveworks/flux/common/store/etcdstore"
+	"github.com/weaveworks/flux/common/version"
 
 	"github.com/gorilla/mux"
 )

@@ -5,9 +5,9 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 
-	"github.com/squaremo/flux/balancer"
-	"github.com/squaremo/flux/common/daemon"
-	"github.com/squaremo/flux/common/version"
+	"github.com/weaveworks/flux/balancer"
+	"github.com/weaveworks/flux/common/daemon"
+	"github.com/weaveworks/flux/common/version"
 )
 
 func iptables(args []string) ([]byte, error) {

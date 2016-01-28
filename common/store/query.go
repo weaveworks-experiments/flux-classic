@@ -1,7 +1,7 @@
 package store
 
 import (
-	"github.com/squaremo/flux/common/data"
+	"github.com/weaveworks/flux/common/data"
 )
 
 type InstanceFunc func(serviceName, instanceName string, inst data.Instance) error

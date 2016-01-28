@@ -10,11 +10,11 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/squaremo/flux/balancer/etcdcontrol"
-	"github.com/squaremo/flux/balancer/model"
-	"github.com/squaremo/flux/common/daemon"
-	"github.com/squaremo/flux/common/store"
-	"github.com/squaremo/flux/common/store/etcdstore"
+	"github.com/weaveworks/flux/balancer/etcdcontrol"
+	"github.com/weaveworks/flux/balancer/model"
+	"github.com/weaveworks/flux/common/daemon"
+	"github.com/weaveworks/flux/common/store"
+	"github.com/weaveworks/flux/common/store/etcdstore"
 )
 
 type BalancerAgent struct {

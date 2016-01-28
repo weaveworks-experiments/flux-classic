@@ -49,7 +49,7 @@ you can do:
 
 ```bash
 docker run -p 8080:80 -d -e ETCD_ADDRESS -e SERVICE=foo-svc \
-       squaremo/flux-edgebal
+       weaveworks/flux-edgebal
 ```
 
 To run in the host network namespace:
@@ -57,7 +57,7 @@ To run in the host network namespace:
 ```bash
 docker run --privileged --net=host -d \
        -e ETCD_ADDRESS -e SERVICE=foo-svc \
-       squaremo/flux-edgebal
+       weaveworks/flux-edgebal
 ```
 
 ## Adapting the image

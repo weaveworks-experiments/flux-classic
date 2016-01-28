@@ -7,7 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/squaremo/flux/common/version"
+	"github.com/weaveworks/flux/common/version"
 )
 
 type versionOpts struct {

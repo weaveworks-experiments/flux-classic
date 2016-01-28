@@ -11,9 +11,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/squaremo/flux/balancer/events"
-	"github.com/squaremo/flux/balancer/model"
-	"github.com/squaremo/flux/common/daemon"
+	"github.com/weaveworks/flux/balancer/events"
+	"github.com/weaveworks/flux/balancer/model"
+	"github.com/weaveworks/flux/common/daemon"
 )
 
 // Test that forward.go plugs everything together correctly, and

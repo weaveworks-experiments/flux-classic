@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/squaremo/flux/balancer/events"
+	"github.com/weaveworks/flux/balancer/events"
 )
 
 func httpShim(inbound, outbound *net.TCPConn, connEvent *events.Connection, eh events.Handler) error {

@@ -9,9 +9,9 @@ import (
 	log "github.com/Sirupsen/logrus"
 	prom "github.com/prometheus/client_golang/prometheus"
 
-	"github.com/squaremo/flux/balancer/events"
-	"github.com/squaremo/flux/common/daemon"
-	"github.com/squaremo/flux/common/etcdutil"
+	"github.com/weaveworks/flux/balancer/events"
+	"github.com/weaveworks/flux/common/daemon"
+	"github.com/weaveworks/flux/common/etcdutil"
 )
 
 type Config struct {

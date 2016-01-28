@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/squaremo/flux/balancer/model"
+	"github.com/weaveworks/flux/balancer/model"
 )
 
 type Handler interface {

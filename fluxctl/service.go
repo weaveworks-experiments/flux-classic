@@ -5,8 +5,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/squaremo/flux/common/data"
-	"github.com/squaremo/flux/common/netutil"
+	"github.com/weaveworks/flux/common/data"
+	"github.com/weaveworks/flux/common/netutil"
 )
 
 const DEFAULT_GROUP = string("default")

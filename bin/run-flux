@@ -2,8 +2,8 @@
 
 set -eo pipefail
 
-BALANCER=squaremo/flux-balancer
-AGENT=squaremo/flux-agent
+BALANCER=weaveworks/flux-balancer
+AGENT=weaveworks/flux-agent
 
 DEFAULT_ETCD="http://127.0.0.1:2379"
 

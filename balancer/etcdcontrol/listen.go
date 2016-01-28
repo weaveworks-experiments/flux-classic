@@ -5,11 +5,11 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 
-	"github.com/squaremo/flux/common/daemon"
-	"github.com/squaremo/flux/common/data"
-	"github.com/squaremo/flux/common/store"
+	"github.com/weaveworks/flux/common/daemon"
+	"github.com/weaveworks/flux/common/data"
+	"github.com/weaveworks/flux/common/store"
 
-	"github.com/squaremo/flux/balancer/model"
+	"github.com/weaveworks/flux/balancer/model"
 )
 
 type Listener struct {

@@ -4,10 +4,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/squaremo/flux/common/daemon"
-	"github.com/squaremo/flux/common/data"
-	"github.com/squaremo/flux/common/store"
-	"github.com/squaremo/flux/common/store/inmem"
+	"github.com/weaveworks/flux/common/daemon"
+	"github.com/weaveworks/flux/common/data"
+	"github.com/weaveworks/flux/common/store"
+	"github.com/weaveworks/flux/common/store/inmem"
 
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/stretchr/testify/require"

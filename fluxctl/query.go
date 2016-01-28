@@ -7,8 +7,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/squaremo/flux/common/data"
-	"github.com/squaremo/flux/common/store"
+	"github.com/weaveworks/flux/common/data"
+	"github.com/weaveworks/flux/common/store"
 )
 
 type queryOpts struct {

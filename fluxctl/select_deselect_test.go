@@ -5,8 +5,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/squaremo/flux/common/data"
-	"github.com/squaremo/flux/common/store"
+	"github.com/weaveworks/flux/common/data"
+	"github.com/weaveworks/flux/common/store"
 )
 
 func TestSelect(t *testing.T) {

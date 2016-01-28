@@ -5,9 +5,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/squaremo/flux/common/daemon"
-	"github.com/squaremo/flux/common/data"
-	"github.com/squaremo/flux/common/store"
+	"github.com/weaveworks/flux/common/daemon"
+	"github.com/weaveworks/flux/common/data"
+	"github.com/weaveworks/flux/common/store"
 
 	log "github.com/Sirupsen/logrus"
 	docker "github.com/fsouza/go-dockerclient"

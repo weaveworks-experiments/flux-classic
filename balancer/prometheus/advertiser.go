@@ -7,9 +7,9 @@ import (
 	etcd "github.com/coreos/etcd/client"
 	"golang.org/x/net/context"
 
-	"github.com/squaremo/flux/common/daemon"
-	"github.com/squaremo/flux/common/etcdutil"
-	"github.com/squaremo/flux/common/netutil"
+	"github.com/weaveworks/flux/common/daemon"
+	"github.com/weaveworks/flux/common/etcdutil"
+	"github.com/weaveworks/flux/common/netutil"
 )
 
 const TTL = 5 * time.Minute

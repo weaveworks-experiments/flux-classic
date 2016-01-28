@@ -211,7 +211,7 @@ We can use the `curl` container image to produce a stream of requests
 to the service:
 
 ```sh
-$ docker run --rm tutum/curl sh -c 'while true ; do curl -s http://1128.0.1/ >/dev/null ; done'
+$ docker run --rm tutum/curl sh -c 'while true ; do curl -s http://10.128.0.1/ >/dev/null ; done'
 ```
 
 Then view the request rates as a chart:

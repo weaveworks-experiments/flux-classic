@@ -27,5 +27,5 @@ docker run -d -e ETCD_ADDRESS -e PROMETHEUS_ADDRESS -p 7070:7070 \
     name=fluxweb weaveworks/flux-web
 ```
 
-See <a href="/prometheus/">"Integrating with Prometheus"</a> for how
-to set Prometheus up.
+See ["Integrating with Prometheus"](/prometheus/) for how to set
+Prometheus up.

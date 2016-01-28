@@ -11,8 +11,8 @@ A running Flux deployment consists of
  instances starting and stopping on that host;
  2. a <a href="/balancer/">balancer</a> on each host, which proxies
  connections to services for clients on that host;
- 3. <a href="/edgebal/">edge balancers</a> on some hosts, which proxy
- connections to services for the outside world.
+ 3. Optionally, <a href="/edgebal/">edge balancers</a>, which accept
+ connections to services from the outside world.
 
 To control and examine the state of your services, Flux provides a
 command-line tool called <a href="/fluxctl/">`fluxctl`</a>. To monitor

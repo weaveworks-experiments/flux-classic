@@ -164,5 +164,5 @@ one to a line. You can supply a template expression to format the
 instance data on each line; for example,
 
 ```
-fluxctl query --format '{{json .}}'
+fluxctl query --format {% raw %}'{{json .}}'{% endraw %}
 ```

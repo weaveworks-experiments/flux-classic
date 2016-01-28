@@ -80,7 +80,7 @@ ask `docker-machine` to list the hosts and use a Swarm scheduling
 constraint to run an agent on each.
 
 ```sh
-$ hosts=$(docker-machine ls -f '{{.Name}}')
+$ hosts=$(docker-machine ls -f {% raw %}'{{.Name}}'{% endraw %})
 $ for h in $hosts ; do \
         docker run -d -e constraint:node==$h -e ETCD_ADDRESS \
             -v /var/run/docker.sock:/var/run/docker.sock \

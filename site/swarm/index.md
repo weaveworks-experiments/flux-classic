@@ -24,7 +24,8 @@ host VMs, and it has some built-in support for Swarm.  See Docker's
 [instructions on creating a Swarm development
 cluster](https://docs.docker.com/swarm/install-manual/) for more
 details.  Here we'll create a modest cluster of two VMs (replacing
-`$driver` with the Docker Machine driver you wish to use):
+`$driver` with the [Docker Machine
+driver](https://docs.docker.com/machine/drivers/) you wish to use):
 
 ```sh
 $ cluster_id=$(docker run --rm swarm create)

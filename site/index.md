@@ -13,7 +13,7 @@ Here are some uses of Flux:
   restarting client containers
 * Internal load-balancing of requests among containers
 * Rolling upgrades and blue-green deployments of microservices
-* When troubleshooting an issue in a microservice architectures,
+* When troubleshooting an issue in a microservice architecture,
   tracking down the microservice to blame
 * Automatic configuration of an edge load balancer (currently nginx is
   supported)

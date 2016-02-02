@@ -21,8 +21,9 @@ Here are some uses of Flux:
 Flux is alpha software.  There may be rough edges, and it is still
 evolving.  We are making preliminary releases in order to gather
 feedback, so please let us know your thoughts. You can file an issue
-on here, or contact us on any of the channels mentioned on the
-[Weaveworks help page](http://www.weave.works/help/).
+on the [github repo](https://github.com/weaveworks/flux/), or contact
+us on any of the channels mentioned on the [Weaveworks help
+page](http://www.weave.works/help/).
 
 ## Documentation
 

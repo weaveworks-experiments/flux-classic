@@ -7,15 +7,28 @@ and lets you use your favorite container scheduler.  All of this is
 controlled from a simple CLI, with a web-based UI to examine the
 behaviour of your services.
 
-Full documentation, including instructions for installation and use,
-is on the Flux website at
-[weaveworks.github.io/flux/](http://weaveworks.github.io/flux/).
+Here are some uses of Flux:
+
+* Allow service containers to be moved between hosts without
+  restarting client containers
+* Internal load-balancing of requests among containers
+* Rolling upgrades and blue-green deployments of microservices
+* When troubleshooting an issue in a microservice architecture,
+  tracking down the microservice to blame
+* Automatic configuration of an edge load balancer (currently nginx is
+  supported)
 
 Flux is alpha software.  There may be rough edges, and it is still
 evolving.  We are making preliminary releases in order to gather
 feedback, so please let us know your thoughts. You can file an issue
 on here, or contact us on any of the channels mentioned on the
 [Weaveworks help page](http://www.weave.works/help/).
+
+## Documentation
+
+Full documentation, including instructions for installation and use,
+is on the Flux website at
+[weaveworks.github.io/flux/](http://weaveworks.github.io/flux/).
 
 ## Developing Flux
 

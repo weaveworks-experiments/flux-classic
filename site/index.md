@@ -24,8 +24,9 @@ container schedulers.  Flux works with Weave Net and other Docker
 network plugins, but does not require them.
 
 If you are new to Flux, please read on to <a
-href="#introduction-to-flux">the introduction</a>. Otherwise, guides
-and reference docs are linked from the contents to the side.
+href="#introduction-to-flux">the introduction</a>, or perhaps try the
+[getting started guide](getstarted). Otherwise, other guides and
+reference docs are linked from the contents to the side.
 
 Flux is alpha software.  There may be rough edges, and it is still
 evolving.  We are making preliminary releases in order to gather

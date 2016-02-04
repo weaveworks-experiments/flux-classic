@@ -13,7 +13,7 @@ Here are some uses of Flux:
   restarting client containers
 * Internal load-balancing of requests among containers
 * Rolling upgrades and blue-green deployments of microservices
-* When troubleshooting an issue in a microservice architectures,
+* When troubleshooting an issue in a microservice architecture,
   tracking down the microservice to blame
 * Automatic configuration of an edge load balancer (currently nginx is
   supported)
@@ -24,8 +24,9 @@ container schedulers.  Flux works with Weave Net and other Docker
 network plugins, but does not require them.
 
 If you are new to Flux, please read on to <a
-href="#introduction-to-flux">the introduction</a>. Otherwise, guides
-and reference docs are linked from the contents to the side.
+href="#introduction-to-flux">the introduction</a>, or perhaps try the
+[getting started guide](getstarted). Otherwise, other guides and
+reference docs are linked from the contents to the side.
 
 Flux is alpha software.  There may be rough edges, and it is still
 evolving.  We are making preliminary releases in order to gather

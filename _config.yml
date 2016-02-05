@@ -4,7 +4,7 @@ description: Weave Flux
 email: help@weave.works
 baseurl: "/flux"
 url: "https://weaveworks.github.io/flux"
-twitter_username: weavenetwork
+twitter_username: weaveworks
 github_username:  weaveworks
 
 # Build settings

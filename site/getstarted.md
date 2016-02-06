@@ -120,7 +120,7 @@ hello-world containers we'll run presently.
 
 ```sh
 $ fluxctl service hello --address 10.128.0.1:80 --protocol=http
-$ fluxctl select hello default --image weaveworks/hello-world --port-mapped 80
+$ fluxctl select hello default --image weaveworks/hello-world
 ```
 
 The first command defines the service, gives it an address, and tells
@@ -128,8 +128,7 @@ Flux that it should treat traffic to the service as HTTP (the default
 is just TCP). The second command adds a rule called `default`, that
 will select containers using the image `weaveworks/hello-world` to be
 instances of the service; i.e., to handle requests to the service
-address ( `--port-mapped` bit says our hello-world containers will
-have a port mapped to `80`, and that's how they should be reached).
+address.
 
 Let's start some of those containers.
 

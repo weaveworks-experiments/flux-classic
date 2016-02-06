@@ -71,10 +71,6 @@ func testServices(s store.Store, t *testing.T) {
 }
 
 var testRule = data.ContainerRule{
-	AddressSpec: data.AddressSpec{
-		Type: "foo",
-		Port: 5678,
-	},
 	Selector: data.Selector{
 		"foo": "bar",
 	},

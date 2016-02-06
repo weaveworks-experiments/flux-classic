@@ -114,7 +114,7 @@ func (m *mockInspector) listenToEvents(events chan<- *docker.APIEvents) {
 
 const GROUP = "deliberately not default"
 
-func addGroup(st store.Store, serviceName string, addr *data.AddressSpec, labels ...string) {
+func addGroup(st store.Store, serviceName string, labels ...string) {
 	if len(labels)%2 != 0 {
 		panic("Expected key value ... as arguments")
 	}
@@ -123,31 +123,37 @@ func addGroup(st store.Store, serviceName string, addr *data.AddressSpec, labels
 		sel[labels[i]] = labels[i+1]
 	}
 
-	if addr == nil {
-		addr = &data.AddressSpec{"fixed", 80}
-	}
-
-	st.SetContainerRule(serviceName, GROUP, data.ContainerRule{*addr, sel})
+	st.SetContainerRule(serviceName, GROUP, data.ContainerRule{sel})
 }
 
-func setup(hostIP string) (*Listener, store.Store, *mockInspector) {
+func setup(hostIP, netmode string) (*Listener, store.Store, *mockInspector) {
 	st := inmem.NewInMemStore()
 	dc := newMockInspector()
+	if netmode == "" {
+		netmode = LOCAL
+	}
 	return NewListener(Config{
 		Store:     st,
+		Network:   netmode,
 		HostIP:    hostIP,
 		Inspector: dc,
 	}), st, dc
 }
 
 func TestListenerReconcile(t *testing.T) {
-	listener, st, dc := setup("10.98.99.100")
-	st.AddService("foo-svc", data.Service{})
-	addGroup(st, "foo-svc", nil, "tag", "bobbins", "image", "foo-image")
-	st.AddService("bar-svc", data.Service{})
-	addGroup(st, "bar-svc", nil, "flux/foo-label", "blorp")
-	st.AddService("boo-svc", data.Service{})
-	addGroup(st, "boo-svc", nil, "env.SERVICE_NAME", "boo")
+	listener, st, dc := setup("10.98.99.100", GLOBAL)
+	st.AddService("foo-svc", data.Service{
+		InstancePort: 80,
+	})
+	addGroup(st, "foo-svc", "tag", "bobbins", "image", "foo-image")
+	st.AddService("bar-svc", data.Service{
+		InstancePort: 80,
+	})
+	addGroup(st, "bar-svc", "flux/foo-label", "blorp")
+	st.AddService("boo-svc", data.Service{
+		InstancePort: 80,
+	})
+	addGroup(st, "boo-svc", "env.SERVICE_NAME", "boo")
 
 	selectedAddress := "192.168.45.67"
 
@@ -175,7 +181,7 @@ func TestListenerReconcile(t *testing.T) {
 }
 
 func TestListenerEvents(t *testing.T) {
-	listener, st, dc := setup("10.98.90.111")
+	listener, st, dc := setup("10.98.90.111", "")
 	// starting condition
 	require.Len(t, allInstances(st), 0)
 
@@ -198,11 +204,11 @@ func TestListenerEvents(t *testing.T) {
 
 	st.AddService("foo-svc", data.Service{})
 	listener.processServiceChange(<-changes)
-	addGroup(st, "foo-svc", nil, "image", "foo-image")
+	addGroup(st, "foo-svc", "image", "foo-image")
 	listener.processServiceChange(<-changes)
 	require.Len(t, allInstances(st), 1)
 
-	addGroup(st, "foo-svc", nil, "image", "not-foo-image")
+	addGroup(st, "foo-svc", "image", "not-foo-image")
 	listener.processServiceChange(<-changes)
 	require.Len(t, allInstances(st), 0)
 
@@ -238,13 +244,12 @@ func allInstances(st store.Store) []data.Instance {
 }
 
 func TestMappedPort(t *testing.T) {
-	listener, st, dc := setup("11.98.99.98")
+	listener, st, dc := setup("11.98.99.98", LOCAL)
 
-	st.AddService("blorp-svc", data.Service{})
-	addGroup(st, "blorp-svc", &data.AddressSpec{
-		Type: data.MAPPED,
-		Port: 8080,
-	}, "image", "blorp-image")
+	st.AddService("blorp-svc", data.Service{
+		InstancePort: 8080,
+	})
+	addGroup(st, "blorp-svc", "image", "blorp-image")
 	dc.startContainers(container{
 		ID:        "blorp-instance",
 		IPAddress: "10.13.14.15",
@@ -266,14 +271,44 @@ func TestMappedPort(t *testing.T) {
 	})
 }
 
-func TestNoAddress(t *testing.T) {
-	listener, st, dc := setup("192.168.3.4")
+func TestMultihostNetworking(t *testing.T) {
+	instAddress := "10.13.14.15"
+	instPort := 8080
 
-	st.AddService("important-svc", data.Service{})
-	addGroup(st, "important-svc", &data.AddressSpec{
-		Type: data.MAPPED,
-		Port: 8080,
-	}, "image", "important-image")
+	listener, st, dc := setup("11.98.99.98", GLOBAL)
+
+	st.AddService("blorp-svc", data.Service{
+		InstancePort: instPort,
+	})
+	addGroup(st, "blorp-svc", "image", "blorp-image")
+	dc.startContainers(container{
+		ID:        "blorp-instance",
+		IPAddress: instAddress,
+		Image:     "blorp-image:tag",
+		Ports: map[string]string{
+			"8080/tcp": "3456",
+		},
+	})
+
+	listener.ReadInServices()
+	listener.ReadExistingContainers()
+
+	require.Len(t, allInstances(st), 1)
+	store.ForeachInstance(st, "blorp-svc", func(_, _ string, inst data.Instance) error {
+		require.Equal(t, instAddress, inst.Address)
+		require.Equal(t, instPort, inst.Port)
+		require.Equal(t, data.LIVE, inst.State)
+		return nil
+	})
+}
+
+func TestNoAddress(t *testing.T) {
+	listener, st, dc := setup("192.168.3.4", LOCAL)
+
+	st.AddService("important-svc", data.Service{
+		InstancePort: 80,
+	})
+	addGroup(st, "important-svc", "image", "important-image")
 	dc.startContainers(container{
 		ID:        "oops-instance",
 		IPAddress: "10.13.14.15",
@@ -294,13 +329,12 @@ func TestNoAddress(t *testing.T) {
 }
 
 func TestHostNetworking(t *testing.T) {
-	listener, st, dc := setup("192.168.5.135")
+	listener, st, dc := setup("192.168.5.135", GLOBAL)
 
-	st.AddService("blorp-svc", data.Service{})
-	addGroup(st, "blorp-svc", &data.AddressSpec{
-		Type: data.FIXED,
-		Port: 8080,
-	}, "image", "blorp-image")
+	st.AddService("blorp-svc", data.Service{
+		InstancePort: 8080,
+	})
+	addGroup(st, "blorp-svc", "image", "blorp-image")
 	dc.startContainers(container{
 		NetworkMode: "host",
 		ID:          "blorp-instance",
@@ -321,7 +355,7 @@ func TestHostNetworking(t *testing.T) {
 }
 
 func TestOtherHostsEntries(t *testing.T) {
-	listener1, st, dc1 := setup("192.168.11.34")
+	listener1, st, dc1 := setup("192.168.11.34", LOCAL)
 	dc2 := newMockInspector()
 	listener2 := NewListener(Config{
 		Store:     st,
@@ -330,7 +364,7 @@ func TestOtherHostsEntries(t *testing.T) {
 	})
 
 	st.AddService("foo-svc", data.Service{})
-	addGroup(st, "foo-svc", nil, "image", "foo-image")
+	addGroup(st, "foo-svc", "image", "foo-image")
 	dc1.startContainers(container{
 		ID:        "bar1",
 		IPAddress: "192.168.34.1",
@@ -368,6 +402,7 @@ func TestOtherHostsEntries(t *testing.T) {
 	// NB: the Read* methods assume once-only execution, on startup.
 	listener2 = NewListener(Config{
 		Store:     st,
+		Network:   LOCAL,
 		HostIP:    "192.168.11.5",
 		Inspector: dc2,
 	})

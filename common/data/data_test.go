@@ -19,8 +19,7 @@ func toMap(vals []string) map[string]string {
 
 func makeSpec(kv ...string) ContainerRule {
 	return ContainerRule{
-		AddressSpec: AddressSpec{"fixed", 8080},
-		Selector:    Selector(toMap(kv)),
+		Selector: Selector(toMap(kv)),
 	}
 }
 

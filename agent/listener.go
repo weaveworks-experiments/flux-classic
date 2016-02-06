@@ -20,6 +20,15 @@ type inspector interface {
 
 type instanceSet map[string]struct{}
 
+const (
+	GLOBAL = "global"
+	LOCAL  = "local"
+)
+
+func IsValidNetworkMode(mode string) bool {
+	return mode == GLOBAL || mode == LOCAL
+}
+
 type service struct {
 	*store.ServiceInfo
 	localInstances instanceSet
@@ -42,6 +51,7 @@ type Listener struct {
 	store     store.Store
 	inspector inspector
 
+	network    string
 	services   map[string]*service
 	containers map[string]*docker.Container
 	hostIP     string
@@ -49,6 +59,7 @@ type Listener struct {
 
 type Config struct {
 	HostIP    string
+	Network   string
 	Store     store.Store
 	Inspector inspector
 }
@@ -57,6 +68,7 @@ func NewListener(config Config) *Listener {
 	listener := &Listener{
 		store:      config.Store,
 		inspector:  config.Inspector,
+		network:    config.Network,
 		services:   make(map[string]*service),
 		containers: make(map[string]*docker.Container),
 		hostIP:     config.HostIP,
@@ -141,7 +153,7 @@ func (l *Listener) redefineService(serviceName string, newService *store.Service
 
 func (l *Listener) evaluate(container *docker.Container, svc *service) (bool, error) {
 	for _, spec := range svc.ContainerRules {
-		if instance, ok := l.extractInstance(spec.ContainerRule, container); ok {
+		if instance, ok := l.extractInstance(spec.ContainerRule, svc.ServiceInfo.Service, container); ok {
 			instance.ContainerRule = spec.Name
 			instName := instanceNameFor(container)
 			err := l.store.AddInstance(svc.Name, instName, instance)
@@ -183,13 +195,13 @@ func (container containerLabels) Label(label string) string {
 	}
 }
 
-func (l *Listener) extractInstance(spec data.ContainerRule, container *docker.Container) (data.Instance, bool) {
+func (l *Listener) extractInstance(spec data.ContainerRule, svc data.Service, container *docker.Container) (data.Instance, bool) {
 	var inst data.Instance
 	if !spec.Includes(containerLabels{container}) {
 		return inst, false
 	}
 
-	ipAddress, port := l.getAddress(spec, container)
+	ipAddress, port := l.getAddress(spec, svc, container)
 	if port == 0 {
 		log.Infof(`Cannot extract address for instance, from container '%s'`, container.ID)
 		inst.State = data.NOADDR
@@ -230,13 +242,30 @@ func (l *Listener) removeContainer(instName string) error {
 	return nil
 }
 
-func (l *Listener) getAddress(spec data.ContainerRule, container *docker.Container) (string, int) {
-	addrSpec := spec.AddressSpec
-	switch addrSpec.Type {
-	case data.MAPPED:
-		return l.mappedPortAddress(container, addrSpec.Port)
-	case data.FIXED:
-		return l.fixedPortAddress(container, addrSpec.Port)
+/*
+Extract an address from a container, according to what we've been told
+about the service.
+
+There are two special cases:
+ - if the service has no instance port, we have no chance of getting an
+address, so just let the container be considered unaddressable;
+ - if the container has been run with `--net=host`; this means the
+container is using the host's networking stack, so we should use the
+host IP address.
+
+*/
+func (l *Listener) getAddress(spec data.ContainerRule, svc data.Service, container *docker.Container) (string, int) {
+	if svc.InstancePort == 0 {
+		return "", 0
+	}
+	if container.HostConfig.NetworkMode == "host" {
+		return l.hostIP, svc.InstancePort
+	}
+	switch l.network {
+	case LOCAL:
+		return l.mappedPortAddress(container, svc.InstancePort)
+	case GLOBAL:
+		return l.fixedPortAddress(container, svc.InstancePort)
 	}
 	return "", 0
 }
@@ -268,15 +297,8 @@ func (l *Listener) mappedPortAddress(container *docker.Container, port int) (str
 Extract a "fixed port" address. This mode assumes that the balancer
 will be able to connect to the container, potentially across hosts,
 using the address Docker has assigned it.
-
-There's a special case, which is if the container has been run with
-`--net=host`; this means the container is using the host's networking
-stack, so we should just use the host IP address.
 */
 func (l *Listener) fixedPortAddress(container *docker.Container, port int) (string, int) {
-	if container.HostConfig.NetworkMode == "host" {
-		return l.hostIP, port
-	}
 	return container.NetworkSettings.IPAddress, port
 }
 

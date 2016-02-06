@@ -160,12 +160,14 @@ the service.  We tell it that by defining a _selection rule_, using
 the `fluxctl select` subcommand:
 
 ```sh
-$ $fluxctl select httpd default --image httpd --port-mapped 80
+$ $fluxctl select httpd default --image httpd
 ```
 
 This specifies that containers using the Docker image `httpd` should
-be associated with the `httpd` service, with connections to the
-service forwarded to port 80 of the container.
+be associated with the `httpd` service. Connections to the service
+will be forwarded to port 80 of the container, since that's the port
+given in the service address (it's also possible to supply a different
+container port when defining the service).
 
 We can see the result of this using the `fluxctl info` subcommand:
 

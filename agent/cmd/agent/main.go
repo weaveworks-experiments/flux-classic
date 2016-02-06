@@ -28,12 +28,21 @@ func setupDockerClient() (*docker.Client, error) {
 }
 
 func main() {
-	log.Infof("flux agent version %s", version.Version())
 	var (
-		hostIP string
+		hostIP  string
+		network string
 	)
 	flag.StringVar(&hostIP, "host-ip", "", "IP address for instances with mapped ports")
+	flag.StringVar(&network, "network-mode", agent.LOCAL, fmt.Sprintf(`Kind of network to assume for containers (either "%s" or "%s")`, agent.LOCAL, agent.GLOBAL))
 	flag.Parse()
+
+	if !agent.IsValidNetworkMode(network) {
+		fmt.Fprintf(os.Stderr, "Unknown network mode \"%s\"\n\n", network)
+		flag.Usage()
+		os.Exit(1)
+	}
+
+	log.Infof("flux agent version %s", version.Version())
 
 	dc, err := setupDockerClient()
 	if err != nil {
@@ -69,6 +78,7 @@ func main() {
 
 	listener := agent.NewListener(agent.Config{
 		HostIP:    hostIP,
+		Network:   network,
 		Store:     store,
 		Inspector: dc,
 	})

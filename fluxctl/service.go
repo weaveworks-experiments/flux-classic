@@ -15,8 +15,9 @@ type addOpts struct {
 	baseOpts
 	spec
 
-	address  string
-	protocol string
+	address      string
+	instancePort int
+	protocol     string
 }
 
 func (opts *addOpts) makeCommand() *cobra.Command {
@@ -28,6 +29,7 @@ func (opts *addOpts) makeCommand() *cobra.Command {
 	}
 	addCmd.Flags().StringVar(&opts.address, "address", "", "in the format <ipaddr>:<port>, the IP address and port at which the service should be made available on each host.")
 	addCmd.Flags().StringVarP(&opts.protocol, "protocol", "p", "", `the protocol to assume for connections to the service; either "http" or "tcp". Overrides the protocol given in --address if present.`)
+	addCmd.Flags().IntVar(&opts.instancePort, "instance-port", 0, "port to use for instance addresses (if not the same as in the service address).")
 	opts.addSpecVars(addCmd)
 	return addCmd
 }
@@ -50,8 +52,14 @@ func (opts *addOpts) run(cmd *cobra.Command, args []string) error {
 	serviceName := args[0]
 
 	svc, err := parseAddress(opts.address)
+
 	if opts.protocol != "" {
 		svc.Protocol = opts.protocol
+	}
+	if opts.instancePort == 0 {
+		svc.InstancePort = svc.Port
+	} else {
+		svc.InstancePort = opts.instancePort
 	}
 
 	err = opts.store.AddService(serviceName, svc)

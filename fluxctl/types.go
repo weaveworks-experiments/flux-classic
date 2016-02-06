@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -99,30 +98,12 @@ type spec struct {
 
 func (opts *spec) addSpecVars(cmd *cobra.Command) {
 	opts.addSelectorVars(cmd)
-	cmd.Flags().IntVar(&opts.fixed, "port-fixed", 0, "Use a fixed port, and get the IP address from docker network settings")
-	cmd.Flags().IntVar(&opts.mapped, "port-mapped", 0, "Use the host IP address, and the host port mapped to the given container port")
 }
 
 func (opts *spec) makeSpec() (*data.ContainerRule, error) {
-	var addrSpec data.AddressSpec
-
-	sel := opts.makeSelector()
-
-	if !sel.Empty() {
-		if opts.mapped > 0 && opts.fixed > 0 {
-			return nil, fmt.Errorf("You cannot use both fixed and mapped port for a rule")
-		}
-		if opts.mapped > 0 {
-			addrSpec = data.AddressSpec{Type: data.MAPPED, Port: opts.mapped}
-		} else if opts.fixed > 0 {
-			addrSpec = data.AddressSpec{Type: data.FIXED, Port: opts.fixed}
-		} else {
-			return nil, fmt.Errorf("Along with selection flags, you must supply one of --port-fixed or --port-mapped")
-		}
-
+	if sel := opts.makeSelector(); !sel.Empty() {
 		return &data.ContainerRule{
-			AddressSpec: addrSpec,
-			Selector:    sel,
+			Selector: sel,
 		}, nil
 	} else {
 		return nil, nil

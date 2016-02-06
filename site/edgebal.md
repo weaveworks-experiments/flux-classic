@@ -25,21 +25,24 @@ command line, on 0.0.0.0:80.
 
 ### Operating the edge balancer
 
-The nginx process needs to be able to reach instances of the
-service. Usually, this means you will need one of these situations:
-
- - the balancer and the instances are all on the same Docker network
-   (e.g., a bridge network on a single host, or a Weave network) and
-   you are using `--port-fixed` when selecting instances; or,
-   
- - you are using `--port-mapped`, in which case each instance is
-   addressed via a host IP.
-
 You will also want to be able to reach the edge balancer from
 "outside", which will most likely mean you need to publish a port for
 it (`-p 8080:80`), or run it in the host network namespace
 (`--net=host`). The latter will also require `--privileged`, since it
 needs to bind to a privileged port (`80`).
+
+The nginx process needs to be able to reach instances of the
+service. Usually, this means you will need one of these situations:
+
+ - the edge balancer and the instances are all on a common, cross-host
+   network (e.g., a Weave network), and you have told the agents to
+   use `--network-mode=global`. If you run the edge balancer in the
+   host network namespace, you will need to give the host an interface
+   on the common network, e.g., by using `weave expose`.
+
+ - you are using `--network-mode=local`, in which case the edge
+   balancer will be able to reach each instance via a host IP address
+   and forwarded port.
 
 ### Trying it out
 

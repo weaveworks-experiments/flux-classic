@@ -43,25 +43,19 @@ func TestParseAddress(t *testing.T) {
 
 func TestServiceAddress(t *testing.T) {
 	st, err := runOpts(&addOpts{}, []string{
-		"foo", "--address", "10.3.4.5:8000"})
+		"foo", "--address", "10.3.4.5:8000", "--instance-port", "7777"})
 	require.NoError(t, err)
 	services := allServices(t, st)
 	require.Len(t, services, 1)
 	require.Equal(t, "foo", services[0].Name)
 	require.Equal(t, "10.3.4.5", services[0].Address)
 	require.Equal(t, 8000, services[0].Port)
-}
-
-func TestServiceSelectMissingPortSpec(t *testing.T) {
-	_, err := runOpts(&addOpts{}, []string{
-		"svc", "--image", "repo/image",
-	})
-	require.Error(t, err)
+	require.Equal(t, 7777, services[0].InstancePort)
 }
 
 func TestServiceSelect(t *testing.T) {
 	st, err := runOpts(&addOpts{}, []string{
-		"svc", "--image", "repo/image", "--port-fixed", "9000",
+		"svc", "--image", "repo/image",
 	})
 	require.NoError(t, err)
 	services := allServices(t, st)
@@ -76,5 +70,4 @@ func TestServiceSelect(t *testing.T) {
 	require.Equal(t, data.Selector(map[string]string{
 		"image": "repo/image",
 	}), spec.Selector)
-	require.Equal(t, data.AddressSpec{"fixed", 9000}, spec.AddressSpec)
 }

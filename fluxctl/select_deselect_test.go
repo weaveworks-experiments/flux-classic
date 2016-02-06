@@ -10,15 +10,9 @@ import (
 )
 
 func TestSelect(t *testing.T) {
-	// No port specification
-	_, err := runOpts(&selectOpts{}, []string{
-		"foo-svc", "bar-rule", "--image", "whatever",
-	})
-	require.Error(t, err)
-
 	// No such service
-	_, err = runOpts(&selectOpts{}, []string{
-		"doop-svc", "bar-rule", "--image", "whatever", "--port-fixed", "80",
+	_, err := runOpts(&selectOpts{}, []string{
+		"doop-svc", "bar-rule", "--image", "whatever",
 	})
 	require.Error(t, err)
 
@@ -34,15 +28,10 @@ func TestSelect(t *testing.T) {
 	})
 	require.Error(t, err)
 
-	err = runOptsWithStore(&selectOpts{}, st, []string{
-		"foo-svc", "no-port-rule", "--image", "foo/bar",
-	})
-	require.Error(t, err)
-
 	opts := &selectOpts{}
 	bout, berr := opts.tapOutput()
 	err = runOptsWithStore(opts, st, []string{
-		"foo-svc", "ok-rule", "--image", "foo/bar", "--port-fixed", "80",
+		"foo-svc", "ok-rule", "--image", "foo/bar",
 	})
 	require.NoError(t, err)
 	require.Equal(t, "ok-rule\n", bout.String())
@@ -55,10 +44,6 @@ func TestSelect(t *testing.T) {
 	require.Equal(t, store.ContainerRuleInfo{
 		Name: "ok-rule",
 		ContainerRule: data.ContainerRule{
-			AddressSpec: data.AddressSpec{
-				Type: data.FIXED,
-				Port: 80,
-			},
 			Selector: map[string]string{
 				"image": "foo/bar",
 			},

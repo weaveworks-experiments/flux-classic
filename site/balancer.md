@@ -65,7 +65,9 @@ Usage:
     	listen for connections from Prometheus on this IP address and port; e.g., :9000
 ```
 
-Of these, you will most likely only even need to supply `-listen-prometheus` and `-advertise-prometheus`. `-bridge` may be useful if you are using an interesting 
+Of these, you will most likely only even need to supply
+`-listen-prometheus` and `-advertise-prometheus`. `-bridge` may be
+useful if you have an unorthodox Docker networking setup.
 
 You can also add `--debug` as an option to get more detailed log
 output.

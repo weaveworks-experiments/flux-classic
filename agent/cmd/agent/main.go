@@ -30,9 +30,11 @@ func setupDockerClient() (*docker.Client, error) {
 func main() {
 	log.Infof("flux agent version %s", version.Version())
 	var (
-		hostIP string
+		hostIP  string
+		network string
 	)
 	flag.StringVar(&hostIP, "host-ip", "", "IP address for instances with mapped ports")
+	flag.StringVar(&network, "network", "local", "Kind of network to assume for containers (local|global)")
 	flag.Parse()
 
 	dc, err := setupDockerClient()
@@ -69,6 +71,7 @@ func main() {
 
 	listener := agent.NewListener(agent.Config{
 		HostIP:    hostIP,
+		Network:   network,
 		Store:     store,
 		Inspector: dc,
 	})

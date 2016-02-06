@@ -66,7 +66,8 @@ $ docker run --name=fluxagent -d -e ETCD_ADDRESS \
 The agent needs to know where etcd is, and needs to be able to connect
 to the Docker socket, to detect containers starting and stopping. It
 also needs to know what IP address containers will be reachable on --
-in this case, the host IP from before.
+in this case, the host IP from before, and the kind of network the
+containers will run on.
 
 Now, the balancer:
 
@@ -120,7 +121,7 @@ hello-world containers we'll run presently.
 
 ```sh
 $ fluxctl service hello --address 10.128.0.1:80 --protocol=http
-$ fluxctl select hello default --image weaveworks/hello-world --port-mapped 80
+$ fluxctl select hello default --image weaveworks/hello-world
 ```
 
 The first command defines the service, gives it an address, and tells

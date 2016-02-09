@@ -1,4 +1,4 @@
 FROM gliderlabs/alpine
-ENTRYPOINT ["/bin/dlisten"]
+ENTRYPOINT ["/home/flux/agent"]
 
-COPY agent /bin/dlisten
+COPY ./agent /home/flux/

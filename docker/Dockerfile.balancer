@@ -1,5 +1,5 @@
 FROM gliderlabs/alpine
-ENTRYPOINT ["/home/flux/server"]
+ENTRYPOINT ["/home/flux/balancer"]
 RUN apk add --update iptables \
   && rm -rf /var/cache/apk/*
-COPY ./balancer /home/flux/server
+COPY ./balancer /home/flux/

@@ -8,14 +8,14 @@ export default class Instance extends React.Component {
 
   renderOther() {
     const imageTitle = `Image:tag: ${this.props.labels.image}:${this.props.labels.tag}`;
-    const addressTitle = `Address: ${this.props.address}:${this.props.port}`;
+    const address = (this.props.state === 'live') ? `${this.props.address}:${this.props.port}` : this.props.state;
     return (
       <div className="instance-other">
         <div className="instance-other-field truncate" title={imageTitle}>
           {this.props.labels.image}:{this.props.labels.tag}
         </div>
-        <div className="instance-other-field truncate" title={addressTitle}>
-          {`${this.props.address}:${this.props.port}`}
+        <div className="instance-other-field truncate" title={'Address: ' + address}>
+          {address}
           {' ('}
           <span className="instance-other-field-label">host:</span>
           {this.props.ownerID}
@@ -26,10 +26,12 @@ export default class Instance extends React.Component {
   }
 
   render() {
-    const heroMetric = this.props.heroMetric === undefined ? '--' : formatMetric(this.props.heroMetric);
+    const heroMetric = this.props.heroMetric === undefined ? '\u2014' : formatMetric(this.props.heroMetric);
     const className = classnames({
       instance: true,
-      'instance-selected': this.props.selected
+      'instance-selected': this.props.selected,
+      'state-live': this.props.state === 'live',
+      'state-unused': this.props.state !== 'live',
     });
     return (
       <div className={className} key={this.props.name} onClick={this.props.handleClick}>

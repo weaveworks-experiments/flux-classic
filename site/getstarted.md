@@ -179,5 +179,26 @@ Now you should be able to see the service by pointing a browser at
 
 ![Hello World in a browser](hello-world.png)
 
+## Starting the web UI
+
+Flux had a web console for seeing the services with ther instances,
+and tracking their metrics.
+
+To run it, we need the etcd address and the Prometheus address from
+before.
+
+```sh
+$ docker run --name=flux-web -d -e ETCD_ADDRESS -e PROMETHEUS_ADDRESS -P \
+    weaveworks/flux-web
+```
+
+The `-P` means Docker will choose the port on which to expose the web
+UI; you can see what address to open using `docker port flux-web
+7070`, or just use `-p 7070:7070` in the above to fix it to `7070`.
+
+Behold the web UI:
+
+![Flux web user interface example](images/flux-ui.png)
+
 [docker-install]: https://docs.docker.com/engine/installation/
 [docker-machine]: https://docs.docker.com/machine/install-machine/

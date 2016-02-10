@@ -239,3 +239,36 @@ exist, the chart shows the change in HTTP status code indicating the
 error:
 
 <img src="images/swarm-ui-httpd-chart-nosuch.jpg" alt="Flux UI" width="800" height="522"/>
+
+## Integrating load balancers
+
+Here, we will deploy a load balancer to make our service accessible
+outside our application.
+
+So far we have set Flux up to route traffic internal to our
+application. However, for most applications you will want at least one
+service -- for example, a public API service -- to be accessible from
+outside the application. The usual way to do this is by configuring an
+HTTP proxy, like Nginx or HAProxy, to act as a load balancer (and
+possibly a reverse proxy too).
+
+Flux can dynamically reconfigure an HTTP load balancer, and includes a
+pre-baked image to show how it's done. We'll use it to make our
+"httpd" service available in a browser.
+
+Since we want this to be available from outside, we will need a stable
+address. We'll use our swarm master and its IP address, arbitrarily,
+and map to a _specific_ port.
+
+The pre-baked image is supplied with an address for etcd, and the name
+of the service to load balance:
+
+```sh
+$ docker $(docker-machine config swarm-master) run \
+    -p 8080:80 -d -e ETCD_ADDRESS -e SERVICE=httpd \
+    weaveworks/flux-edgebal
+```
+
+Now you should be able to visit `http://$(docker-machine ip
+swarm-master):8080/` in a browser. If you start or stop `httpd`
+containers, Nginx will be told to load a new configuration.

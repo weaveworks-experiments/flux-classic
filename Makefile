@@ -21,6 +21,9 @@ CMD_DIR_fluxctl:=fluxctl
 CMD_DIR_balancer:=balancer/cmd/balancer
 CMD_DIR_balagent:=balancer/cmd/balagent
 
+# Delete files produced by failing recipes
+.DELETE_ON_ERROR:
+
 .PHONY: images
 images: $(foreach i,$(IMAGES),docker/$(i).tar)
 

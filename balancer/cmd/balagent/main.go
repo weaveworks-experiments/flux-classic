@@ -1,6 +1,8 @@
 package main
 
 import (
+	"os"
+
 	log "github.com/Sirupsen/logrus"
 
 	"github.com/weaveworks/flux/balancer/balagent"
@@ -10,7 +12,7 @@ import (
 
 func main() {
 	log.Infof("flux balagent version %s", version.Version())
-	daemon.Main(func(args []string, errs daemon.ErrorSink) daemon.Daemon {
-		return balagent.StartBalancerAgent(args, errs)
+	daemon.Main(func(errs daemon.ErrorSink) daemon.Component {
+		return balagent.StartBalancerAgent(os.Args, errs)
 	})
 }

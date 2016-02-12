@@ -9,11 +9,7 @@ import (
 	"syscall"
 )
 
-type Daemon interface {
-	Stop()
-}
-
-func Main(start func(args []string, errorSink ErrorSink) Daemon) {
+func Main(start StartFunc) {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
 	sigs := make(chan os.Signal, 2)
@@ -21,7 +17,7 @@ func Main(start func(args []string, errorSink ErrorSink) Daemon) {
 
 	errorSink := NewErrorSink()
 
-	d := start(os.Args, errorSink)
+	d := start(errorSink)
 	exitCode := 0
 	var exitSignal os.Signal
 

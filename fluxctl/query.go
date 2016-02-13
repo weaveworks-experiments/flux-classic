@@ -15,6 +15,9 @@ type queryOpts struct {
 	baseOpts
 	selector
 
+	host    string
+	state   string
+	rule    string
 	service string
 	format  string
 	quiet   bool
@@ -29,6 +32,9 @@ func (opts *queryOpts) makeCommand() *cobra.Command {
 	}
 	opts.addSelectorVars(cmd)
 	cmd.Flags().StringVarP(&opts.service, "service", "s", "", "print only instances in <service>")
+	cmd.Flags().StringVar(&opts.host, "host", "", "select only containers on the given host")
+	cmd.Flags().StringVar(&opts.state, "state", "", `select only containers in the given state (e.g., "live")`)
+	cmd.Flags().StringVar(&opts.rule, "rule", "", "show only containers selected by the rule named")
 	cmd.Flags().StringVarP(&opts.format, "format", "f", "", "format each instance according to the go template given (overrides --quiet)")
 	cmd.Flags().BoolVarP(&opts.quiet, "quiet", "q", false, "print only instance names, one to a line")
 	return cmd
@@ -47,6 +53,16 @@ const (
 
 func (opts *queryOpts) run(_ *cobra.Command, args []string) error {
 	sel := opts.makeSelector()
+
+	if opts.host != "" {
+		sel[data.HostLabel] = opts.host
+	}
+	if opts.state != "" {
+		sel[data.StateLabel] = opts.state
+	}
+	if opts.rule != "" {
+		sel[data.RuleLabel] = opts.rule
+	}
 
 	var printInstance func(string, string, data.Instance) error
 

@@ -26,9 +26,15 @@ const (
 	NOADDR InstanceState = "no address"
 )
 
+const (
+	HostLabel  = "host"
+	StateLabel = "state"
+	RuleLabel  = "rule"
+)
+
 type Instance struct {
 	State         InstanceState     `json:"state"`
-	OwnerID       string            `json:"ownerID"`
+	Host          string            `json:"host"`
 	ContainerRule string            `json:"containerRule"`
 	Address       string            `json:"address,omitempty"`
 	Port          int               `json:"port,omitempty"`
@@ -40,7 +46,16 @@ type Labeled interface {
 }
 
 func (inst Instance) Label(k string) string {
-	return inst.Labels[k]
+	switch k {
+	case HostLabel:
+		return inst.Host
+	case StateLabel:
+		return string(inst.State)
+	case RuleLabel:
+		return inst.ContainerRule
+	default:
+		return inst.Labels[k]
+	}
 }
 
 func (sel Selector) Includes(s Labeled) bool {

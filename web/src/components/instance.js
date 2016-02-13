@@ -18,7 +18,7 @@ export default class Instance extends React.Component {
           {address}
           {' ('}
           <span className="instance-other-field-label">host:</span>
-          {this.props.ownerID}
+          {this.props.host}
           {')'}
         </div>
       </div>

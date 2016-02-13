@@ -91,8 +91,6 @@ func (opts *selector) addSelectorVars(cmd *cobra.Command) {
 }
 
 type spec struct {
-	fixed  int
-	mapped int
 	selector
 }
 

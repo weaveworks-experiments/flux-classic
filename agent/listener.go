@@ -76,14 +76,8 @@ func NewListener(config Config) *Listener {
 	return listener
 }
 
-// A host identifier so we can tell which instances belong to this
-// host when removing stale entries.
-func (l *Listener) ownerID() string {
-	return l.hostIP
-}
-
 func (l *Listener) owns(inst data.Instance) bool {
-	return l.ownerID() == inst.OwnerID
+	return l.hostIP == inst.Host
 }
 
 // instanceNameFor and instanceNameFromEvent encode the fact we just
@@ -223,7 +217,7 @@ func (l *Listener) extractInstance(spec data.ContainerRule, svc data.Service, co
 		labels["env."+kv[0]] = kv[1]
 	}
 	inst.Labels = labels
-	inst.OwnerID = l.ownerID()
+	inst.Host = l.hostIP
 	return inst, true
 }
 

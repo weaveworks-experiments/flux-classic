@@ -75,15 +75,17 @@ build/bin/%: $(call image_stamp,build) docker/build-wrapper.sh $(GO_SRCS_common)
 	rm -f $@
 	$(call run_build_container,build,-e GOPATH=/build,$(CMD_DIR_$(*F)),go install $(GOFLAGS) .)
 
+GO_TEST_OPTS:=-timeout 5s
+
 .PHONY: $(foreach i,$(GODIRS),test-$(i))
 $(foreach i,$(GODIRS),test-$(i)): test-%: $(call image_stamp,build)
 	$(get_vendor_submodules)
-	$(call run_build_container,build,-e GOPATH=/build,,go test ./$*/...)
+	$(call run_build_container,build,-e GOPATH=/build,,go test $(GO_TEST_OPTS) ./$*/...)
 
 .PHONY: test
 test:: $(call image_stamp,build)
 	$(get_vendor_submodules)
-	$(call run_build_container,build,-e GOPATH=/build,,go test $$(go list ./... | grep -v /vendor/))
+	$(call run_build_container,build,-e GOPATH=/build,,go test $(GO_TEST_OPTS) $$(go list ./... | grep -v /vendor/))
 
 .PHONY: cover
 cover: $(call image_stamp,build)
@@ -92,7 +94,7 @@ cover: $(call image_stamp,build)
 	$(call run_build_container,build,-e GOPATH=/build,,\
 	    for d in $$(find * -path vendor -prune -o -name "*_test.go" -printf "%h\n" | sort -u); do \
 	        mkdir -p cover/$$d && \
-	        go test -coverprofile=cover/$$d.out $(BASEPKG)/$$d && \
+	        go test $(GO_TEST_OPTS) -coverprofile=cover/$$d.out $(BASEPKG)/$$d && \
 	        go tool cover -html=cover/$$d.out -o cover/$$d.html ; \
 	    done)
 

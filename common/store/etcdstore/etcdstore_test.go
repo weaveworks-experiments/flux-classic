@@ -26,8 +26,8 @@ func TestEtcdStore(t *testing.T) {
 	require.Nil(t, err)
 	defer func() { require.Nil(t, server.Destroy()) }()
 
-	c, err := etcd.New(etcd.Config{Endpoints: []string{
-		fmt.Sprintf("http://localhost:%d", server.Port)}})
+	c, err := etcdutil.NewClient(
+		fmt.Sprintf("http://localhost:%d", server.Port))
 	require.Nil(t, err)
-	test.RunStoreTestSuite(newEtcdStore(etcdutil.NewClient(c)), t)
+	test.RunStoreTestSuite(newEtcdStore(c), t)
 }

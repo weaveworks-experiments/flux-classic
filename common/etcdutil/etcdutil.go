@@ -12,11 +12,16 @@ type Client struct {
 	etcd.KeysAPI
 }
 
-func NewClient(c etcd.Client) Client {
+func NewClient(endpoints ...string) (Client, error) {
+	c, err := etcd.New(etcd.Config{Endpoints: endpoints})
+	if err != nil {
+		return Client{}, err
+	}
+
 	return Client{
 		Client:  c,
 		KeysAPI: etcd.NewKeysAPI(c),
-	}
+	}, nil
 }
 
 func NewClientFromEnv() (Client, error) {
@@ -25,12 +30,7 @@ func NewClientFromEnv() (Client, error) {
 		return Client{}, fmt.Errorf("ETCD_ADDRESS environment variable not set; expected the address of the etcd server")
 	}
 
-	c, err := etcd.New(etcd.Config{Endpoints: []string{addr}})
-	if err != nil {
-		return Client{}, err
-	}
-
-	return NewClient(c), nil
+	return NewClient(addr)
 }
 
 func (c *Client) EtcdClient() etcd.Client {

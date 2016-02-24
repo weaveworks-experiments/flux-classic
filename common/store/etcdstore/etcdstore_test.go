@@ -1,7 +1,6 @@
 package etcdstore
 
 import (
-	"fmt"
 	"testing"
 
 	etcd "github.com/coreos/etcd/client"
@@ -26,8 +25,7 @@ func TestEtcdStore(t *testing.T) {
 	require.Nil(t, err)
 	defer func() { require.Nil(t, server.Destroy()) }()
 
-	c, err := etcdutil.NewClient(
-		fmt.Sprintf("http://localhost:%d", server.Port))
+	c, err := etcdutil.NewClient(server.URL())
 	require.Nil(t, err)
 	test.RunStoreTestSuite(newEtcdStore(c), t)
 }

@@ -6,7 +6,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/weaveworks/flux/balancer/eventlogger"
-	"github.com/weaveworks/flux/balancer/model"
 	"github.com/weaveworks/flux/common/daemon"
 )
 
@@ -15,7 +14,6 @@ func TestBalancer(t *testing.T) {
 	d := BalancerDaemon{
 		errorSink:    daemon.NewErrorSink(),
 		ipTablesCmd:  ipTables.cmd,
-		controller:   mockController{},
 		eventHandler: eventlogger.EventLogger{},
 		netConfig: netConfig{
 			chain:  "FLUX",
@@ -31,13 +29,4 @@ func TestBalancer(t *testing.T) {
 	for c, _ := range ipTables.chains {
 		require.Contains(t, builtinChains, c)
 	}
-}
-
-type mockController struct{}
-
-func (mockController) Updates() <-chan model.ServiceUpdate {
-	return nil
-}
-
-func (mockController) Close() {
 }

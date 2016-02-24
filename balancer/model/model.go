@@ -80,11 +80,6 @@ func (a *Service) Equal(b *Service) bool {
 }
 
 type ServiceUpdate struct {
-	Service
-	Delete bool
-}
-
-type Controller interface {
-	Updates() <-chan ServiceUpdate
-	Close()
+	Updates map[string]*Service
+	Reset   bool
 }

@@ -384,7 +384,9 @@ func (es *etcdStore) WatchServices(ctx context.Context, resCh chan<- data.Servic
 		for {
 			next, err := watcher.Next(ctx)
 			if err != nil {
-				errorSink.Post(err)
+				if err != context.Canceled {
+					errorSink.Post(err)
+				}
 				break
 			}
 

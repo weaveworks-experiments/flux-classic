@@ -43,7 +43,7 @@ func TestServices(t *testing.T) {
 
 	errorSink := daemon.NewErrorSink()
 	updates := make(chan model.ServiceUpdate)
-	done := make(chan struct{}, 1)
+	done := make(chan model.ServiceUpdate, 1)
 	svcs := servicesConfig{
 		netConfig:    nc,
 		updates:      updates,
@@ -55,6 +55,14 @@ func TestServices(t *testing.T) {
 
 	ip := net.ParseIP("127.42.0.1")
 	port := 8888
+
+	update := func(svc model.Service, reset bool) {
+		updates <- model.ServiceUpdate{
+			Updates: map[string]*model.Service{svc.Name: &svc},
+			Reset:   reset,
+		}
+		<-done
+	}
 
 	// Add a service
 	svc := model.Service{
@@ -71,8 +79,7 @@ func TestServices(t *testing.T) {
 			},
 		},
 	}
-	updates <- model.ServiceUpdate{Service: svc}
-	<-done
+	update(svc, true)
 	requireForwarding(t, &mipt)
 
 	insts := []model.Instance{
@@ -86,54 +93,52 @@ func TestServices(t *testing.T) {
 
 	// Update it
 	svc.Instances = insts
-	updates <- model.ServiceUpdate{Service: svc}
-	<-done
+	update(svc, false)
 	requireForwarding(t, &mipt)
 
 	// forwarding -> rejecting
 	svc.Instances = nil
-	updates <- model.ServiceUpdate{Service: svc}
-	<-done
+	update(svc, false)
 	requireRejecting(t, &mipt)
 
 	// rejecting -> not forwarding
 	svc.IP = nil
 	svc.Port = 0
-	updates <- model.ServiceUpdate{Service: svc}
-	<-done
+	update(svc, false)
 	requireNotForwarding(t, &mipt)
 
 	// not forwarding -> forwarding
 	svc.IP = ip
 	svc.Port = port
 	svc.Instances = insts
-	updates <- model.ServiceUpdate{Service: svc}
-	<-done
+	update(svc, false)
 	requireForwarding(t, &mipt)
 
 	// Now back the other way
 	// forwarding -> not forwarding
 	svc.IP = nil
 	svc.Port = 0
-	updates <- model.ServiceUpdate{Service: svc}
-	<-done
+	update(svc, false)
 	requireNotForwarding(t, &mipt)
 
 	// not forwarding -> rejecting
 	svc.IP = ip
 	svc.Port = port
 	svc.Instances = nil
-	updates <- model.ServiceUpdate{Service: svc}
-	<-done
+	update(svc, false)
 	requireRejecting(t, &mipt)
 
 	// Delete it
-	updates <- model.ServiceUpdate{Service: svc, Delete: true}
+	updates <- model.ServiceUpdate{
+		Updates: map[string]*model.Service{svc.Name: nil},
+	}
 	<-done
 	requireNotForwarding(t, &mipt)
 
 	// Delete it, even though it doesn't exist
-	updates <- model.ServiceUpdate{Service: svc, Delete: true}
+	updates <- model.ServiceUpdate{
+		Updates: map[string]*model.Service{svc.Name: nil},
+	}
 	<-done
 
 	svcs.close()

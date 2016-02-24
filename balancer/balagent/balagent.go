@@ -23,8 +23,10 @@ type BalancerAgent struct {
 	filename   string
 	template   *template.Template
 	reloadCmd  string
-	controller model.Controller
+	updates    <-chan model.ServiceUpdate
+	controller daemon.Component
 	stop       chan struct{}
+	stopped    bool
 
 	services chan Services
 
@@ -36,6 +38,7 @@ type BalancerAgent struct {
 
 type Services map[string]*model.Service
 
+// For use in templates
 func (Services) Getenv(name string) string {
 	return os.Getenv(name)
 }
@@ -81,12 +84,10 @@ func (a *BalancerAgent) parseArgs(args []string) error {
 }
 
 func (a *BalancerAgent) start() error {
-	controller, err := etcdcontrol.NewListener(a.store, a.errorSink)
-	if err != nil {
-		return err
-	}
+	updates := make(chan model.ServiceUpdate)
+	a.updates = updates
+	a.controller = daemon.Restart(time.Second*10, etcdcontrol.NewListener(a.store, updates))(a.errorSink)
 
-	a.controller = controller
 	a.stop = make(chan struct{})
 	a.services = make(chan Services, 1)
 	go a.updater()
@@ -96,9 +97,13 @@ func (a *BalancerAgent) start() error {
 
 func (a *BalancerAgent) Stop() {
 	if a.controller != nil {
-		a.controller.Close()
-		close(a.stop)
+		a.controller.Stop()
 		a.controller = nil
+	}
+
+	if !a.stopped {
+		close(a.stop)
+		a.stopped = true
 	}
 }
 
@@ -106,7 +111,6 @@ func (a *BalancerAgent) Stop() {
 // to the generator goroutine.
 func (a *BalancerAgent) updater() {
 	services := make(Services)
-	updates := a.controller.Updates()
 
 	for {
 		select {
@@ -116,14 +120,21 @@ func (a *BalancerAgent) updater() {
 			}
 			return
 
-		case u := <-updates:
-			if u.Delete {
-				delete(services, u.Name)
-			} else {
-				services[u.Name] = &u.Service
+		case u := <-a.updates:
+			if u.Reset {
+				services = make(Services)
+			}
+
+			for name, service := range u.Updates {
+				if service == nil {
+					delete(services, name)
+				} else {
+					services[name] = service
+				}
 			}
 		}
 
+		// Copy services to send to the generator
 		s := make(Services)
 		for k, v := range services {
 			s[k] = v

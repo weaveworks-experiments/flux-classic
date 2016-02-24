@@ -15,7 +15,7 @@ type servicesConfig struct {
 	*ipTables
 	eventHandler events.Handler
 	errorSink    daemon.ErrorSink
-	done         chan<- struct{}
+	done         chan<- model.ServiceUpdate
 }
 
 type services struct {
@@ -65,37 +65,49 @@ func (svcs *services) run() {
 		case update := <-svcs.updates:
 			svcs.doUpdate(update)
 			if svcs.done != nil {
-				svcs.done <- struct{}{}
+				svcs.done <- update
 			}
 		}
 	}
 }
 
 func (svcs *services) doUpdate(update model.ServiceUpdate) {
-	svc := svcs.services[update.Name]
-	if svc == nil {
-		if update.Delete {
-			return
-		}
+	for name, ms := range update.Updates {
+		svc := svcs.services[name]
+		if svc == nil {
+			if ms == nil {
+				continue
+			}
 
-		svc, err := svcs.newService(&update.Service)
-		if err != nil {
-			log.Error("adding service ", update.Name, ": ",
-				err)
-			return
-		}
+			svc, err := svcs.newService(ms)
+			if err != nil {
+				log.WithError(err).Error("adding service ",
+					name)
+				continue
+			}
 
-		svcs.services[update.Name] = svc
-	} else if !update.Delete {
-		err := svc.update(&update.Service)
-		if err != nil {
-			log.Error("updating service ", update.Name, ": ",
-				err)
-			return
+			svcs.services[name] = svc
+		} else if ms != nil {
+			err := svc.update(ms)
+			if err != nil {
+				log.WithError(err).Error("updating service ",
+					name)
+				continue
+			}
+		} else {
+			delete(svcs.services, name)
+			svc.close()
 		}
-	} else {
-		delete(svcs.services, update.Name)
-		svc.close()
+	}
+
+	if update.Reset {
+		// Delete any services not in the model
+		for name, svc := range svcs.services {
+			if update.Updates[name] == nil {
+				delete(svcs.services, name)
+				svc.close()
+			}
+		}
 	}
 }
 

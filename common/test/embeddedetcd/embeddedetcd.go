@@ -1,4 +1,4 @@
-// Borrowed from
+// Adapted from
 // https://github.com/coreos/mantle/blob/master/platform/local/etcd.go
 
 // Copyright 2015 CoreOS, Inc.
@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"sync"
 
 	"github.com/coreos/etcd/etcdserver"
 	"github.com/coreos/etcd/etcdserver/etcdhttp"
@@ -49,30 +50,48 @@ type SimpleEtcd struct {
 }
 
 func NewSimpleEtcd() (*SimpleEtcd, error) {
-	var err error
 	se := &SimpleEtcd{}
-	se.listener, err = net.Listen("tcp", ":0")
-	if err != nil {
+	if err := se.Start(); err != nil {
 		return nil, err
 	}
 
-	se.Port = se.listener.Addr().(*net.TCPAddr).Port
+	return se, nil
+}
+
+func (se *SimpleEtcd) URL() string {
+	return fmt.Sprintf("http://localhost:%d", se.Port)
+}
+
+func (se *SimpleEtcd) Start() error {
+	var err error
+	se.listener, err = wrapListener(net.Listen("tcp",
+		fmt.Sprintf(":%d", se.Port)))
+	if err != nil {
+		return err
+	}
+
+	if se.Port == 0 {
+		se.Port = se.listener.Addr().(*net.TCPAddr).Port
+	}
+
 	clientURLs, err := interfaceURLs(se.Port)
 	if err != nil {
-		se.Destroy()
-		return nil, err
+		se.Stop()
+		return err
 	}
 
-	se.dataDir, err = ioutil.TempDir("", tempPrefix)
-	if err != nil {
-		se.Destroy()
-		return nil, err
+	if se.dataDir == "" {
+		se.dataDir, err = ioutil.TempDir("", tempPrefix)
+		if err != nil {
+			se.Stop()
+			return err
+		}
 	}
 
 	peerURLs, err := types.NewURLs([]string{peerURL})
 	if err != nil {
-		se.Destroy()
-		return nil, err
+		se.Stop()
+		return err
 	}
 
 	cfg := &etcdserver.ServerConfig{
@@ -90,34 +109,41 @@ func NewSimpleEtcd() (*SimpleEtcd, error) {
 
 	se.server, err = etcdserver.NewServer(cfg)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	se.server.Start()
 	go http.Serve(se.listener,
 		etcdhttp.NewClientHandler(se.server, cfg.ReqTimeout()))
 
-	return se, nil
+	return nil
 }
 
-func (se *SimpleEtcd) Destroy() error {
+func (se *SimpleEtcd) Stop() error {
 	var err error
-	firstErr := func(e error) {
-		if e != nil && err == nil {
-			err = e
-		}
-	}
 
 	if se.listener != nil {
-		firstErr(se.listener.Close())
+		err = se.listener.Close()
+		se.listener = nil
 	}
 
 	if se.server != nil {
 		se.server.Stop()
+		se.server = nil
 	}
 
+	return err
+}
+
+func (se *SimpleEtcd) Destroy() error {
+	if err := se.Stop(); err != nil {
+		return err
+	}
+
+	var err error
 	if se.dataDir != "" {
-		firstErr(os.RemoveAll(se.dataDir))
+		err = os.RemoveAll(se.dataDir)
+		se.dataDir = ""
 	}
 
 	return err
@@ -154,4 +180,60 @@ func interfaceURLs(port int) (types.URLs, error) {
 	}
 
 	return allURLs, nil
+}
+
+type listenerWrapper struct {
+	net.Listener
+	lock  sync.Mutex
+	conns map[net.Conn]struct{}
+}
+
+// Wrap a net.Listener so that closing it causes all connections to be
+// closed.
+func wrapListener(l net.Listener, err error) (net.Listener, error) {
+	if err != nil {
+		return nil, err
+	}
+
+	return &listenerWrapper{
+		Listener: l,
+		conns:    make(map[net.Conn]struct{}),
+	}, nil
+}
+
+func (lw *listenerWrapper) Accept() (net.Conn, error) {
+	c, err := lw.Listener.Accept()
+	if c != nil {
+		lw.lock.Lock()
+		defer lw.lock.Unlock()
+		lw.conns[c] = struct{}{}
+		c = connWrapper{c, lw}
+	}
+	return c, err
+}
+
+func (lw *listenerWrapper) Close() error {
+	err := lw.Listener.Close()
+	if err != nil {
+		return err
+	}
+
+	for c := range lw.conns {
+		c.Close()
+	}
+
+	return nil
+}
+
+type connWrapper struct {
+	net.Conn
+	lw *listenerWrapper
+}
+
+func (cw connWrapper) Close() error {
+	err := cw.Conn.Close()
+	cw.lw.lock.Lock()
+	defer cw.lw.lock.Unlock()
+	delete(cw.lw.conns, cw.Conn)
+	return err
 }

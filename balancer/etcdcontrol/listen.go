@@ -4,6 +4,7 @@ import (
 	"net"
 
 	log "github.com/Sirupsen/logrus"
+	"golang.org/x/net/context"
 
 	"github.com/weaveworks/flux/common/daemon"
 	"github.com/weaveworks/flux/common/data"
@@ -13,40 +14,102 @@ import (
 )
 
 type Listener struct {
-	store   store.Store
-	updates chan model.ServiceUpdate
+	store     store.Store
+	updates   chan<- model.ServiceUpdate
+	errorSink daemon.ErrorSink
+	context   context.Context
+	cancel    context.CancelFunc
 }
 
-func (l *Listener) send(serviceName string) {
-	service, err := l.store.GetService(serviceName, store.QueryServiceOptions{WithInstances: true})
-	if err != nil {
-		log.Error(err)
+func NewListener(store store.Store, updates chan<- model.ServiceUpdate) daemon.StartFunc {
+	return func(es daemon.ErrorSink) daemon.Component {
+		ctx, cancel := context.WithCancel(context.Background())
+		listener := &Listener{
+			store:     store,
+			updates:   updates,
+			errorSink: es,
+			context:   ctx,
+			cancel:    cancel,
+		}
+		go listener.run()
+		return listener
+	}
+}
+
+func (l *Listener) run() {
+	changes := make(chan data.ServiceChange)
+	l.store.WatchServices(nil, changes, l.errorSink,
+		store.QueryServiceOptions{WithInstances: true})
+
+	if err := l.doInitialQuery(); err != nil {
+		l.errorSink.Post(err)
 		return
 	}
 
-	// It is OK to have an empty Address, but not to have a malformed
-	// address
-	ip := net.ParseIP(service.Address)
-	if service.Address != "" && ip == nil {
-		log.Errorf("Bad address \"%s\" for service %s",
-			service.Address, serviceName)
-		return
+	for {
+		change := <-changes
+		var ms *model.Service
+		if !change.ServiceDeleted {
+			svc, err := l.store.GetService(change.Name, store.QueryServiceOptions{WithInstances: true})
+			if err != nil {
+				l.errorSink.Post(err)
+				return
+			}
+
+			if ms = translateService(svc); ms == nil {
+				continue
+			}
+		}
+
+		l.updates <- model.ServiceUpdate{
+			Updates: map[string]*model.Service{change.Name: ms},
+		}
+	}
+}
+
+func (l *Listener) doInitialQuery() error {
+	// Send initial state of each service
+	svcs, err := l.store.GetAllServices(store.QueryServiceOptions{WithInstances: true})
+	if err != nil {
+		return err
+	}
+
+	updates := make(map[string]*model.Service)
+	for _, svc := range svcs {
+		if ms := translateService(svc); ms != nil {
+			updates[svc.Name] = ms
+		}
+	}
+
+	l.updates <- model.ServiceUpdate{
+		Updates: updates,
+		Reset:   true,
+	}
+	return nil
+}
+
+func translateService(svc *store.ServiceInfo) *model.Service {
+	var ip net.IP
+	if svc.Address != "" {
+		ip = net.ParseIP(svc.Address)
+		if ip == nil {
+			log.Errorf("Bad address \"%s\" for service %s",
+				svc.Address, svc.Name)
+			return nil
+		}
 	}
 
 	insts := []model.Instance{}
-	for _, instance := range service.Instances {
-		switch instance.State {
-		case data.LIVE:
-			break // i.e., proceed
-		default:
-			log.Debugf("Ignoring instance '%s', not marked as live", instance.Name)
+	for _, instance := range svc.Instances {
+		if instance.State != data.LIVE {
 			continue // try next instance
 		}
+
 		ip := net.ParseIP(instance.Address)
 		if ip == nil {
 			log.Errorf("Bad address \"%s\" for instance %s/%s",
-				instance.Address, serviceName, service.Name)
-			return
+				instance.Address, svc.Name, instance.Name)
+			continue
 		}
 
 		insts = append(insts, model.Instance{
@@ -55,60 +118,17 @@ func (l *Listener) send(serviceName string) {
 			IP:    ip,
 			Port:  instance.Port,
 		})
-		log.Debugf("Added instance %s with address %s:%d to service %s", instance.Name, instance.Address, instance.Port, service.Name)
 	}
 
-	l.updates <- model.ServiceUpdate{
-		Service: model.Service{
-			Name:      serviceName,
-			Protocol:  service.Protocol,
-			IP:        ip,
-			Port:      service.Port,
-			Instances: insts,
-		},
+	return &model.Service{
+		Name:      svc.Name,
+		Protocol:  svc.Protocol,
+		IP:        ip,
+		Port:      svc.Port,
+		Instances: insts,
 	}
 }
 
-func NewListener(store store.Store, errorSink daemon.ErrorSink) (*Listener, error) {
-	listener := &Listener{
-		store:   store,
-		updates: make(chan model.ServiceUpdate),
-	}
-	go listener.run(errorSink)
-	return listener, nil
-}
-
-func (l *Listener) Updates() <-chan model.ServiceUpdate {
-	return l.updates
-}
-
-func (l *Listener) run(errorSink daemon.ErrorSink) {
-	log.Debugf("Initialising state")
-	changes := make(chan data.ServiceChange)
-	l.store.WatchServices(nil, changes, errorSink,
-		store.QueryServiceOptions{WithInstances: true})
-
-	// Send initial state of each service
-	store.ForeachServiceInstance(l.store, func(name string, _ data.Service) error {
-		log.Debugf("Initialising state for service %s", name)
-		l.send(name)
-		return nil
-	}, nil)
-
-	for {
-		change := <-changes
-		if change.ServiceDeleted {
-			l.updates <- model.ServiceUpdate{
-				Service: model.Service{Name: change.Name},
-				Delete:  true,
-			}
-		} else {
-			log.Debugf("Updating state for service %s", change.Name)
-			l.send(change.Name)
-		}
-	}
-}
-
-func (l *Listener) Close() {
-	// TODO
+func (l *Listener) Stop() {
+	l.cancel()
 }

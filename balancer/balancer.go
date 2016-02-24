@@ -3,6 +3,8 @@ package balancer
 import (
 	"flag"
 	"fmt"
+	"time"
+
 	log "github.com/Sirupsen/logrus"
 
 	"github.com/weaveworks/flux/balancer/etcdcontrol"
@@ -12,6 +14,7 @@ import (
 	"github.com/weaveworks/flux/balancer/prometheus"
 	"github.com/weaveworks/flux/common/daemon"
 	"github.com/weaveworks/flux/common/etcdutil"
+	"github.com/weaveworks/flux/common/store"
 	"github.com/weaveworks/flux/common/store/etcdstore"
 )
 
@@ -31,9 +34,11 @@ type BalancerDaemon struct {
 	ipTablesCmd IPTablesCmd
 
 	// From flags
-	controller   model.Controller
+	updates      <-chan model.ServiceUpdate
+	controller   daemon.Component
 	eventHandler events.Handler
 	netConfig    netConfig
+	done         chan<- model.ServiceUpdate
 
 	ipTables *ipTables
 	services *services
@@ -78,11 +83,7 @@ func (d *BalancerDaemon) parseArgs(args []string) error {
 		return err
 	}
 
-	d.controller, err = etcdcontrol.NewListener(etcdstore.New(etcdclient),
-		d.errorSink)
-	if err != nil {
-		return err
-	}
+	d.setStore(etcdstore.New(etcdclient), 10*time.Second)
 
 	if promCf.ListenAddr == "" {
 		if promCf.AdvertiseAddr != "" {
@@ -107,6 +108,12 @@ func (d *BalancerDaemon) parseArgs(args []string) error {
 	return nil
 }
 
+func (d *BalancerDaemon) setStore(st store.Store, reconnectInterval time.Duration) {
+	updates := make(chan model.ServiceUpdate)
+	d.updates = updates
+	d.controller = daemon.Restart(reconnectInterval, etcdcontrol.NewListener(st, updates))(d.errorSink)
+}
+
 func NewBalancer(args []string, errorSink daemon.ErrorSink, ipTablesCmd IPTablesCmd) (*BalancerDaemon, error) {
 	d := &BalancerDaemon{
 		errorSink:   errorSink,
@@ -129,10 +136,11 @@ func (d *BalancerDaemon) Start() {
 
 	d.services = servicesConfig{
 		netConfig:    d.netConfig,
-		updates:      d.controller.Updates(),
+		updates:      d.updates,
 		eventHandler: d.eventHandler,
 		ipTables:     d.ipTables,
 		errorSink:    d.errorSink,
+		done:         d.done,
 	}.start()
 
 	d.eventHandler.Start()
@@ -143,7 +151,7 @@ func (d *BalancerDaemon) Stop() {
 
 	if controller := d.controller; controller != nil {
 		d.controller = nil
-		controller.Close()
+		controller.Stop()
 	}
 
 	if services := d.services; services != nil {

@@ -98,6 +98,10 @@ cover: $(call image_stamp,build)
 	        go tool cover -html=cover/$$d.out -o cover/$$d.html ; \
 	    done)
 
-# Subdir-specific rules
+.PHONY: vet
+vet:: $(call image_stamp,build)
+	$(get_vendor_submodules)
+	$(call run_build_container,build,-e GOPATH=/build,,go vet $$(go list ./... | grep -v /vendor/))
 
+# Subdir-specific rules
 include ./*/local.mk

@@ -183,15 +183,16 @@ func testWatchServices(s store.Store, t *testing.T) {
 
 	check(store.QueryServiceOptions{}, func(w *watcher) {
 		require.Nil(t, s.AddService("svc", testService))
-	}, data.ServiceChange{"svc", false})
+	}, data.ServiceChange{Name: "svc", ServiceDeleted: false})
 
 	require.Nil(t, s.AddService("svc", testService))
 	check(store.QueryServiceOptions{}, func(w *watcher) {
 		require.Nil(t, s.RemoveAllServices())
 		require.Nil(t, s.AddService("svc", testService))
 		require.Nil(t, s.RemoveService("svc"))
-	}, data.ServiceChange{"svc", true}, data.ServiceChange{"svc", false},
-		data.ServiceChange{"svc", true})
+	}, data.ServiceChange{Name: "svc", ServiceDeleted: true},
+		data.ServiceChange{Name: "svc", ServiceDeleted: false},
+		data.ServiceChange{Name: "svc", ServiceDeleted: true})
 
 	// WithInstances false, so adding an instance should not
 	// cause an event
@@ -207,8 +208,8 @@ func testWatchServices(s store.Store, t *testing.T) {
 		func(w *watcher) {
 			require.Nil(t, s.AddInstance("svc", "inst", testInst))
 			require.Nil(t, s.RemoveInstance("svc", "inst"))
-		}, data.ServiceChange{"svc", false},
-		data.ServiceChange{"svc", false})
+		}, data.ServiceChange{Name: "svc", ServiceDeleted: false},
+		data.ServiceChange{Name: "svc", ServiceDeleted: false})
 
 	// WithContainerRules false, so adding a rule should not
 	// cause an event
@@ -224,6 +225,6 @@ func testWatchServices(s store.Store, t *testing.T) {
 		func(w *watcher) {
 			require.Nil(t, s.SetContainerRule("svc", "group", testRule))
 			require.Nil(t, s.RemoveContainerRule("svc", "group"))
-		}, data.ServiceChange{"svc", false},
-		data.ServiceChange{"svc", false})
+		}, data.ServiceChange{Name: "svc", ServiceDeleted: false},
+		data.ServiceChange{Name: "svc", ServiceDeleted: false})
 }

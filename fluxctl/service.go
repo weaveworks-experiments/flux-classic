@@ -64,17 +64,17 @@ func (opts *addOpts) run(cmd *cobra.Command, args []string) error {
 
 	err = opts.store.AddService(serviceName, svc)
 	if err != nil {
-		return fmt.Errorf("Error updating service: ", err)
+		return fmt.Errorf("Error updating service: %s", err)
 	}
 
 	spec, err := opts.makeSpec()
 	if err != nil {
-		return fmt.Errorf("Unable to extract rule from options: ", err)
+		return fmt.Errorf("Unable to extract rule from options: %s", err)
 	}
 
 	if spec != nil {
 		if err = opts.store.SetContainerRule(serviceName, DEFAULT_GROUP, *spec); err != nil {
-			return fmt.Errorf("Error updating service: ", err)
+			return fmt.Errorf("Error updating service: %s", err)
 		}
 	}
 

@@ -328,19 +328,28 @@ func (es *etcdStore) WatchServices(ctx context.Context, resCh chan<- data.Servic
 			switch key := parseKey(r.Node.Key).(type) {
 			case parsedRootKey:
 				for name := range svcs {
-					resCh <- data.ServiceChange{name, true}
+					resCh <- data.ServiceChange{
+						Name:           name,
+						ServiceDeleted: true,
+					}
 				}
 				svcs = make(map[string]struct{})
 
 			case parsedServiceRootKey:
 				delete(svcs, key.serviceName)
-				resCh <- data.ServiceChange{key.serviceName, true}
+				resCh <- data.ServiceChange{
+					Name:           key.serviceName,
+					ServiceDeleted: true,
+				}
 
 			case interface {
 				relevantTo(opts store.QueryServiceOptions) (bool, string)
 			}:
 				if relevant, service := key.relevantTo(opts); relevant {
-					resCh <- data.ServiceChange{service, false}
+					resCh <- data.ServiceChange{
+						Name:           service,
+						ServiceDeleted: false,
+					}
 				}
 			}
 
@@ -348,13 +357,19 @@ func (es *etcdStore) WatchServices(ctx context.Context, resCh chan<- data.Servic
 			switch key := parseKey(r.Node.Key).(type) {
 			case parsedServiceKey:
 				svcs[key.serviceName] = struct{}{}
-				resCh <- data.ServiceChange{key.serviceName, false}
+				resCh <- data.ServiceChange{
+					Name:           key.serviceName,
+					ServiceDeleted: false,
+				}
 
 			case interface {
 				relevantTo(opts store.QueryServiceOptions) (bool, string)
 			}:
 				if relevant, service := key.relevantTo(opts); relevant {
-					resCh <- data.ServiceChange{service, false}
+					resCh <- data.ServiceChange{
+						Name:           service,
+						ServiceDeleted: false,
+					}
 				}
 			}
 		}

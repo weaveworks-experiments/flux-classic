@@ -72,17 +72,6 @@ func TestBalancerAgent(t *testing.T) {
 {{end}}`)
 	require.Nil(t, err)
 
-	stopSinkWatcher := make(chan struct{})
-	go func() {
-		select {
-		case <-stopSinkWatcher:
-			return
-		case err := <-a.errorSink:
-			t.Fatal(err)
-		}
-	}()
-	defer close(stopSinkWatcher)
-
 	// Add an initial service with no instances:
 	require.Nil(t, a.store.AddService("service1", data.Service{
 		Protocol: "http",
@@ -122,6 +111,7 @@ service2:`)
 	a.Stop()
 	<-a.updaterStopped
 	<-a.generatorStopped
+	require.Len(t, a.errorSink, 0)
 
 	// Check that all temporary files got deleted
 	require.Nil(t, os.Remove(a.filename))
@@ -155,12 +145,7 @@ func TestBadTemplate(t *testing.T) {
 	a.Stop()
 	<-a.updaterStopped
 	<-a.generatorStopped
-
-	select {
-	case <-a.errorSink:
-	default:
-		t.Fatal()
-	}
+	require.Len(t, a.errorSink, 1)
 }
 
 func TestReloadCmd(t *testing.T) {

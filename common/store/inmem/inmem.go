@@ -41,7 +41,9 @@ func (w watcher) Done() <-chan struct{} {
 	return w.ctx.Done()
 }
 
-func (s *inmem) fireEvent(ev data.ServiceChange, optsFilter func(store.QueryServiceOptions) bool) {
+func (s *inmem) fireServiceChange(name string, deleted bool, optsFilter func(store.QueryServiceOptions) bool) {
+	ev := data.ServiceChange{Name: name, ServiceDeleted: deleted}
+
 	s.watchersLock.Lock()
 	watchers := s.watchers
 	s.watchersLock.Unlock()
@@ -72,7 +74,7 @@ func (s *inmem) AddService(name string, svc data.Service) error {
 	s.groupSpecs[name] = make(map[string]data.ContainerRule)
 	s.instances[name] = make(map[string]data.Instance)
 
-	s.fireEvent(data.ServiceChange{name, false}, nil)
+	s.fireServiceChange(name, false, nil)
 	log.Printf("inmem: service %s updated in store", name)
 	return nil
 }
@@ -82,7 +84,7 @@ func (s *inmem) RemoveService(name string) error {
 	delete(s.groupSpecs, name)
 	delete(s.instances, name)
 
-	s.fireEvent(data.ServiceChange{name, true}, nil)
+	s.fireServiceChange(name, true, nil)
 	log.Printf("inmem: service %s removed from store", name)
 	return nil
 }
@@ -147,7 +149,7 @@ func (s *inmem) SetContainerRule(serviceName string, groupName string, spec data
 	}
 
 	groupSpecs[groupName] = spec
-	s.fireEvent(data.ServiceChange{serviceName, false}, withRuleChanges)
+	s.fireServiceChange(serviceName, false, withRuleChanges)
 	return nil
 }
 
@@ -158,7 +160,7 @@ func (s *inmem) RemoveContainerRule(serviceName string, groupName string) error 
 	}
 
 	delete(groupSpecs, groupName)
-	s.fireEvent(data.ServiceChange{serviceName, false}, withRuleChanges)
+	s.fireServiceChange(serviceName, false, withRuleChanges)
 	return nil
 }
 
@@ -168,7 +170,7 @@ func withInstanceChanges(opts store.QueryServiceOptions) bool {
 
 func (s *inmem) AddInstance(serviceName string, instanceName string, inst data.Instance) error {
 	s.instances[serviceName][instanceName] = inst
-	s.fireEvent(data.ServiceChange{serviceName, false}, withInstanceChanges)
+	s.fireServiceChange(serviceName, false, withInstanceChanges)
 	return nil
 }
 
@@ -179,7 +181,7 @@ func (s *inmem) RemoveInstance(serviceName string, instanceName string) error {
 	}
 
 	delete(s.instances[serviceName], instanceName)
-	s.fireEvent(data.ServiceChange{serviceName, false}, withInstanceChanges)
+	s.fireServiceChange(serviceName, false, withInstanceChanges)
 	return nil
 }
 

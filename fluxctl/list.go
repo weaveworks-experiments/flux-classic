@@ -75,7 +75,7 @@ func (opts *listOpts) run(_ *cobra.Command, args []string) error {
 
 	svcs, err := opts.store.GetAllServices(store.QueryServiceOptions{WithContainerRules: opts.verbose})
 	if err != nil {
-		return fmt.Errorf("Unable to enumerate services: ", err)
+		return fmt.Errorf("Unable to enumerate services: %s", err)
 	}
 	for _, service := range svcs {
 		printService(service)

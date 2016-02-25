@@ -123,7 +123,8 @@ func addGroup(st store.Store, serviceName string, labels ...string) {
 		sel[labels[i]] = labels[i+1]
 	}
 
-	st.SetContainerRule(serviceName, GROUP, data.ContainerRule{sel})
+	st.SetContainerRule(serviceName, GROUP,
+		data.ContainerRule{Selector: sel})
 }
 
 func setup(hostIP, netmode string) (*Listener, store.Store, *mockInspector) {

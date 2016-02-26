@@ -189,7 +189,7 @@ h2 {
 
   &-instances {
     display: flex;
-    flex-wrap: wrap;
+    flex-flow: row wrap;
   }
 
   &-navigation {
@@ -246,31 +246,26 @@ h2 {
 
 .instance {
   .palable;
-  flex-basis: 20%;
+  flex: 0 1 25%;
   padding: 8px;
-  margin: 4px;
-  cursor: pointer;
+  margin-bottom: 16px;
   line-height: 1.3;
   opacity: 0.85;
   border-radius: 3px;
-  background-color: #ddd;
-
-  &-selected {
-    background-color: lighten(@background-color, 7%);
-    opacity: 0.95;
-  }
-
-  &:hover {
-    background-color: lighten(@background-color, 10%);
-    opacity: 1;
-  }
 
   &-title {
+    color: @text-color;
+  }
+
+  &-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
   }
 
   &-metric {
     &-value {
-      font-size: 200%;
+      font-size: 250%;
     }
     &-unit {
       .label;

@@ -48,7 +48,7 @@ type instanceForFormat struct {
 
 const (
 	tableHeaders     = "SERVICE\tINSTANCE\tADDRESS\tSTATE\t\n"
-	tableRowTemplate = "{{.Service}}\t{{.Name}}\t{{.Address}}:{{.Port}}\t{{.State}}\n"
+	tableRowTemplate = "{{.Service}}\t{{.Name}}\t{{.Address}}:{{.Port}}\t{{.State}}"
 )
 
 func (opts *queryOpts) run(_ *cobra.Command, args []string) error {
@@ -64,48 +64,63 @@ func (opts *queryOpts) run(_ *cobra.Command, args []string) error {
 		sel[data.RuleLabel] = opts.rule
 	}
 
-	var printInstance func(string, string, data.Instance) error
-
-	if opts.format != "" {
-		tmpl := template.Must(template.New("instance").Funcs(extraTemplateFuncs).Parse(opts.format))
-		printInstance = func(serviceName, name string, inst data.Instance) error {
-			err := tmpl.Execute(opts.getStdout(), instanceForFormat{
-				Service:  serviceName,
-				Name:     name,
-				Instance: inst,
-			})
-			if err != nil {
-				panic(err)
-			}
-			fmt.Fprintln(opts.getStdout())
-			return nil
-		}
-	} else if opts.quiet {
-		printInstance = func(_, name string, _ data.Instance) error {
-			fmt.Fprintln(opts.getStdout(), name)
+	var printInstance func(svc *store.ServiceInfo, inst *store.InstanceInfo) error
+	if opts.quiet {
+		printInstance = func(_ *store.ServiceInfo, inst *store.InstanceInfo) error {
+			fmt.Fprintln(opts.getStdout(), inst.Name)
 			return nil
 		}
 	} else {
-		out := tabwriter.NewWriter(opts.getStdout(), 4, 0, 2, ' ', 0)
-		defer out.Flush()
-		tmpl := template.Must(template.New("row").Parse(tableRowTemplate))
-		printInstance = func(serviceName, instanceName string, inst data.Instance) error {
+		out := opts.getStdout()
+
+		var tmpl *template.Template
+		if opts.format == "" {
+			out := tabwriter.NewWriter(out, 4, 0, 2, ' ', 0)
+			defer out.Flush()
+			tmpl = template.Must(template.New("row").Parse(tableRowTemplate))
+			out.Write([]byte(tableHeaders))
+		} else {
+			tmpl = template.Must(template.New("instance").Funcs(extraTemplateFuncs).Parse(opts.format))
+		}
+
+		printInstance = func(svc *store.ServiceInfo, inst *store.InstanceInfo) error {
 			err := tmpl.Execute(out, instanceForFormat{
-				Service:  serviceName,
-				Name:     instanceName,
-				Instance: inst,
+				Service:  svc.Name,
+				Name:     inst.Name,
+				Instance: inst.Instance,
 			})
 			if err != nil {
 				return err
 			}
+			fmt.Fprintln(out)
 			return nil
 		}
-		out.Write([]byte(tableHeaders))
 	}
 
+	svcs := make([]*store.ServiceInfo, 1)
+	var err error
 	if opts.service == "" {
-		return store.SelectInstances(opts.store, sel, printInstance)
+		svcs, err = opts.store.GetAllServices(store.QueryServiceOptions{WithInstances: true})
 	} else {
-		return store.SelectServiceInstances(opts.store, opts.service, sel, printInstance)
+		svcs[0], err = opts.store.GetService(opts.service, store.QueryServiceOptions{WithInstances: true})
 	}
+
+	if err != nil {
+		return err
+	}
+
+	for _, svc := range svcs {
+		for i := range svc.Instances {
+			inst := &svc.Instances[i]
+			if !sel.Includes(inst) {
+				continue
+			}
+
+			if err := printInstance(svc, inst); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }

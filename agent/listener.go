@@ -137,12 +137,20 @@ func (l *Listener) redefineService(serviceName string, newService *store.Service
 		}
 	}
 	// remove any instances for this service that do not match
-	return store.ForeachInstance(l.store, serviceName, func(_, instanceName string, inst data.Instance) error {
-		if !svc.includes(instanceName) && l.owns(inst) {
-			return l.store.RemoveInstance(serviceName, instanceName)
+	storeSvc, err := l.store.GetService(serviceName, store.QueryServiceOptions{WithInstances: true})
+	if err != nil {
+		return err
+	}
+
+	for _, inst := range storeSvc.Instances {
+		if !svc.includes(inst.Name) && l.owns(inst.Instance) {
+			if err := l.store.RemoveInstance(serviceName, inst.Name); err != nil {
+				return err
+			}
 		}
-		return nil
-	})
+	}
+
+	return nil
 }
 
 func (l *Listener) evaluate(container *docker.Container, svc *service) (bool, error) {

@@ -108,22 +108,28 @@ func testInstances(s store.Store, t *testing.T) {
 	require.Nil(t, s.AddInstance("svc", "inst", testInst))
 
 	instances := func() map[string]data.Instance {
+		svc, err := s.GetService("svc", store.QueryServiceOptions{WithInstances: true})
+		require.Nil(t, err)
+
 		insts := make(map[string]data.Instance)
-		require.Nil(t, store.ForeachInstance(s, "svc", func(_, n string, inst data.Instance) error {
-			insts[n] = inst
-			return nil
-		}))
+		for _, inst := range svc.Instances {
+			insts[inst.Name] = inst.Instance
+		}
 		return insts
 	}
 
 	require.Equal(t, map[string]data.Instance{"inst": testInst}, instances())
 
 	serviceInstances := func() map[string]data.Instance {
+		svcs, err := s.GetAllServices(store.QueryServiceOptions{WithInstances: true})
+		require.Nil(t, err)
+
 		insts := make(map[string]data.Instance)
-		require.Nil(t, store.ForeachServiceInstance(s, nil, func(sn string, in string, inst data.Instance) error {
-			insts[sn+" "+in] = inst
-			return nil
-		}))
+		for _, svc := range svcs {
+			for _, inst := range svc.Instances {
+				insts[svc.Name+" "+inst.Name] = inst.Instance
+			}
+		}
 		return insts
 	}
 

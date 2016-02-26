@@ -175,8 +175,9 @@ func TestListenerReconcile(t *testing.T) {
 	listener.ReadInServices()
 	listener.ReadExistingContainers()
 
-	require.Len(t, allInstances(st), 3)
-	for _, inst := range allInstances(st) {
+	insts := allInstances(st, t)
+	require.Len(t, insts, 3)
+	for _, inst := range insts {
 		require.Equal(t, selectedAddress, inst.Address)
 	}
 }
@@ -184,7 +185,7 @@ func TestListenerReconcile(t *testing.T) {
 func TestListenerEvents(t *testing.T) {
 	listener, st, dc := setup("10.98.90.111", "")
 	// starting condition
-	require.Len(t, allInstances(st), 0)
+	require.Len(t, allInstances(st, t), 0)
 
 	events := make(chan *docker.APIEvents, 2)
 	changes := make(chan data.ServiceChange, 1)
@@ -201,17 +202,17 @@ func TestListenerEvents(t *testing.T) {
 	})
 
 	listener.processDockerEvent(<-events)
-	require.Len(t, allInstances(st), 0)
+	require.Len(t, allInstances(st, t), 0)
 
 	st.AddService("foo-svc", data.Service{})
 	listener.processServiceChange(<-changes)
 	addGroup(st, "foo-svc", "image", "foo-image")
 	listener.processServiceChange(<-changes)
-	require.Len(t, allInstances(st), 1)
+	require.Len(t, allInstances(st, t), 1)
 
 	addGroup(st, "foo-svc", "image", "not-foo-image")
 	listener.processServiceChange(<-changes)
-	require.Len(t, allInstances(st), 0)
+	require.Len(t, allInstances(st, t), 0)
 
 	dc.startContainers(container{
 		ID:        "bar",
@@ -224,23 +225,26 @@ func TestListenerEvents(t *testing.T) {
 	})
 	listener.processDockerEvent(<-events)
 	listener.processDockerEvent(<-events)
-	require.Len(t, allInstances(st), 2)
+	require.Len(t, allInstances(st, t), 2)
 
 	dc.stopContainer("baz")
 	listener.processDockerEvent(<-events)
-	require.Len(t, allInstances(st), 1)
+	require.Len(t, allInstances(st, t), 1)
 
 	st.RemoveService("foo-svc")
 	listener.processServiceChange(<-changes)
-	require.Len(t, allInstances(st), 0)
+	require.Len(t, allInstances(st, t), 0)
 }
 
-func allInstances(st store.Store) []data.Instance {
-	res := make([]data.Instance, 0)
-	store.ForeachServiceInstance(st, nil, func(_, _ string, inst data.Instance) error {
-		res = append(res, inst)
-		return nil
-	})
+func allInstances(st store.Store, t *testing.T) []data.Instance {
+	var res []data.Instance
+	svcs, err := st.GetAllServices(store.QueryServiceOptions{WithInstances: true})
+	require.Nil(t, err)
+	for _, svc := range svcs {
+		for _, inst := range svc.Instances {
+			res = append(res, inst.Instance)
+		}
+	}
 	return res
 }
 
@@ -263,13 +267,12 @@ func TestMappedPort(t *testing.T) {
 	listener.ReadInServices()
 	listener.ReadExistingContainers()
 
-	require.Len(t, allInstances(st), 1)
-	store.ForeachInstance(st, "blorp-svc", func(_, _ string, inst data.Instance) error {
-		require.Equal(t, listener.hostIP, inst.Address)
-		require.Equal(t, 3456, inst.Port)
-		require.Equal(t, data.LIVE, inst.State)
-		return nil
-	})
+	require.Len(t, allInstances(st, t), 1)
+	svc, err := st.GetService("blorp-svc", store.QueryServiceOptions{WithInstances: true})
+	require.Nil(t, err)
+	require.Equal(t, listener.hostIP, svc.Instances[0].Address)
+	require.Equal(t, 3456, svc.Instances[0].Port)
+	require.Equal(t, data.LIVE, svc.Instances[0].State)
 }
 
 func TestMultihostNetworking(t *testing.T) {
@@ -294,13 +297,12 @@ func TestMultihostNetworking(t *testing.T) {
 	listener.ReadInServices()
 	listener.ReadExistingContainers()
 
-	require.Len(t, allInstances(st), 1)
-	store.ForeachInstance(st, "blorp-svc", func(_, _ string, inst data.Instance) error {
-		require.Equal(t, instAddress, inst.Address)
-		require.Equal(t, instPort, inst.Port)
-		require.Equal(t, data.LIVE, inst.State)
-		return nil
-	})
+	require.Len(t, allInstances(st, t), 1)
+	svc, err := st.GetService("blorp-svc", store.QueryServiceOptions{WithInstances: true})
+	require.Nil(t, err)
+	require.Equal(t, instAddress, svc.Instances[0].Address)
+	require.Equal(t, instPort, svc.Instances[0].Port)
+	require.Equal(t, data.LIVE, svc.Instances[0].State)
 }
 
 func TestNoAddress(t *testing.T) {
@@ -320,13 +322,12 @@ func TestNoAddress(t *testing.T) {
 	listener.ReadInServices()
 	listener.ReadExistingContainers()
 
-	require.Len(t, allInstances(st), 1)
-	store.ForeachInstance(st, "blorp-svc", func(_, _ string, inst data.Instance) error {
-		require.Equal(t, listener.hostIP, inst.Address)
-		require.Equal(t, 3456, inst.Port)
-		require.Equal(t, data.NOADDR, inst.State)
-		return nil
-	})
+	require.Len(t, allInstances(st, t), 1)
+	svc, err := st.GetService("important-svc", store.QueryServiceOptions{WithInstances: true})
+	require.Nil(t, err)
+	require.Equal(t, "", svc.Instances[0].Address)
+	require.Equal(t, 0, svc.Instances[0].Port)
+	require.Equal(t, data.NOADDR, svc.Instances[0].State)
 }
 
 func TestHostNetworking(t *testing.T) {
@@ -346,13 +347,12 @@ func TestHostNetworking(t *testing.T) {
 	listener.ReadInServices()
 	listener.ReadExistingContainers()
 
-	require.Len(t, allInstances(st), 1)
-	store.ForeachInstance(st, "blorp-svc", func(_, _ string, inst data.Instance) error {
-		require.Equal(t, listener.hostIP, inst.Address)
-		require.Equal(t, 8080, inst.Port)
-		require.Equal(t, data.LIVE, inst.State)
-		return nil
-	})
+	require.Len(t, allInstances(st, t), 1)
+	svc, err := st.GetService("blorp-svc", store.QueryServiceOptions{WithInstances: true})
+	require.Nil(t, err)
+	require.Equal(t, listener.hostIP, svc.Instances[0].Address)
+	require.Equal(t, 8080, svc.Instances[0].Port)
+	require.Equal(t, data.LIVE, svc.Instances[0].State)
 }
 
 func TestOtherHostsEntries(t *testing.T) {
@@ -388,13 +388,13 @@ func TestOtherHostsEntries(t *testing.T) {
 	listener1.ReadInServices()
 	listener1.ReadExistingContainers()
 
-	require.Len(t, allInstances(st), 2)
+	require.Len(t, allInstances(st, t), 2)
 
 	// let listener on the second host add its instances
 	listener2.ReadInServices()
 	listener2.ReadExistingContainers()
 
-	require.Len(t, allInstances(st), 4)
+	require.Len(t, allInstances(st, t), 4)
 
 	// simulate an agent restart; in the meantime, a container has
 	// stopped.
@@ -410,5 +410,5 @@ func TestOtherHostsEntries(t *testing.T) {
 	listener2.ReadExistingContainers()
 	listener2.ReadInServices()
 
-	require.Len(t, allInstances(st), 3)
+	require.Len(t, allInstances(st, t), 3)
 }

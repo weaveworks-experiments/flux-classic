@@ -406,14 +406,23 @@ h2 {
   .background {
     fill: none;
   }
+
+  &-loading {
+    animation: status-loading 2.0s infinite ease-in-out;
+    border-top: 1px dotted darken(@background-color, 4%);
+    padding-top: 2px;
+    margin-top: 2px;
+    font-size: 80%;
+    color: @text-secondary-color;
+  }
 }
 
 @keyframes status-loading {
   0%, 100% {
-    background-color: darken(@background-color, 4%);
+    border-color: darken(@background-color, 4%);
     color: @text-secondary-color;
   } 50% {
-    background-color: darken(@background-color, 8%);
+    border-color: darken(@background-color, 8%);
     color: @text-color;
   }
 }

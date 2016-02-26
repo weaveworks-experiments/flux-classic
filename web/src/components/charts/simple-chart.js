@@ -142,7 +142,7 @@ export default class SimpleChart extends React.Component {
     const w = Math.max(outerWidth - MARGINS.left - MARGINS.right, 0);
     const h = outerHeight - MARGINS.top - MARGINS.bottom;
     if (!dataSet || !dataSet.length) {
-      return <div>Loading...</div>;
+      return <div className="chart-loading">Waiting for timeseries data...</div>;
     }
     const data = dataSet[0].data;
 

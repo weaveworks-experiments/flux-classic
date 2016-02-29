@@ -7,7 +7,7 @@ import debug from 'debug';
 import { formatMetric } from '../../utils/string-utils';
 
 const log = debug('flux:simple-chart');
-const MARGINS = {top: 0, bottom: 24, left: 48, right: 72};
+const MARGINS = {top: 8, bottom: 24, left: 48, right: 72};
 
 const customTimeFormat = d3.time.format.multi([
   ['.%L', function(d) { return d.getMilliseconds(); }],
@@ -142,7 +142,7 @@ export default class SimpleChart extends React.Component {
     const w = Math.max(outerWidth - MARGINS.left - MARGINS.right, 0);
     const h = outerHeight - MARGINS.top - MARGINS.bottom;
     if (!dataSet || !dataSet.length) {
-      return <div>Loading...</div>;
+      return <div className="chart-loading">Waiting for timeseries data...</div>;
     }
     const data = dataSet[0].data;
 
@@ -176,7 +176,7 @@ export default class SimpleChart extends React.Component {
       .scale(y)
       .tickPadding(4)
       .orient('left')
-      .tickSize(-2 * w)
+      .tickSize(-1 * w)
       .tickFormat(customNumberFormatter);
 
     const line = d3.svg.line()

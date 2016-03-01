@@ -127,13 +127,13 @@ func addGroup(st store.Store, serviceName string, labels ...string) {
 		data.ContainerRule{Selector: sel})
 }
 
-func setup(hostIP, netmode string) (*Listener, store.Store, *mockInspector) {
+func setup(hostIP, netmode string) (*SyncInstances, store.Store, *mockInspector) {
 	st := inmem.NewInMemStore()
 	dc := newMockInspector()
 	if netmode == "" {
 		netmode = LOCAL
 	}
-	return NewListener(Config{
+	return NewSyncInstances(Config{
 		Store:     st,
 		Network:   netmode,
 		HostIP:    hostIP,
@@ -141,7 +141,7 @@ func setup(hostIP, netmode string) (*Listener, store.Store, *mockInspector) {
 	}), st, dc
 }
 
-func TestListenerReconcile(t *testing.T) {
+func TestSyncInstancesReconcile(t *testing.T) {
 	listener, st, dc := setup("10.98.99.100", GLOBAL)
 	st.AddService("foo-svc", data.Service{
 		InstancePort: 80,
@@ -182,7 +182,7 @@ func TestListenerReconcile(t *testing.T) {
 	}
 }
 
-func TestListenerEvents(t *testing.T) {
+func TestSyncInstancesEvents(t *testing.T) {
 	listener, st, dc := setup("10.98.90.111", "")
 	// starting condition
 	require.Len(t, allInstances(st, t), 0)
@@ -358,7 +358,7 @@ func TestHostNetworking(t *testing.T) {
 func TestOtherHostsEntries(t *testing.T) {
 	listener1, st, dc1 := setup("192.168.11.34", LOCAL)
 	dc2 := newMockInspector()
-	listener2 := NewListener(Config{
+	listener2 := NewSyncInstances(Config{
 		Store:     st,
 		HostIP:    "192.168.11.5",
 		Inspector: dc2,
@@ -401,7 +401,7 @@ func TestOtherHostsEntries(t *testing.T) {
 	dc2.stopContainer("baz2")
 
 	// NB: the Read* methods assume once-only execution, on startup.
-	listener2 = NewListener(Config{
+	listener2 = NewSyncInstances(Config{
 		Store:     st,
 		Network:   LOCAL,
 		HostIP:    "192.168.11.5",

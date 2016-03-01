@@ -76,7 +76,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	listener := agent.NewListener(agent.Config{
+	si := agent.NewSyncInstances(agent.Config{
 		HostIP:    hostIP,
 		Network:   network,
 		Store:     store,
@@ -88,11 +88,11 @@ func main() {
 		log.Fatalf("Unable to add listener to Docker API: %s", err)
 	}
 
-	if err := listener.ReadExistingContainers(); err != nil {
+	if err := si.ReadExistingContainers(); err != nil {
 		log.Fatalf("Error reading existing containers: %s", err)
 	}
-	if err := listener.ReadInServices(); err != nil {
+	if err := si.ReadInServices(); err != nil {
 		log.Fatalf("Error reading configuration: %s", err)
 	}
-	listener.Run(events)
+	si.Run(events)
 }

@@ -188,12 +188,12 @@ To run it, we need the etcd address and the Prometheus address from
 before.
 
 ```sh
-$ docker run --name=flux-web -d -e ETCD_ADDRESS -e PROMETHEUS_ADDRESS -P \
+$ docker run --name=fluxweb -d -e ETCD_ADDRESS -e PROMETHEUS_ADDRESS -P \
     weaveworks/flux-web
 ```
 
 The `-P` means Docker will choose the port on which to expose the web
-UI; you can see what address to open using `docker port flux-web
+UI; you can see what address to open using `docker port fluxweb
 7070`, or just use `-p 7070:7070` in the above to fix it to `7070`.
 
 Behold the web UI:

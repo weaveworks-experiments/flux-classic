@@ -9,8 +9,8 @@ created, placed or otherwise orchestrated.
 
 Here are some uses of Flux:
 
-* Allow service containers to be moved between hosts without
-  restarting client containers
+* Gracefully replace the containers implementing a service, without
+  needing to restart clients of the service
 * Internal load-balancing of requests among containers
 * Rolling upgrades and blue-green deployments of microservices
 * When troubleshooting an issue in a microservice architecture,

@@ -208,12 +208,12 @@ Next we start the Flux web UI, telling it how to connect to Prometheus:
 
 ```sh
 $ export PROMETHEUS_ADDRESS=http://$(docker port prometheus 9090)
-$ docker run --name=flux-web -d -e ETCD_ADDRESS -e PROMETHEUS_ADDRESS -P \
+$ docker run --name=fluxweb -d -e ETCD_ADDRESS -e PROMETHEUS_ADDRESS -P \
     weaveworks/flux-web
 ```
 
 Now we can point a browser to the address given by `docker port
-flux-web 7070` in order to view the UI:
+fluxweb 7070` in order to view the UI:
 
 <img src="images/swarm-ui-httpd.jpg" alt="Flux UI" width="800" height="522"/>
 

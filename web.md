@@ -24,7 +24,7 @@ environment entries above:
 
 ```
 docker run -d -e ETCD_ADDRESS -e PROMETHEUS_ADDRESS -p 7070:7070 \
-    name=fluxweb weaveworks/flux-web
+    --name=fluxweb weaveworks/flux-web
 ```
 
 See ["Integrating with Prometheus"](prometheus) for how to set

@@ -13,18 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type mockInspector struct {
-	containers map[string]*docker.Container
-	events     chan<- *docker.APIEvents
-}
-
-func newMockInspector() *mockInspector {
-	return &mockInspector{
-		containers: make(map[string]*docker.Container),
-		events:     nil,
-	}
-}
-
 type container struct {
 	ID          string
 	IPAddress   string
@@ -35,7 +23,28 @@ type container struct {
 	NetworkMode string
 }
 
-func (m *mockInspector) startContainers(cs ...container) {
+func resetContainers(cs ...container) ContainerUpdate {
+	return ContainerUpdate{
+		Containers: makeContainersMap(cs),
+		Reset:      true,
+	}
+}
+
+func addContainer(c container) ContainerUpdate {
+	return ContainerUpdate{
+		Containers: makeContainersMap([]container{c}),
+	}
+}
+
+func removeContainer(id string) ContainerUpdate {
+	return ContainerUpdate{
+		Containers: map[string]*docker.Container{id: nil},
+	}
+}
+
+func makeContainersMap(cs []container) map[string]*docker.Container {
+	containers := make(map[string]*docker.Container)
+
 	for _, c := range cs {
 		env := []string{}
 		for k, v := range c.Env {
@@ -70,46 +79,10 @@ func (m *mockInspector) startContainers(cs ...container) {
 				Ports:     ports,
 			},
 		}
-		m.containers[c.ID] = c1
-		if m.events != nil {
-			m.events <- &docker.APIEvents{
-				Status: "start",
-				ID:     c.ID,
-			}
-		}
+		containers[c.ID] = c1
 	}
-}
 
-func (m *mockInspector) stopContainer(ID string) {
-	if _, found := m.containers[ID]; found {
-		delete(m.containers, ID)
-		if m.events != nil {
-			m.events <- &docker.APIEvents{
-				Status: "die",
-				ID:     ID,
-			}
-		}
-	}
-}
-
-func (m *mockInspector) InspectContainer(id string) (*docker.Container, error) {
-	return m.containers[id], nil
-}
-
-func (m *mockInspector) ListContainers(_ docker.ListContainersOptions) ([]docker.APIContainers, error) {
-	cs := make([]docker.APIContainers, len(m.containers))
-	i := 0
-	for _, c := range m.containers {
-		cs[i] = docker.APIContainers{
-			ID: c.ID,
-		}
-		i++
-	}
-	return cs, nil
-}
-
-func (m *mockInspector) listenToEvents(events chan<- *docker.APIEvents) {
-	m.events = events
+	return containers
 }
 
 const GROUP = "deliberately not default"
@@ -127,22 +100,32 @@ func addGroup(st store.Store, serviceName string, labels ...string) {
 		data.ContainerRule{Selector: sel})
 }
 
-func setup(hostIP, netmode string) (*SyncInstances, store.Store, *mockInspector) {
+func setup(hostIP, netmode string) (*SyncInstances, store.Store) {
 	st := inmem.NewInMemStore()
-	dc := newMockInspector()
 	if netmode == "" {
 		netmode = LOCAL
 	}
 	return NewSyncInstances(Config{
-		Store:     st,
-		Network:   netmode,
-		HostIP:    hostIP,
-		Inspector: dc,
-	}), st, dc
+		Store:   st,
+		Network: netmode,
+		HostIP:  hostIP,
+	}), st
+}
+
+func allInstances(st store.Store, t *testing.T) []data.Instance {
+	var res []data.Instance
+	svcs, err := st.GetAllServices(store.QueryServiceOptions{WithInstances: true})
+	require.Nil(t, err)
+	for _, svc := range svcs {
+		for _, inst := range svc.Instances {
+			res = append(res, inst.Instance)
+		}
+	}
+	return res
 }
 
 func TestSyncInstancesReconcile(t *testing.T) {
-	listener, st, dc := setup("10.98.99.100", GLOBAL)
+	si, st := setup("10.98.99.100", GLOBAL)
 	st.AddService("foo-svc", data.Service{
 		InstancePort: 80,
 	})
@@ -158,7 +141,8 @@ func TestSyncInstancesReconcile(t *testing.T) {
 
 	selectedAddress := "192.168.45.67"
 
-	dc.startContainers(container{
+	si.ReadInServices()
+	si.processContainerUpdate(resetContainers(container{
 		ID:        "selected",
 		IPAddress: selectedAddress,
 		Image:     "foo-image:bobbins",
@@ -170,10 +154,7 @@ func TestSyncInstancesReconcile(t *testing.T) {
 		Image:     "foo-image:not-bobbins",
 		Labels:    map[string]string{"flux/foo-label": "something-else"},
 		Env:       map[string]string{"SERVICE_NAME": "literally anything"},
-	})
-
-	listener.ReadInServices()
-	listener.ReadExistingContainers()
+	}))
 
 	insts := allInstances(st, t)
 	require.Len(t, insts, 3)
@@ -183,94 +164,76 @@ func TestSyncInstancesReconcile(t *testing.T) {
 }
 
 func TestSyncInstancesEvents(t *testing.T) {
-	listener, st, dc := setup("10.98.90.111", "")
+	si, st := setup("10.98.90.111", "")
 	// starting condition
 	require.Len(t, allInstances(st, t), 0)
 
-	events := make(chan *docker.APIEvents, 2)
 	changes := make(chan data.ServiceChange, 1)
 
-	dc.listenToEvents(events)
 	st.WatchServices(nil, changes, daemon.NewErrorSink(),
 		store.QueryServiceOptions{WithContainerRules: true})
 
 	// no services defined
-	dc.startContainers(container{
+	si.processContainerUpdate(resetContainers(container{
 		ID:        "foo",
 		Image:     "foo-image:latest",
 		IPAddress: "192.168.0.67",
-	})
-
-	listener.processDockerEvent(<-events)
+	}))
 	require.Len(t, allInstances(st, t), 0)
 
 	st.AddService("foo-svc", data.Service{})
-	listener.processServiceChange(<-changes)
+	si.processServiceChange(<-changes)
 	addGroup(st, "foo-svc", "image", "foo-image")
-	listener.processServiceChange(<-changes)
+	si.processServiceChange(<-changes)
 	require.Len(t, allInstances(st, t), 1)
 
 	addGroup(st, "foo-svc", "image", "not-foo-image")
-	listener.processServiceChange(<-changes)
+	si.processServiceChange(<-changes)
 	require.Len(t, allInstances(st, t), 0)
 
-	dc.startContainers(container{
+	si.processContainerUpdate(addContainer(container{
 		ID:        "bar",
 		IPAddress: "192.168.34.87",
 		Image:     "not-foo-image:version",
-	}, container{
+	}))
+	si.processContainerUpdate(addContainer(container{
 		ID:        "baz",
 		IPAddress: "192.168.34.99",
 		Image:     "not-foo-image:version2",
-	})
-	listener.processDockerEvent(<-events)
-	listener.processDockerEvent(<-events)
+	}))
 	require.Len(t, allInstances(st, t), 2)
 
-	dc.stopContainer("baz")
-	listener.processDockerEvent(<-events)
+	si.processContainerUpdate(removeContainer("baz"))
 	require.Len(t, allInstances(st, t), 1)
 
 	st.RemoveService("foo-svc")
-	listener.processServiceChange(<-changes)
+	si.processServiceChange(<-changes)
 	require.Len(t, allInstances(st, t), 0)
 }
 
-func allInstances(st store.Store, t *testing.T) []data.Instance {
-	var res []data.Instance
-	svcs, err := st.GetAllServices(store.QueryServiceOptions{WithInstances: true})
-	require.Nil(t, err)
-	for _, svc := range svcs {
-		for _, inst := range svc.Instances {
-			res = append(res, inst.Instance)
-		}
-	}
-	return res
-}
-
 func TestMappedPort(t *testing.T) {
-	listener, st, dc := setup("11.98.99.98", LOCAL)
+	si, st := setup("11.98.99.98", LOCAL)
 
 	st.AddService("blorp-svc", data.Service{
 		InstancePort: 8080,
 	})
 	addGroup(st, "blorp-svc", "image", "blorp-image")
-	dc.startContainers(container{
+
+	si.processContainerUpdate(resetContainers(container{
 		ID:        "blorp-instance",
 		IPAddress: "10.13.14.15",
 		Image:     "blorp-image:tag",
 		Ports: map[string]string{
 			"8080/tcp": "3456",
 		},
-	})
+	}))
 
-	listener.ReadInServices()
-	listener.ReadExistingContainers()
+	si.ReadInServices()
 
 	require.Len(t, allInstances(st, t), 1)
 	svc, err := st.GetService("blorp-svc", store.QueryServiceOptions{WithInstances: true})
 	require.Nil(t, err)
-	require.Equal(t, listener.hostIP, svc.Instances[0].Address)
+	require.Equal(t, si.hostIP, svc.Instances[0].Address)
 	require.Equal(t, 3456, svc.Instances[0].Port)
 	require.Equal(t, data.LIVE, svc.Instances[0].State)
 }
@@ -279,23 +242,23 @@ func TestMultihostNetworking(t *testing.T) {
 	instAddress := "10.13.14.15"
 	instPort := 8080
 
-	listener, st, dc := setup("11.98.99.98", GLOBAL)
+	si, st := setup("11.98.99.98", GLOBAL)
 
 	st.AddService("blorp-svc", data.Service{
 		InstancePort: instPort,
 	})
 	addGroup(st, "blorp-svc", "image", "blorp-image")
-	dc.startContainers(container{
+
+	si.processContainerUpdate(resetContainers(container{
 		ID:        "blorp-instance",
 		IPAddress: instAddress,
 		Image:     "blorp-image:tag",
 		Ports: map[string]string{
 			"8080/tcp": "3456",
 		},
-	})
+	}))
 
-	listener.ReadInServices()
-	listener.ReadExistingContainers()
+	si.ReadInServices()
 
 	require.Len(t, allInstances(st, t), 1)
 	svc, err := st.GetService("blorp-svc", store.QueryServiceOptions{WithInstances: true})
@@ -306,21 +269,21 @@ func TestMultihostNetworking(t *testing.T) {
 }
 
 func TestNoAddress(t *testing.T) {
-	listener, st, dc := setup("192.168.3.4", LOCAL)
+	si, st := setup("192.168.3.4", LOCAL)
 
 	st.AddService("important-svc", data.Service{
 		InstancePort: 80,
 	})
 	addGroup(st, "important-svc", "image", "important-image")
-	dc.startContainers(container{
+
+	si.processContainerUpdate(resetContainers(container{
 		ID:        "oops-instance",
 		IPAddress: "10.13.14.15",
 		Image:     "important-image:greatest",
 		// No published port
-	})
+	}))
 
-	listener.ReadInServices()
-	listener.ReadExistingContainers()
+	si.ReadInServices()
 
 	require.Len(t, allInstances(st, t), 1)
 	svc, err := st.GetService("important-svc", store.QueryServiceOptions{WithInstances: true})
@@ -331,42 +294,40 @@ func TestNoAddress(t *testing.T) {
 }
 
 func TestHostNetworking(t *testing.T) {
-	listener, st, dc := setup("192.168.5.135", GLOBAL)
+	si, st := setup("192.168.5.135", GLOBAL)
 
 	st.AddService("blorp-svc", data.Service{
 		InstancePort: 8080,
 	})
 	addGroup(st, "blorp-svc", "image", "blorp-image")
-	dc.startContainers(container{
+
+	si.processContainerUpdate(resetContainers(container{
 		NetworkMode: "host",
 		ID:          "blorp-instance",
 		IPAddress:   "",
 		Image:       "blorp-image:tag",
-	})
+	}))
 
-	listener.ReadInServices()
-	listener.ReadExistingContainers()
+	si.ReadInServices()
 
 	require.Len(t, allInstances(st, t), 1)
 	svc, err := st.GetService("blorp-svc", store.QueryServiceOptions{WithInstances: true})
 	require.Nil(t, err)
-	require.Equal(t, listener.hostIP, svc.Instances[0].Address)
+	require.Equal(t, si.hostIP, svc.Instances[0].Address)
 	require.Equal(t, 8080, svc.Instances[0].Port)
 	require.Equal(t, data.LIVE, svc.Instances[0].State)
 }
 
 func TestOtherHostsEntries(t *testing.T) {
-	listener1, st, dc1 := setup("192.168.11.34", LOCAL)
-	dc2 := newMockInspector()
-	listener2 := NewSyncInstances(Config{
-		Store:     st,
-		HostIP:    "192.168.11.5",
-		Inspector: dc2,
+	si1, st := setup("192.168.11.34", LOCAL)
+	si2 := NewSyncInstances(Config{
+		Store:  st,
+		HostIP: "192.168.11.5",
 	})
 
 	st.AddService("foo-svc", data.Service{})
 	addGroup(st, "foo-svc", "image", "foo-image")
-	dc1.startContainers(container{
+	si1.processContainerUpdate(resetContainers(container{
 		ID:        "bar1",
 		IPAddress: "192.168.34.1",
 		Image:     "foo-image:version",
@@ -374,8 +335,8 @@ func TestOtherHostsEntries(t *testing.T) {
 		ID:        "baz1",
 		IPAddress: "192.168.34.2",
 		Image:     "foo-image:version2",
-	})
-	dc2.startContainers(container{
+	}))
+	si2.processContainerUpdate(resetContainers(container{
 		ID:        "bar2",
 		IPAddress: "192.168.34.3",
 		Image:     "foo-image:version",
@@ -383,32 +344,33 @@ func TestOtherHostsEntries(t *testing.T) {
 		ID:        "baz2",
 		IPAddress: "192.168.34.4",
 		Image:     "foo-image:version2",
-	})
-	// let listener on the first host add its instances
-	listener1.ReadInServices()
-	listener1.ReadExistingContainers()
+	}))
+	// let si on the first host add its instances
+	si1.ReadInServices()
 
 	require.Len(t, allInstances(st, t), 2)
 
-	// let listener on the second host add its instances
-	listener2.ReadInServices()
-	listener2.ReadExistingContainers()
+	// let si on the second host add its instances
+	si2.ReadInServices()
 
 	require.Len(t, allInstances(st, t), 4)
 
 	// simulate an agent restart; in the meantime, a container has
 	// stopped.
-	dc2.stopContainer("baz2")
-
-	// NB: the Read* methods assume once-only execution, on startup.
-	listener2 = NewSyncInstances(Config{
-		Store:     st,
-		Network:   LOCAL,
-		HostIP:    "192.168.11.5",
-		Inspector: dc2,
+	si2 = NewSyncInstances(Config{
+		Store:   st,
+		Network: LOCAL,
+		HostIP:  "192.168.11.5",
 	})
-	listener2.ReadExistingContainers()
-	listener2.ReadInServices()
-
+	si2.processContainerUpdate(resetContainers(container{
+		ID:        "bar2",
+		IPAddress: "192.168.34.3",
+		Image:     "foo-image:version",
+	}))
+	si2.ReadInServices()
 	require.Len(t, allInstances(st, t), 3)
+
+	// test behaviour when the docker listener restarts:
+	si2.processContainerUpdate(resetContainers())
+	require.Len(t, allInstances(st, t), 2)
 }

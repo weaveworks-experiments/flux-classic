@@ -5,27 +5,15 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"time"
 
 	"github.com/weaveworks/flux/agent"
+	"github.com/weaveworks/flux/common/daemon"
 	"github.com/weaveworks/flux/common/store/etcdstore"
 	"github.com/weaveworks/flux/common/version"
 
 	log "github.com/Sirupsen/logrus"
-	docker "github.com/fsouza/go-dockerclient"
 )
-
-func setupDockerClient() (*docker.Client, error) {
-	dc, err := docker.NewClientFromEnv()
-	if err != nil {
-		return nil, err
-	}
-	env, err := dc.Version()
-	if err != nil {
-		return nil, err
-	}
-	log.Infof("Using Docker %+v", env)
-	return dc, nil
-}
 
 func main() {
 	var (
@@ -43,11 +31,6 @@ func main() {
 	}
 
 	log.Infof("flux agent version %s", version.Version())
-
-	dc, err := setupDockerClient()
-	if err != nil {
-		log.Fatalf("Error connecting to docker: %s", err)
-	}
 
 	hostIpFrom := "argument"
 
@@ -76,23 +59,19 @@ func main() {
 		log.Fatal(err)
 	}
 
+	containerUpdates := make(chan agent.ContainerUpdate)
+	dl := agent.NewDockerListener(containerUpdates)
+
 	si := agent.NewSyncInstances(agent.Config{
-		HostIP:    hostIP,
-		Network:   network,
-		Store:     store,
-		Inspector: dc,
+		HostIP:  hostIP,
+		Network: network,
+		Store:   store,
 	})
 
-	events := make(chan *docker.APIEvents)
-	if err := dc.AddEventListener(events); err != nil {
-		log.Fatalf("Unable to add listener to Docker API: %s", err)
-	}
-
-	if err := si.ReadExistingContainers(); err != nil {
-		log.Fatalf("Error reading existing containers: %s", err)
-	}
 	if err := si.ReadInServices(); err != nil {
 		log.Fatalf("Error reading configuration: %s", err)
 	}
-	si.Run(events)
+
+	go si.Run(containerUpdates)
+	daemon.Main(daemon.Restart(10*time.Second, dl))
 }

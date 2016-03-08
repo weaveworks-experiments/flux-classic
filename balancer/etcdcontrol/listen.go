@@ -38,7 +38,7 @@ func NewListener(store store.Store, updates chan<- model.ServiceUpdate) daemon.S
 
 func (l *Listener) run() {
 	changes := make(chan data.ServiceChange)
-	l.store.WatchServices(nil, changes, l.errorSink,
+	l.store.WatchServices(l.context, changes, l.errorSink,
 		store.QueryServiceOptions{WithInstances: true})
 
 	if err := l.doInitialQuery(); err != nil {

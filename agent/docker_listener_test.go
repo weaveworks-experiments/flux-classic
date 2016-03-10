@@ -3,7 +3,6 @@ package agent
 import (
 	"sync"
 	"testing"
-	"time"
 
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/stretchr/testify/require"
@@ -130,13 +129,6 @@ func (mdc *mockDockerClient) notify(async bool, evs ...docker.APIEvents) {
 
 func TestDockerListener(t *testing.T) {
 	mdc := newMockDockerClient()
-	es := daemon.NewErrorSink()
-	updates := make(chan ContainerUpdate)
-	dl := &dockerListener{
-		client: mdc,
-		stop:   make(chan struct{}),
-	}
-
 	mdc.addContainer(&docker.Container{
 		ID:   "1",
 		Name: "/foo",
@@ -151,11 +143,17 @@ func TestDockerListener(t *testing.T) {
 		Name: "/qux",
 	}}
 
-	go func() {
-		if err := dl.startAux(es, updates); err != nil {
-			es.Post(err)
+	updates := make(chan ContainerUpdate)
+
+	errs := daemon.NewErrorSink()
+	dlComp := daemon.SimpleComponent(func(stop <-chan struct{}, errs daemon.ErrorSink) {
+		dl := dockerListener{
+			client:    mdc,
+			stop:      stop,
+			errorSink: errs,
 		}
-	}()
+		errs.Post(dl.startAux(updates))
+	})(errs)
 
 	update := <-updates
 	require.True(t, update.Reset)
@@ -181,9 +179,7 @@ func TestDockerListener(t *testing.T) {
 	require.Len(t, update.Containers, 1)
 	require.Equal(t, update.Containers["5"].Name, "/qux")
 
-	dl.Stop()
-	// Ugly sleep to let the goroutines stop
-	time.Sleep(10 * time.Millisecond)
+	dlComp.Stop()
 	require.Empty(t, updates)
-	require.Empty(t, es)
+	require.Empty(t, errs)
 }

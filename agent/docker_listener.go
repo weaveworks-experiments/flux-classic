@@ -1,8 +1,6 @@
 package agent
 
 import (
-	"sync"
-
 	log "github.com/Sirupsen/logrus"
 	docker "github.com/fsouza/go-dockerclient"
 
@@ -15,9 +13,9 @@ type ContainerUpdate struct {
 }
 
 type dockerListener struct {
-	client  dockerClient
-	stop    chan struct{}
-	stopped sync.Once
+	client    dockerClient
+	stop      <-chan struct{}
+	errorSink daemon.ErrorSink
 }
 
 type dockerClient interface {
@@ -35,26 +33,16 @@ type containerIDs struct {
 }
 
 func NewDockerListener(out chan<- ContainerUpdate) daemon.StartFunc {
-	return func(es daemon.ErrorSink) daemon.Component {
-		dl := &dockerListener{stop: make(chan struct{})}
-
-		go func() {
-			if err := dl.start(es, out); err != nil {
-				es.Post(err)
-			}
-		}()
-
-		return dl
-	}
-}
-
-func (dl *dockerListener) Stop() {
-	dl.stopped.Do(func() {
-		close(dl.stop)
+	return daemon.SimpleComponent(func(stop <-chan struct{}, errs daemon.ErrorSink) {
+		dl := dockerListener{
+			stop:      stop,
+			errorSink: errs,
+		}
+		errs.Post(dl.start(out))
 	})
 }
 
-func (dl *dockerListener) start(es daemon.ErrorSink, out chan<- ContainerUpdate) error {
+func (dl *dockerListener) start(out chan<- ContainerUpdate) error {
 	client, err := docker.NewClientFromEnv()
 	if err != nil {
 		return err
@@ -66,25 +54,25 @@ func (dl *dockerListener) start(es daemon.ErrorSink, out chan<- ContainerUpdate)
 	}
 	log.Infof("Using Docker %+v", env)
 
-	dl.client = client
-	return dl.startAux(es, out)
+	return dl.startAux(out)
 }
 
-func (dl *dockerListener) startAux(es daemon.ErrorSink, out chan<- ContainerUpdate) error {
+func (dl *dockerListener) startAux(out chan<- ContainerUpdate) error {
 	bufContainerIDs := make(chan containerIDs)
 	containerIDs := make(chan containerIDs)
 
-	go func() {
-		if err := dl.readContainerIDs(bufContainerIDs); err != nil {
-			es.Post(err)
-		}
-	}()
+	daemon.Par(func() {
+		dl.errorSink.Post(dl.readContainerIDs(bufContainerIDs))
+	}, func() {
+		// Buffer the container ID updates, because if inspecting a
+		// container takes a long time, it shouldn't block handling of
+		// events from the docker client.
+		dl.bufferContainerIDs(bufContainerIDs, containerIDs)
+	}, func() {
+		dl.errorSink.Post(dl.inspectContainers(containerIDs, out))
+	})
 
-	// Buffer the container ID updates, because if inspecting a
-	// container takes a long time, it shouldn't block handling of
-	// events from the docker client.
-	go dl.bufferContainerIDs(bufContainerIDs, containerIDs)
-	return dl.inspectContainers(containerIDs, out)
+	return nil
 }
 
 func (dl *dockerListener) readContainerIDs(out chan<- containerIDs) error {

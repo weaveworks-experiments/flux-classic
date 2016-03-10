@@ -19,6 +19,7 @@ type Listener struct {
 	errorSink daemon.ErrorSink
 	context   context.Context
 	cancel    context.CancelFunc
+	finished  chan struct{}
 }
 
 func NewListener(store store.Store, updates chan<- model.ServiceUpdate) daemon.StartFunc {
@@ -30,6 +31,7 @@ func NewListener(store store.Store, updates chan<- model.ServiceUpdate) daemon.S
 			errorSink: es,
 			context:   ctx,
 			cancel:    cancel,
+			finished:  make(chan struct{}),
 		}
 		go listener.run()
 		return listener
@@ -37,6 +39,7 @@ func NewListener(store store.Store, updates chan<- model.ServiceUpdate) daemon.S
 }
 
 func (l *Listener) run() {
+	defer close(l.finished)
 	changes := make(chan data.ServiceChange)
 	l.store.WatchServices(l.context, changes, l.errorSink,
 		store.QueryServiceOptions{WithInstances: true})
@@ -47,7 +50,13 @@ func (l *Listener) run() {
 	}
 
 	for {
-		change := <-changes
+		var change data.ServiceChange
+		select {
+		case change = <-changes:
+		case <-l.context.Done():
+			return
+		}
+
 		var ms *model.Service
 		if !change.ServiceDeleted {
 			svc, err := l.store.GetService(change.Name, store.QueryServiceOptions{WithInstances: true})
@@ -61,8 +70,12 @@ func (l *Listener) run() {
 			}
 		}
 
-		l.updates <- model.ServiceUpdate{
+		select {
+		case l.updates <- model.ServiceUpdate{
 			Updates: map[string]*model.Service{change.Name: ms},
+		}:
+		case <-l.context.Done():
+			return
 		}
 	}
 }
@@ -81,10 +94,14 @@ func (l *Listener) doInitialQuery() error {
 		}
 	}
 
-	l.updates <- model.ServiceUpdate{
+	select {
+	case l.updates <- model.ServiceUpdate{
 		Updates: updates,
 		Reset:   true,
+	}:
+	case <-l.context.Done():
 	}
+
 	return nil
 }
 
@@ -131,4 +148,5 @@ func translateService(svc *store.ServiceInfo) *model.Service {
 
 func (l *Listener) Stop() {
 	l.cancel()
+	<-l.finished
 }

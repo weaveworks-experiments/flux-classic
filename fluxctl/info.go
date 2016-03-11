@@ -9,7 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	//	"github.com/weaveworks/flux/common/data"
+	"github.com/weaveworks/flux/common/data"
 	"github.com/weaveworks/flux/common/store"
 )
 
@@ -31,9 +31,18 @@ func (opts *infoOpts) makeCommand() *cobra.Command {
 }
 
 func (opts *infoOpts) run(_ *cobra.Command, args []string) error {
+	hosts, err := opts.store.GetHosts()
+	if err != nil {
+		return err
+	}
+	fmt.Fprint(opts.getStdout(), "HOSTS\n")
+	for _, host := range hosts {
+		printHost(opts.getStdout(), host)
+	}
+	fmt.Fprint(opts.getStdout(), "\n\nSERVICES\n")
+
 	var (
 		svcs []*store.ServiceInfo
-		err  error
 	)
 	qopts := store.QueryServiceOptions{
 		WithInstances:      true,
@@ -56,6 +65,10 @@ func (opts *infoOpts) run(_ *cobra.Command, args []string) error {
 		}
 	}
 	return nil
+}
+
+func printHost(out io.Writer, host *data.Host) {
+	fmt.Fprintf(out, host.IPAddress)
 }
 
 func printService(out io.Writer, svc *store.ServiceInfo) error {

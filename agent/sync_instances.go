@@ -181,7 +181,7 @@ func (si *syncInstances) syncInstances(svc *service) error {
 }
 
 func (si *syncInstances) owns(inst data.Instance) bool {
-	return si.HostIP == inst.Host
+	return si.HostIP == inst.Host.IPAddress
 }
 
 func (si *syncInstances) evaluate(container *docker.Container, svc *service) error {
@@ -235,7 +235,7 @@ func (si *syncInstances) extractInstance(spec data.ContainerRule, svc data.Servi
 		labels["env."+kv[0]] = kv[1]
 	}
 	inst.Labels = labels
-	inst.Host = si.HostIP
+	inst.Host = data.Host{IPAddress: si.HostIP}
 	return inst, true
 }
 
@@ -322,6 +322,15 @@ func envValue(env []string, key string) string {
 		}
 	}
 	return ""
+}
+
+func (si *syncInstances) processHostChange(change data.HostChange) {
+	// TODO: if the host has been removed, mark the instances as dubious, and schedule something to delete them if that's still the case in now + T.
+	action := "arrived"
+	if change.HostDeparted {
+		action = "departed"
+	}
+	log.Infof("Host change: %s %s", change.Name, action)
 }
 
 func imageTag(image string) string {

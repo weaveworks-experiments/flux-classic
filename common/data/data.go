@@ -6,6 +6,15 @@ func (sel Selector) Empty() bool {
 	return len(sel) == 0
 }
 
+type Host struct {
+	IPAddress string `json:"address"`
+}
+
+type HostChange struct {
+	Name         string
+	HostDeparted bool
+}
+
 // Specifies how containers should be selected as instances, and the
 // attributes of the resulting instances.
 type ContainerRule struct {
@@ -34,7 +43,7 @@ const (
 
 type Instance struct {
 	State         InstanceState     `json:"state"`
-	Host          string            `json:"host"`
+	Host          Host              `json:"host"`
 	ContainerRule string            `json:"containerRule"`
 	Address       string            `json:"address,omitempty"`
 	Port          int               `json:"port,omitempty"`
@@ -48,7 +57,7 @@ type Labeled interface {
 func (inst Instance) Label(k string) string {
 	switch k {
 	case HostLabel:
-		return inst.Host
+		return inst.Host.IPAddress
 	case StateLabel:
 		return string(inst.State)
 	case RuleLabel:

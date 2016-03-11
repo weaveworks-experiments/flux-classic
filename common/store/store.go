@@ -30,6 +30,8 @@ type ServiceInfo struct {
 }
 
 type Store interface {
+	Cluster
+
 	Ping() error
 
 	CheckRegisteredService(serviceName string) error

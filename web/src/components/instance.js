@@ -23,7 +23,7 @@ export default class Instance extends React.Component {
           {' '}
           <span className="instance-other-field-label">on</span>
           {' '}
-          {this.props.host}
+          {this.props.host.address}
         </div>
       </div>
     );

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	etcd "github.com/coreos/etcd/client"
 	"golang.org/x/net/context"
@@ -42,22 +43,24 @@ func (es *etcdStore) Ping() error {
 	return err
 }
 
-const ROOT = "/weave-flux/service/"
+const ROOT = "/weave-flux/"
+const SERVICE_ROOT = ROOT + "service/"
+const HOST_ROOT = ROOT + "host/"
 
 func serviceRootKey(serviceName string) string {
-	return ROOT + serviceName
+	return SERVICE_ROOT + serviceName
 }
 
 func serviceKey(serviceName string) string {
-	return fmt.Sprintf("%s%s/details", ROOT, serviceName)
+	return fmt.Sprintf("%s%s/details", SERVICE_ROOT, serviceName)
 }
 
 func ruleKey(serviceName, ruleName string) string {
-	return fmt.Sprintf("%s%s/groupspec/%s", ROOT, serviceName, ruleName)
+	return fmt.Sprintf("%s%s/groupspec/%s", SERVICE_ROOT, serviceName, ruleName)
 }
 
 func instanceKey(serviceName, instanceName string) string {
-	return fmt.Sprintf("%s%s/instance/%s", ROOT, serviceName, instanceName)
+	return fmt.Sprintf("%s%s/instance/%s", SERVICE_ROOT, serviceName, instanceName)
 }
 
 type parsedRootKey struct {
@@ -92,11 +95,11 @@ func (k parsedInstanceKey) relevantTo(opts store.QueryServiceOptions) (bool, str
 // Parse a path to find its type
 
 func parseKey(key string) interface{} {
-	if len(key) <= len(ROOT) {
+	if len(key) <= len(SERVICE_ROOT) {
 		return parsedRootKey{}
 	}
 
-	p := strings.Split(key[len(ROOT):], "/")
+	p := strings.Split(key[len(SERVICE_ROOT):], "/")
 	if len(p) == 1 {
 		return parsedServiceRootKey{p[0]}
 	}
@@ -139,7 +142,7 @@ func (es *etcdStore) RemoveService(serviceName string) error {
 }
 
 func (es *etcdStore) RemoveAllServices() error {
-	return es.deleteRecursive(ROOT)
+	return es.deleteRecursive(SERVICE_ROOT)
 }
 
 func (es *etcdStore) deleteRecursive(key string) error {
@@ -159,7 +162,7 @@ func (es *etcdStore) GetService(serviceName string, opts store.QueryServiceOptio
 }
 
 func (es *etcdStore) GetAllServices(opts store.QueryServiceOptions) ([]*store.ServiceInfo, error) {
-	node, _, err := es.getDirNode(ROOT, true, true)
+	node, _, err := es.getDirNode(SERVICE_ROOT, true, true)
 	if err != nil {
 		return nil, err
 	}
@@ -380,7 +383,7 @@ func (es *etcdStore) WatchServices(ctx context.Context, resCh chan<- data.Servic
 	// initial index for the watch. (Though perhaps that should
 	// really be based on the ModifieedIndex of the nodes
 	// themselves?)
-	node, startIndex, err := es.getDirNode(ROOT, true, false)
+	node, startIndex, err := es.getDirNode(SERVICE_ROOT, true, false)
 	if err != nil {
 		errorSink.Post(err)
 		return
@@ -390,7 +393,7 @@ func (es *etcdStore) WatchServices(ctx context.Context, resCh chan<- data.Servic
 		svcs[name] = struct{}{}
 	}
 	go func() {
-		watcher := es.Watcher(ROOT,
+		watcher := es.Watcher(SERVICE_ROOT,
 			&etcd.WatcherOptions{
 				AfterIndex: startIndex,
 				Recursive:  true,
@@ -408,4 +411,65 @@ func (es *etcdStore) WatchServices(ctx context.Context, resCh chan<- data.Servic
 			handleResponse(next)
 		}
 	}()
+}
+
+/* store.Cluster methods
+
+These follow the scheme of
+
+/weave-flux/hosts/<identity>
+
+where the individual values are serialised `data.Host`s. A host's IP
+address is used to identify a host (i.e., the last part of the key),
+and included in the value. This may change, and if so would need a bit
+of teasing apart; in the meantime, we ought to be careful to
+distinguish the uses of identity and IP address.
+
+*/
+
+func hostKey(identity string) string {
+	return HOST_ROOT + identity
+}
+
+func (es *etcdStore) GetHosts() ([]*data.Host, error) {
+	node, _, err := es.getDirNode(HOST_ROOT, true, false)
+	if err != nil {
+		return nil, err
+	}
+
+	var hosts []*data.Host
+
+	for _, n := range indexDir(node) {
+		host, err := hostFromNode(n)
+		if err != nil {
+			return nil, err
+		}
+
+		hosts = append(hosts, host)
+	}
+
+	return hosts, nil
+}
+
+func hostFromNode(node *etcd.Node) (*data.Host, error) {
+	var host data.Host
+	return &host, json.Unmarshal([]byte(node.Value), &host)
+}
+
+func (es *etcdStore) Heartbeat(identity string, ttl time.Duration, info *data.Host) error {
+	json, err := json.Marshal(&info)
+	if err != nil {
+		return fmt.Errorf("Failed to encode: %s", err)
+	}
+
+	_, err = es.Set(es.ctx, hostKey(identity), string(json), &etcd.SetOptions{TTL: ttl})
+	return err
+}
+
+func (es *etcdStore) DeregisterHost(identity string) error {
+	_, err := es.Delete(es.ctx, hostKey(identity), &etcd.DeleteOptions{Recursive: false})
+	return err
+}
+
+func (es *etcdStore) WatchHosts(ctx context.Context, changes chan<- data.HostChange) {
 }

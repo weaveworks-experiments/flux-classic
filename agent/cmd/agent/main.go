@@ -16,11 +16,17 @@ import (
 	log "github.com/Sirupsen/logrus"
 )
 
+const (
+	DefaultHostTTL = 30
+)
+
 func main() {
 	var (
+		hostTTL int
 		hostIP  string
 		network string
 	)
+	flag.IntVar(&hostTTL, "host-ttl", DefaultHostTTL, "Time-to-live for host record; the agent will try to refresh this on a schedule such that it doesn't lapse")
 	flag.StringVar(&hostIP, "host-ip", "", "IP address for instances with mapped ports")
 	flag.StringVar(&network, "network-mode", agent.LOCAL, fmt.Sprintf(`Kind of network to assume for containers (either "%s" or "%s")`, agent.LOCAL, agent.GLOBAL))
 	flag.Parse()

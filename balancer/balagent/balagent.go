@@ -10,7 +10,6 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/weaveworks/flux/balancer/etcdcontrol"
 	"github.com/weaveworks/flux/balancer/model"
 	"github.com/weaveworks/flux/common/daemon"
 	"github.com/weaveworks/flux/common/store"
@@ -86,7 +85,7 @@ func (a *BalancerAgent) parseArgs(args []string) error {
 func (a *BalancerAgent) start() error {
 	updates := make(chan model.ServiceUpdate)
 	a.updates = updates
-	a.controller = daemon.Restart(time.Second*10, etcdcontrol.NewListener(a.store, updates))(a.errorSink)
+	a.controller = daemon.Restart(time.Second*10, model.WatchServicesStartFunc(a.store, updates))(a.errorSink)
 
 	a.stop = make(chan struct{})
 	a.services = make(chan Services, 1)

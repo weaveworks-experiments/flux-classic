@@ -7,7 +7,6 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 
-	"github.com/weaveworks/flux/balancer/etcdcontrol"
 	"github.com/weaveworks/flux/balancer/eventlogger"
 	"github.com/weaveworks/flux/balancer/events"
 	"github.com/weaveworks/flux/balancer/model"
@@ -111,7 +110,7 @@ func (d *BalancerDaemon) parseArgs(args []string) error {
 func (d *BalancerDaemon) setStore(st store.Store, reconnectInterval time.Duration) {
 	updates := make(chan model.ServiceUpdate)
 	d.updates = updates
-	d.controller = daemon.Restart(reconnectInterval, etcdcontrol.NewListener(st, updates))(d.errorSink)
+	d.controller = daemon.Restart(reconnectInterval, model.WatchServicesStartFunc(st, updates))(d.errorSink)
 }
 
 func NewBalancer(args []string, errorSink daemon.ErrorSink, ipTablesCmd IPTablesCmd) (*BalancerDaemon, error) {

@@ -5,7 +5,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/weaveworks/flux/common/daemon"
 	"github.com/weaveworks/flux/common/data"
 	"github.com/weaveworks/flux/common/store"
 
@@ -51,80 +50,23 @@ type Config struct {
 
 func NewSyncInstances(config Config) *SyncInstances {
 	listener := &SyncInstances{
-		store:    config.Store,
-		network:  config.Network,
-		services: make(map[string]*service),
-		hostIP:   config.HostIP,
+		store:   config.Store,
+		network: config.Network,
+		hostIP:  config.HostIP,
 	}
 	return listener
 }
 
-func (si *SyncInstances) owns(inst data.Instance) bool {
-	return si.hostIP == inst.Host
-}
+func (si *SyncInstances) Run(containerUpdates <-chan ContainerUpdate, serviceUpdates <-chan store.ServiceUpdate) {
+	for {
+		select {
+		case update := <-containerUpdates:
+			si.processContainerUpdate(update)
 
-// instanceNameFor and instanceNameFromEvent encode the fact we just
-// use the container ID as the instance name.
-func instanceNameFor(c *docker.Container) string {
-	return c.ID
-}
-
-// Read in all info on registered services and evaluate known
-// containers against them.
-func (si *SyncInstances) ReadInServices() error {
-	svcs, err := si.store.GetAllServices(store.QueryServiceOptions{WithContainerRules: true})
-	if err != nil {
-		return err
-	}
-	for _, svcInfo := range svcs {
-		svc := si.redefineService(svcInfo)
-		if err := si.syncInstances(svc); err != nil {
-			return err
+		case update := <-serviceUpdates:
+			si.processServiceUpdate(update)
 		}
 	}
-	return nil
-}
-
-// The service has been changed; re-evaluate which containers belong,
-// and which don't. Assume we have a correct list of containers.
-func (si *SyncInstances) redefineService(svcInfo *store.ServiceInfo) *service {
-	svc, found := si.services[svcInfo.Name]
-	if !found {
-		svc = &service{}
-		si.services[svcInfo.Name] = svc
-	}
-	svc.ServiceInfo = svcInfo
-	return svc
-}
-
-func (si *SyncInstances) syncInstances(svc *service) error {
-	if si.containers == nil {
-		// Defer syncing instances until we learn about containers
-		return nil
-	}
-
-	svc.localInstances = make(instanceSet)
-	for _, container := range si.containers {
-		if err := si.evaluate(container, svc); err != nil {
-			return err
-		}
-	}
-
-	// remove any instances for this service that do not match
-	storeSvc, err := si.store.GetService(svc.Name, store.QueryServiceOptions{WithInstances: true})
-	if err != nil {
-		return err
-	}
-
-	for _, inst := range storeSvc.Instances {
-		if !svc.includes(inst.Name) && si.owns(inst.Instance) {
-			if err := si.store.RemoveInstance(svc.Name, inst.Name); err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
 }
 
 func (si *SyncInstances) processContainerUpdate(update ContainerUpdate) {
@@ -184,6 +126,78 @@ func (si *SyncInstances) removeContainer(container *docker.Container) error {
 	return nil
 }
 
+func (si *SyncInstances) processServiceUpdate(update store.ServiceUpdate) {
+	if update.Reset {
+		si.services = make(map[string]*service)
+
+		for _, svcInfo := range update.Services {
+			svc := si.redefineService(svcInfo)
+			if err := si.syncInstances(svc); err != nil {
+				log.Errorf(`Syncing instances for service '%s'`, svc.Name)
+			}
+		}
+
+		return
+	}
+
+	for name, svcInfo := range update.Services {
+		if svcInfo != nil {
+			svc := si.redefineService(svcInfo)
+			if err := si.syncInstances(svc); err != nil {
+				log.Errorf(`Syncing instances for service '%s'`, svc.Name)
+			}
+		} else if svc := si.containers[name]; svc != nil {
+			delete(si.services, name)
+		}
+	}
+}
+
+// The service has been changed; re-evaluate which containers belong,
+// and which don't. Assume we have a correct list of containers.
+func (si *SyncInstances) redefineService(svcInfo *store.ServiceInfo) *service {
+	svc, found := si.services[svcInfo.Name]
+	if !found {
+		svc = &service{}
+		si.services[svcInfo.Name] = svc
+	}
+	svc.ServiceInfo = svcInfo
+	return svc
+}
+
+func (si *SyncInstances) syncInstances(svc *service) error {
+	if si.containers == nil {
+		// Defer syncing instances until we learn about containers
+		return nil
+	}
+
+	svc.localInstances = make(instanceSet)
+	for _, container := range si.containers {
+		if err := si.evaluate(container, svc); err != nil {
+			return err
+		}
+	}
+
+	// remove any instances for this service that do not match
+	storeSvc, err := si.store.GetService(svc.Name, store.QueryServiceOptions{WithInstances: true})
+	if err != nil {
+		return err
+	}
+
+	for _, inst := range storeSvc.Instances {
+		if !svc.includes(inst.Name) && si.owns(inst.Instance) {
+			if err := si.store.RemoveInstance(svc.Name, inst.Name); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func (si *SyncInstances) owns(inst data.Instance) bool {
+	return si.hostIP == inst.Host
+}
+
 func (si *SyncInstances) evaluate(container *docker.Container, svc *service) error {
 	for _, spec := range svc.ContainerRules {
 		if instance, ok := si.extractInstance(spec.ContainerRule, svc.ServiceInfo.Service, container); ok {
@@ -200,6 +214,12 @@ func (si *SyncInstances) evaluate(container *docker.Container, svc *service) err
 		}
 	}
 	return nil
+}
+
+// instanceNameFor and instanceNameFromEvent encode the fact we just
+// use the container ID as the instance name.
+func instanceNameFor(c *docker.Container) string {
+	return c.ID
 }
 
 func (si *SyncInstances) extractInstance(spec data.ContainerRule, svc data.Service, container *docker.Container) (data.Instance, bool) {
@@ -317,51 +337,6 @@ func envValue(env []string, key string) string {
 		}
 	}
 	return ""
-}
-
-func (si *SyncInstances) serviceRemoved(name string) error {
-	delete(si.services, name)
-	return nil
-}
-
-func (si *SyncInstances) serviceUpdated(name string) error {
-	svcInfo, err := si.store.GetService(name, store.QueryServiceOptions{WithContainerRules: true})
-	if err != nil {
-		log.Errorf(`Failed to retrieve service '%s': %s`, name, err)
-		return err
-	}
-
-	log.Infof(`Service '%s' updated to %+v`, name, svcInfo)
-	// See which containers match now.
-	svc := si.redefineService(svcInfo)
-	return si.syncInstances(svc)
-}
-
-func (si *SyncInstances) Run(containerUpdates <-chan ContainerUpdate) {
-	changes := make(chan data.ServiceChange)
-	si.store.WatchServices(nil, changes, daemon.NewErrorSink(),
-		store.QueryServiceOptions{WithContainerRules: true})
-	for {
-		select {
-		case update := <-containerUpdates:
-			si.processContainerUpdate(update)
-
-		case change := <-changes:
-			si.processServiceChange(change)
-		}
-	}
-}
-
-func (si *SyncInstances) processServiceChange(change data.ServiceChange) {
-	if change.ServiceDeleted {
-		if err := si.serviceRemoved(change.Name); err != nil {
-			log.Errorf("error handling service removal: %s", err)
-		}
-	} else {
-		if err := si.serviceUpdated(change.Name); err != nil {
-			log.Errorf("error handling service update: %s", err)
-		}
-	}
 }
 
 func imageTag(image string) string {

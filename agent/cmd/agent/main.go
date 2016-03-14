@@ -9,6 +9,7 @@ import (
 
 	"github.com/weaveworks/flux/agent"
 	"github.com/weaveworks/flux/common/daemon"
+	"github.com/weaveworks/flux/common/store"
 	"github.com/weaveworks/flux/common/store/etcdstore"
 	"github.com/weaveworks/flux/common/version"
 
@@ -54,24 +55,26 @@ func main() {
 
 	log.Infof(`Using host IP address '%s' from %s`, hostIP, hostIpFrom)
 
-	store, err := etcdstore.NewFromEnv()
+	st, err := etcdstore.NewFromEnv()
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	containerUpdates := make(chan agent.ContainerUpdate)
-	dl := agent.NewDockerListener(containerUpdates)
+	serviceUpdates := make(chan store.ServiceUpdate)
 
 	si := agent.NewSyncInstances(agent.Config{
 		HostIP:  hostIP,
 		Network: network,
-		Store:   store,
+		Store:   st,
 	})
+	go si.Run(containerUpdates, serviceUpdates)
 
-	if err := si.ReadInServices(); err != nil {
-		log.Fatalf("Error reading configuration: %s", err)
-	}
-
-	go si.Run(containerUpdates)
-	daemon.Main(daemon.Restart(10*time.Second, dl))
+	daemon.Main(daemon.Aggregate(
+		daemon.Restart(10*time.Second,
+			agent.DockerListenerStartFunc(containerUpdates)),
+		daemon.Restart(10*time.Second,
+			store.WatchServicesStartFunc(st,
+				store.QueryServiceOptions{WithContainerRules: true},
+				serviceUpdates))))
 }

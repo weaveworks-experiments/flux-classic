@@ -32,7 +32,7 @@ type containerIDs struct {
 	reset      bool
 }
 
-func NewDockerListener(out chan<- ContainerUpdate) daemon.StartFunc {
+func DockerListenerStartFunc(out chan<- ContainerUpdate) daemon.StartFunc {
 	return daemon.SimpleComponent(func(stop <-chan struct{}, errs daemon.ErrorSink) {
 		dl := dockerListener{
 			stop:      stop,

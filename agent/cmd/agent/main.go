@@ -9,6 +9,8 @@ import (
 
 	"github.com/weaveworks/flux/agent"
 	"github.com/weaveworks/flux/common/daemon"
+	"github.com/weaveworks/flux/common/data"
+	"github.com/weaveworks/flux/common/heartbeat"
 	"github.com/weaveworks/flux/common/store"
 	"github.com/weaveworks/flux/common/store/etcdstore"
 	"github.com/weaveworks/flux/common/version"
@@ -82,7 +84,16 @@ func main() {
 		ServiceUpdatesReset:   serviceUpdatesReset,
 	}
 
+	hb := heartbeat.HeartbeatConfig{
+		Cluster:      st,
+		TTL:          time.Duration(hostTTL) * time.Second,
+		HostIdentity: hostIP,
+		HostState:    &data.Host{IPAddress: hostIP},
+	}
+
 	daemon.Main(daemon.Aggregate(
+		daemon.Restart(10*time.Second,
+			hb.Start),
 		daemon.Reset(containerUpdatesReset,
 			daemon.Restart(10*time.Second,
 				agent.DockerListenerStartFunc(containerUpdates))),
@@ -92,4 +103,5 @@ func main() {
 					store.QueryServiceOptions{WithContainerRules: true},
 					serviceUpdates))),
 		daemon.Restart(10*time.Second, conf.StartFunc())))
+
 }

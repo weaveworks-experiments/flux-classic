@@ -103,5 +103,4 @@ func main() {
 					store.QueryServiceOptions{WithContainerRules: true},
 					serviceUpdates))),
 		daemon.Restart(10*time.Second, conf.StartFunc())))
-
 }

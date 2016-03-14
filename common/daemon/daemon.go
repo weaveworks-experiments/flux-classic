@@ -9,7 +9,7 @@ import (
 	"syscall"
 )
 
-func Main(starters ...StartFunc) {
+func Main(start StartFunc) {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
 	sigs := make(chan os.Signal, 2)
@@ -17,11 +17,7 @@ func Main(starters ...StartFunc) {
 
 	errorSink := NewErrorSink()
 
-	components := make([]Component, len(starters))
-	for i, start := range starters {
-		components[i] = start(errorSink)
-	}
-
+	d := start(errorSink)
 	exitCode := 0
 	var exitSignal os.Signal
 
@@ -34,11 +30,8 @@ func Main(starters ...StartFunc) {
 	case exitSignal = <-sigs:
 	}
 
-	for i := len(components) - 1; i >= 0; i-- {
-		d := components[i]
-		if d != nil {
-			d.Stop()
-		}
+	if d != nil {
+		d.Stop()
 	}
 
 	if sig, ok := exitSignal.(syscall.Signal); ok {

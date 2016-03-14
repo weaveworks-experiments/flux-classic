@@ -11,9 +11,9 @@ import (
 )
 
 func WatchServicesStartFunc(st store.Store, updates chan<- ServiceUpdate) daemon.StartFunc {
-	sendUpdate := func(su store.ServicesUpdate, stop <-chan struct{}) {
+	sendUpdate := func(su store.ServiceUpdate, stop <-chan struct{}) {
 		update := make(map[string]*Service)
-		for name, svc := range su.Updates {
+		for name, svc := range su.Services {
 			var ms *Service
 			if svc != nil {
 				if ms = translateService(svc); ms == nil {
@@ -32,7 +32,7 @@ func WatchServicesStartFunc(st store.Store, updates chan<- ServiceUpdate) daemon
 		case <-stop:
 		}
 	}
-	return store.WatchServicesStartFunc(st,
+	return store.WatchServicesIndirectStartFunc(st,
 		store.QueryServiceOptions{WithInstances: true},
 		sendUpdate)
 }

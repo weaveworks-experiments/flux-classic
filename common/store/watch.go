@@ -7,22 +7,22 @@ import (
 	"github.com/weaveworks/flux/common/data"
 )
 
-type ServicesUpdate struct {
-	Updates map[string]*ServiceInfo
-	Reset   bool
+type ServiceUpdate struct {
+	Services map[string]*ServiceInfo
+	Reset    bool
 }
 
 type watchServices struct {
 	store     Store
 	opts      QueryServiceOptions
-	callback  func(update ServicesUpdate, stop <-chan struct{})
+	callback  func(update ServiceUpdate, stop <-chan struct{})
 	errorSink daemon.ErrorSink
 	context   context.Context
 	cancel    context.CancelFunc
 	finished  chan struct{}
 }
 
-func WatchServicesStartFunc(store Store, opts QueryServiceOptions, cb func(update ServicesUpdate, stop <-chan struct{})) daemon.StartFunc {
+func WatchServicesIndirectStartFunc(store Store, opts QueryServiceOptions, cb func(update ServiceUpdate, stop <-chan struct{})) daemon.StartFunc {
 	return func(es daemon.ErrorSink) daemon.Component {
 		ctx, cancel := context.WithCancel(context.Background())
 		ws := &watchServices{
@@ -39,6 +39,15 @@ func WatchServicesStartFunc(store Store, opts QueryServiceOptions, cb func(updat
 		}()
 		return ws
 	}
+}
+
+func WatchServicesStartFunc(store Store, opts QueryServiceOptions, updates chan<- ServiceUpdate) daemon.StartFunc {
+	return WatchServicesIndirectStartFunc(store, opts, func(su ServiceUpdate, stop <-chan struct{}) {
+		select {
+		case updates <- su:
+		case <-stop:
+		}
+	})
 }
 
 func (ws *watchServices) run() error {
@@ -66,8 +75,8 @@ func (ws *watchServices) run() error {
 			}
 		}
 
-		ws.callback(ServicesUpdate{
-			Updates: map[string]*ServiceInfo{change.Name: svc},
+		ws.callback(ServiceUpdate{
+			Services: map[string]*ServiceInfo{change.Name: svc},
 		}, ws.context.Done())
 	}
 }
@@ -84,7 +93,7 @@ func (ws *watchServices) doInitialQuery() error {
 		updates[svc.Name] = svc
 	}
 
-	ws.callback(ServicesUpdate{Updates: updates, Reset: true},
+	ws.callback(ServiceUpdate{Services: updates, Reset: true},
 		ws.context.Done())
 	return nil
 }

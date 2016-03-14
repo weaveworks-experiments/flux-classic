@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"sync"
+	"time"
 
 	"golang.org/x/net/context"
 
@@ -17,6 +18,8 @@ func NewInMemStore() store.Store {
 		services:   make(map[string]data.Service),
 		groupSpecs: make(map[string]map[string]data.ContainerRule),
 		instances:  make(map[string]map[string]data.Instance),
+		hosts:      make(map[string]*data.Host),
+		hostTimers: make(map[string]*time.Timer),
 	}
 }
 
@@ -24,14 +27,18 @@ type inmem struct {
 	services     map[string]data.Service
 	groupSpecs   map[string]map[string]data.ContainerRule
 	instances    map[string]map[string]data.Instance
+	hosts        map[string]*data.Host
+	hostTimers   map[string]*time.Timer
 	watchersLock sync.Mutex
-	watchers     []watcher
+	watchers     []Watcher
+}
+
+type Watcher interface {
+	Done() <-chan struct{}
 }
 
 type watcher struct {
-	ctx  context.Context
-	ch   chan<- data.ServiceChange
-	opts store.QueryServiceOptions
+	ctx context.Context
 }
 
 func (w watcher) Done() <-chan struct{} {
@@ -41,6 +48,38 @@ func (w watcher) Done() <-chan struct{} {
 	return w.ctx.Done()
 }
 
+type serviceWatcher struct {
+	watcher
+	ch   chan<- data.ServiceChange
+	opts store.QueryServiceOptions
+}
+
+type hostWatcher struct {
+	watcher
+	ch chan<- data.HostChange
+}
+
+func (s *inmem) addWatcher(watcher Watcher) {
+	s.watchersLock.Lock()
+	defer s.watchersLock.Unlock()
+	s.watchers = append(s.watchers, watcher)
+
+	// discard the watcher upon cancellation
+	go func() {
+		<-watcher.Done()
+
+		s.watchersLock.Lock()
+		defer s.watchersLock.Unlock()
+		for i, w := range s.watchers {
+			if w == watcher {
+				// need to make a copy
+				s.watchers = append(append([]Watcher{}, s.watchers[:i]...), s.watchers[i+1:]...)
+				break
+			}
+		}
+	}()
+}
+
 func (s *inmem) fireServiceChange(name string, deleted bool, optsFilter func(store.QueryServiceOptions) bool) {
 	ev := data.ServiceChange{Name: name, ServiceDeleted: deleted}
 
@@ -48,11 +87,13 @@ func (s *inmem) fireServiceChange(name string, deleted bool, optsFilter func(sto
 	watchers := s.watchers
 	s.watchersLock.Unlock()
 
-	for _, watcher := range watchers {
-		if optsFilter == nil || optsFilter(watcher.opts) {
-			select {
-			case watcher.ch <- ev:
-			case <-watcher.Done():
+	for _, w := range watchers {
+		if watcher, isService := w.(serviceWatcher); isService {
+			if optsFilter == nil || optsFilter(watcher.opts) {
+				select {
+				case watcher.ch <- ev:
+				case <-watcher.Done():
+				}
 			}
 		}
 	}
@@ -186,23 +227,63 @@ func (s *inmem) RemoveInstance(serviceName string, instanceName string) error {
 }
 
 func (s *inmem) WatchServices(ctx context.Context, res chan<- data.ServiceChange, _ daemon.ErrorSink, opts store.QueryServiceOptions) {
+	w := serviceWatcher{watcher{ctx}, res, opts}
+	s.addWatcher(w)
+}
+
+func (s *inmem) GetHosts() ([]*data.Host, error) {
+	var hosts []*data.Host = make([]*data.Host, len(s.hosts))
+	i := 0
+	for _, host := range s.hosts {
+		hosts[i] = host
+		i++
+	}
+	return hosts, nil
+}
+
+func (s *inmem) Heartbeat(identity string, ttl time.Duration, state *data.Host) error {
+	s.hosts[identity] = state
+	if s.hostTimers[identity] != nil {
+		s.hostTimers[identity].Reset(ttl)
+	} else {
+		s.hostTimers[identity] = time.AfterFunc(ttl, func() {
+			delete(s.hosts, identity)
+		})
+		s.fireHostChange(identity, false)
+	}
+	return nil
+}
+
+func (s *inmem) DeregisterHost(identity string) error {
+	s.deleteHost(identity)
+	return nil
+}
+
+func (s *inmem) deleteHost(identity string) {
+	delete(s.hosts, identity)
+	if s.hostTimers[identity] != nil {
+		s.hostTimers[identity].Stop()
+		delete(s.hostTimers, identity)
+	}
+	s.fireHostChange(identity, true)
+}
+
+func (s *inmem) WatchHosts(ctx context.Context, changes chan<- data.HostChange) {
+	w := hostWatcher{watcher{ctx}, changes}
+	s.addWatcher(w)
+}
+
+func (s *inmem) fireHostChange(identity string, deleted bool) {
+	change := data.HostChange{Name: identity, HostDeparted: deleted}
 	s.watchersLock.Lock()
-	defer s.watchersLock.Unlock()
-	w := watcher{ctx, res, opts}
-	s.watchers = append(s.watchers, w)
-
-	// discard the watcher upon cancellation
-	go func() {
-		<-w.Done()
-
-		s.watchersLock.Lock()
-		defer s.watchersLock.Unlock()
-		for i, w := range s.watchers {
-			if w.ch == res {
-				// need to make a copy
-				s.watchers = append(append([]watcher{}, s.watchers[:i]...), s.watchers[i+1:]...)
-				break
+	watchers := s.watchers
+	s.watchersLock.Unlock()
+	for _, w := range watchers {
+		if watcher, isHost := w.(hostWatcher); isHost {
+			select {
+			case watcher.ch <- change:
+			case <-watcher.Done():
 			}
 		}
-	}()
+	}
 }

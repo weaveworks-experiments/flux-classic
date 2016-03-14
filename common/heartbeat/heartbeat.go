@@ -17,15 +17,27 @@ type HeartbeatConfig struct {
 	HostState    *data.Host
 }
 
+func (config HeartbeatConfig) Start(errorSink daemon.ErrorSink) daemon.Component {
+	heart := Heart{
+		config: config,
+	}
+	if err := heart.beat(); err != nil {
+		errorSink.Post(err)
+		return &heart
+	}
+	go heart.Run(errorSink)
+	return &heart
+}
+
 type Heart struct {
 	config HeartbeatConfig
 	ticker *time.Ticker
 	cancel chan struct{}
 }
 
-func NewHeart(config HeartbeatConfig) *Heart {
-	h := Heart{config: config}
-	return &h
+func (heart *Heart) beat() error {
+	return heart.config.Cluster.Heartbeat(heart.config.HostIdentity,
+		heart.config.TTL, heart.config.HostState)
 }
 
 func (heart *Heart) Run(errorSink daemon.ErrorSink) {
@@ -34,7 +46,7 @@ func (heart *Heart) Run(errorSink daemon.ErrorSink) {
 	for {
 		select {
 		case t := <-heart.ticker.C:
-			if err := heart.config.Cluster.Heartbeat(heart.config.HostIdentity, heart.config.TTL, heart.config.HostState); err != nil {
+			if err := heart.beat(); err != nil {
 				errorSink.Post(err)
 				return
 			}
@@ -43,11 +55,6 @@ func (heart *Heart) Run(errorSink daemon.ErrorSink) {
 			return
 		}
 	}
-}
-
-func (heart *Heart) Start(errorSink daemon.ErrorSink) daemon.Component {
-	go heart.Run(errorSink)
-	return heart
 }
 
 func (heart *Heart) Stop() {

@@ -114,7 +114,7 @@ func setup(st store.Store, hostIP, netmode string) (res harness) {
 	res.serviceUpdates = make(chan store.ServiceUpdate)
 	res.watchServices = store.WatchServicesStartFunc(res.Store,
 		store.QueryServiceOptions{WithContainerRules: true},
-		res.serviceUpdates)(res.es)
+		res.serviceUpdates, nil)(res.es)
 	return
 }
 

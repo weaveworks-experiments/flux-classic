@@ -90,12 +90,12 @@ const GROUP = "deliberately not default"
 type harness struct {
 	si *SyncInstances
 	store.Store
-	es             daemon.ErrorSink
-	serviceUpdates chan store.ServiceUpdate
-	watchServices  daemon.Component
+	es               daemon.ErrorSink
+	serviceUpdates   chan store.ServiceUpdate
+	watchingServices daemon.Component
 }
 
-func setup(st store.Store, hostIP, netmode string) (res harness) {
+func setup(st store.Store, hostIP, netmode string) (h harness) {
 	if st == nil {
 		st = inmem.NewInMemStore()
 	}
@@ -104,26 +104,29 @@ func setup(st store.Store, hostIP, netmode string) (res harness) {
 		netmode = LOCAL
 	}
 
-	res.Store = st
-	res.si = NewSyncInstances(Config{
-		Store:   res.Store,
+	h.Store = st
+	h.si = NewSyncInstances(Config{
+		Store:   h.Store,
 		Network: netmode,
 		HostIP:  hostIP,
 	})
-	res.es = daemon.NewErrorSink()
-	res.serviceUpdates = make(chan store.ServiceUpdate)
-	res.watchServices = store.WatchServicesStartFunc(res.Store,
-		store.QueryServiceOptions{WithContainerRules: true},
-		res.serviceUpdates, nil)(res.es)
+	h.es = daemon.NewErrorSink()
+	h.serviceUpdates = make(chan store.ServiceUpdate)
 	return
 }
 
-func (h harness) stop(t *testing.T) {
-	h.watchServices.Stop()
+func (h *harness) watchServices() {
+	h.watchingServices = store.WatchServicesStartFunc(h.Store,
+		store.QueryServiceOptions{WithContainerRules: true},
+		h.serviceUpdates, nil)(h.es)
+}
+
+func (h *harness) stop(t *testing.T) {
+	h.watchingServices.Stop()
 	require.Empty(t, h.es)
 }
 
-func (h harness) addGroup(serviceName string, labels ...string) {
+func (h *harness) addGroup(serviceName string, labels ...string) {
 	if len(labels)%2 != 0 {
 		panic("Expected key value ... as arguments")
 	}
@@ -136,7 +139,7 @@ func (h harness) addGroup(serviceName string, labels ...string) {
 		data.ContainerRule{Selector: sel})
 }
 
-func (h harness) allInstances(t *testing.T) []data.Instance {
+func (h *harness) allInstances(t *testing.T) []data.Instance {
 	var res []data.Instance
 	svcs, err := h.GetAllServices(store.QueryServiceOptions{WithInstances: true})
 	require.Nil(t, err)
@@ -165,6 +168,7 @@ func TestSyncInstancesReconcile(t *testing.T) {
 
 	selectedAddress := "192.168.45.67"
 
+	h.watchServices()
 	h.si.processServiceUpdate(<-h.serviceUpdates)
 	h.si.processContainerUpdate(resetContainers(container{
 		ID:        "selected",
@@ -195,6 +199,7 @@ func TestSyncInstancesEvents(t *testing.T) {
 	require.Len(t, h.allInstances(t), 0)
 
 	// no services defined
+	h.watchServices()
 	h.si.processServiceUpdate(<-h.serviceUpdates)
 	h.si.processContainerUpdate(resetContainers(container{
 		ID:        "foo",
@@ -250,6 +255,7 @@ func TestMappedPort(t *testing.T) {
 			"8080/tcp": "3456",
 		},
 	}))
+	h.watchServices()
 	h.si.processServiceUpdate(<-h.serviceUpdates)
 
 	require.Len(t, h.allInstances(t), 1)
@@ -280,6 +286,7 @@ func TestMultihostNetworking(t *testing.T) {
 			"8080/tcp": "3456",
 		},
 	}))
+	h.watchServices()
 	h.si.processServiceUpdate(<-h.serviceUpdates)
 
 	require.Len(t, h.allInstances(t), 1)
@@ -305,6 +312,7 @@ func TestNoAddress(t *testing.T) {
 		Image:     "important-image:greatest",
 		// No published port
 	}))
+	h.watchServices()
 	h.si.processServiceUpdate(<-h.serviceUpdates)
 
 	require.Len(t, h.allInstances(t), 1)
@@ -330,6 +338,7 @@ func TestHostNetworking(t *testing.T) {
 		IPAddress:   "",
 		Image:       "blorp-image:tag",
 	}))
+	h.watchServices()
 	h.si.processServiceUpdate(<-h.serviceUpdates)
 
 	require.Len(t, h.allInstances(t), 1)
@@ -369,10 +378,12 @@ func TestOtherHostsEntries(t *testing.T) {
 	}))
 
 	// let si on the first host add its instances
+	h1.watchServices()
 	h1.si.processServiceUpdate(<-h1.serviceUpdates)
 	require.Len(t, h1.allInstances(t), 2)
 
 	// let si on the second host add its instances
+	h2.watchServices()
 	h2.si.processServiceUpdate(<-h2.serviceUpdates)
 	require.Len(t, h1.allInstances(t), 4)
 
@@ -385,10 +396,14 @@ func TestOtherHostsEntries(t *testing.T) {
 		IPAddress: "192.168.34.3",
 		Image:     "foo-image:version",
 	}))
+	h2.watchServices()
 	h2.si.processServiceUpdate(<-h2.serviceUpdates)
 	require.Len(t, h2.allInstances(t), 3)
 
 	// test behaviour when the docker listener restarts:
 	h2.si.processContainerUpdate(resetContainers())
 	require.Len(t, h2.allInstances(t), 2)
+
+	h1.stop(t)
+	h2.stop(t)
 }

@@ -183,3 +183,28 @@ func TestDockerListener(t *testing.T) {
 	require.Empty(t, updates)
 	require.Empty(t, errs)
 }
+
+func TestDockerListenerEmptyInit(t *testing.T) {
+	// Test that a reset update is still sent out even if not
+	// containers are present
+	mdc := newMockDockerClient()
+	updates := make(chan ContainerUpdate)
+
+	errs := daemon.NewErrorSink()
+	dlComp := daemon.SimpleComponent(func(stop <-chan struct{}, errs daemon.ErrorSink) {
+		dl := dockerListener{
+			client:    mdc,
+			stop:      stop,
+			errorSink: errs,
+		}
+		errs.Post(dl.startAux(updates))
+	})(errs)
+
+	update := <-updates
+	require.True(t, update.Reset)
+	require.Len(t, update.Containers, 0)
+
+	dlComp.Stop()
+	require.Empty(t, updates)
+	require.Empty(t, errs)
+}

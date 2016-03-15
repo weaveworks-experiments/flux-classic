@@ -118,7 +118,7 @@ func setup(st store.Store, hostIP, netmode string) (h harness) {
 func (h *harness) watchServices() {
 	h.watchingServices = store.WatchServicesStartFunc(h.Store,
 		store.QueryServiceOptions{WithContainerRules: true},
-		h.serviceUpdates, nil)(h.es)
+		h.serviceUpdates)(h.es)
 }
 
 func (h *harness) stop(t *testing.T) {

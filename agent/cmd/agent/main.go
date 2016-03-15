@@ -76,5 +76,5 @@ func main() {
 		daemon.Restart(10*time.Second,
 			store.WatchServicesStartFunc(st,
 				store.QueryServiceOptions{WithContainerRules: true},
-				serviceUpdates, nil))))
+				serviceUpdates))))
 }

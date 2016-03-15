@@ -34,7 +34,7 @@ func WatchServicesStartFunc(st store.Store, updates chan<- ServiceUpdate) daemon
 	}
 	return store.WatchServicesIndirectStartFunc(st,
 		store.QueryServiceOptions{WithInstances: true},
-		nil, sendUpdate)
+		sendUpdate)
 }
 
 func translateService(svc *store.ServiceInfo) *Service {

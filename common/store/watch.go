@@ -15,7 +15,6 @@ type ServiceUpdate struct {
 type watchServices struct {
 	store     Store
 	opts      QueryServiceOptions
-	reset     <-chan struct{}
 	callback  func(update ServiceUpdate, stop <-chan struct{})
 	errorSink daemon.ErrorSink
 	context   context.Context
@@ -23,13 +22,12 @@ type watchServices struct {
 	finished  chan struct{}
 }
 
-func WatchServicesIndirectStartFunc(store Store, opts QueryServiceOptions, reset <-chan struct{}, cb func(update ServiceUpdate, stop <-chan struct{})) daemon.StartFunc {
+func WatchServicesIndirectStartFunc(store Store, opts QueryServiceOptions, cb func(update ServiceUpdate, stop <-chan struct{})) daemon.StartFunc {
 	return func(es daemon.ErrorSink) daemon.Component {
 		ctx, cancel := context.WithCancel(context.Background())
 		ws := &watchServices{
 			store:     store,
 			opts:      opts,
-			reset:     reset,
 			callback:  cb,
 			errorSink: es,
 			context:   ctx,
@@ -43,8 +41,8 @@ func WatchServicesIndirectStartFunc(store Store, opts QueryServiceOptions, reset
 	}
 }
 
-func WatchServicesStartFunc(store Store, opts QueryServiceOptions, updates chan<- ServiceUpdate, reset <-chan struct{}) daemon.StartFunc {
-	return WatchServicesIndirectStartFunc(store, opts, reset, func(su ServiceUpdate, stop <-chan struct{}) {
+func WatchServicesStartFunc(store Store, opts QueryServiceOptions, updates chan<- ServiceUpdate) daemon.StartFunc {
+	return WatchServicesIndirectStartFunc(store, opts, func(su ServiceUpdate, stop <-chan struct{}) {
 		select {
 		case updates <- su:
 		case <-stop:
@@ -57,43 +55,29 @@ func (ws *watchServices) run() error {
 	changes := make(chan data.ServiceChange)
 	ws.store.WatchServices(ws.context, changes, ws.errorSink, ws.opts)
 
+	err := ws.doInitialQuery()
+	if err != nil {
+		return err
+	}
+
 	for {
-	drainChanges: // Drain any changes from the WatchServices
-		for {
-			select {
-			case <-changes:
-			default:
-				break drainChanges
+		var change data.ServiceChange
+		select {
+		case change = <-changes:
+		case <-ws.context.Done():
+			return nil
+		}
+
+		var svc *ServiceInfo
+		if !change.ServiceDeleted {
+			if svc, err = ws.store.GetService(change.Name, ws.opts); err != nil {
+				return err
 			}
 		}
 
-		err := ws.doInitialQuery()
-		if err != nil {
-			return err
-		}
-
-	relayChanges:
-		for {
-			var change data.ServiceChange
-			select {
-			case change = <-changes:
-			case <-ws.context.Done():
-				return nil
-			case <-ws.reset:
-				break relayChanges
-			}
-
-			var svc *ServiceInfo
-			if !change.ServiceDeleted {
-				if svc, err = ws.store.GetService(change.Name, ws.opts); err != nil {
-					return err
-				}
-			}
-
-			ws.callback(ServiceUpdate{
-				Services: map[string]*ServiceInfo{change.Name: svc},
-			}, ws.context.Done())
-		}
+		ws.callback(ServiceUpdate{
+			Services: map[string]*ServiceInfo{change.Name: svc},
+		}, ws.context.Done())
 	}
 }
 
@@ -107,15 +91,6 @@ func (ws *watchServices) doInitialQuery() error {
 	updates := make(map[string]*ServiceInfo)
 	for _, svc := range svcs {
 		updates[svc.Name] = svc
-	}
-
-drainReset: // Drain any resets
-	for {
-		select {
-		case <-ws.reset:
-		default:
-			break drainReset
-		}
 	}
 
 	ws.callback(ServiceUpdate{Services: updates, Reset: true},

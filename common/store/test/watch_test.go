@@ -18,9 +18,8 @@ func TestWatchServices(t *testing.T) {
 	})
 
 	updates := make(chan store.ServiceUpdate)
-	reset := make(chan struct{})
 	es := daemon.NewErrorSink()
-	c := store.WatchServicesStartFunc(st, store.QueryServiceOptions{}, updates, reset)(es)
+	c := store.WatchServicesStartFunc(st, store.QueryServiceOptions{}, updates)(es)
 
 	update := <-updates
 	require.True(t, update.Reset)
@@ -36,20 +35,9 @@ func TestWatchServices(t *testing.T) {
 	require.Len(t, update.Services, 1)
 	require.NotNil(t, update.Services["bar-svc"])
 
-	// Force a reset
-	reset <- struct{}{}
-	update = <-updates
-	require.True(t, update.Reset)
-	require.Len(t, update.Services, 2)
-	require.NotNil(t, update.Services["bar-svc"])
-	require.NotNil(t, update.Services["foo-svc"])
-
 	st.RemoveService("foo-svc")
 	c.Stop()
-
-	// c was stopped, so no updates
 	st.RemoveService("bar-svc")
-	require.Empty(t, updates)
 
 	require.Empty(t, es)
 }

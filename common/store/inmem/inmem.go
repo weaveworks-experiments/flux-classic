@@ -13,12 +13,24 @@ import (
 	"github.com/weaveworks/flux/common/store"
 )
 
-func NewInMemStore() store.Store {
+type StoreForTests interface {
+	store.Store
+	// Get the number of times a host has had heartbeats (whether or
+	// not it's still in the store)
+	GetHeartbeat(string) (int, error)
+}
+
+type heartbeat struct {
+	updateCount int
+}
+
+func NewInMemStore() StoreForTests {
 	return &inmem{
 		services:   make(map[string]data.Service),
 		groupSpecs: make(map[string]map[string]data.ContainerRule),
 		instances:  make(map[string]map[string]data.Instance),
 		hosts:      make(map[string]*data.Host),
+		heartbeats: make(map[string]*heartbeat),
 		hostTimers: make(map[string]*time.Timer),
 	}
 }
@@ -28,6 +40,7 @@ type inmem struct {
 	groupSpecs   map[string]map[string]data.ContainerRule
 	instances    map[string]map[string]data.Instance
 	hosts        map[string]*data.Host
+	heartbeats   map[string]*heartbeat
 	hostTimers   map[string]*time.Timer
 	watchersLock sync.Mutex
 	watchers     []Watcher
@@ -242,7 +255,13 @@ func (s *inmem) GetHosts() ([]*data.Host, error) {
 }
 
 func (s *inmem) Heartbeat(identity string, ttl time.Duration, state *data.Host) error {
+	fmt.Printf("Heartbeat: %s TTL %d ms\n", identity, ttl/time.Millisecond)
 	s.hosts[identity] = state
+	if record, found := s.heartbeats[identity]; found {
+		record.updateCount++
+	} else {
+		s.heartbeats[identity] = &heartbeat{0}
+	}
 	if s.hostTimers[identity] != nil {
 		s.hostTimers[identity].Reset(ttl)
 	} else {
@@ -252,6 +271,13 @@ func (s *inmem) Heartbeat(identity string, ttl time.Duration, state *data.Host) 
 		s.fireHostChange(identity, false)
 	}
 	return nil
+}
+
+func (s *inmem) GetHeartbeat(identity string) (int, error) {
+	if record, found := s.heartbeats[identity]; found {
+		return record.updateCount, nil
+	}
+	return 0, fmt.Errorf(`Host never had heartbeats: "%s"`, identity)
 }
 
 func (s *inmem) DeregisterHost(identity string) error {

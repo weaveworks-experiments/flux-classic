@@ -62,6 +62,6 @@ func (heart *Heart) Stop() {
 		heart.ticker.Stop()
 	}
 	if heart.cancel != nil {
-		close(heart.cancel)
+		heart.cancel <- struct{}{}
 	}
 }

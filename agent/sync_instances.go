@@ -39,8 +39,10 @@ type SyncInstancesConfig struct {
 	Network string
 	Store   store.Store
 
-	ContainerUpdates <-chan ContainerUpdate
-	ServiceUpdates   <-chan store.ServiceUpdate
+	ContainerUpdates      <-chan ContainerUpdate
+	ContainerUpdatesReset chan<- struct{}
+	ServiceUpdates        <-chan store.ServiceUpdate
+	ServiceUpdatesReset   chan<- struct{}
 }
 
 type syncInstances struct {
@@ -56,6 +58,9 @@ func (conf SyncInstancesConfig) StartFunc() daemon.StartFunc {
 			SyncInstancesConfig: conf,
 			ErrorSink:           errs,
 		}
+
+		si.ContainerUpdatesReset <- struct{}{}
+		si.ServiceUpdatesReset <- struct{}{}
 
 		for {
 			select {
@@ -186,7 +191,6 @@ func (si *syncInstances) evaluate(container *docker.Container, svc *service) err
 			instName := instanceNameFor(container)
 			err := si.Store.AddInstance(svc.Name, instName, instance)
 			if err != nil {
-				log.Errorf("Failed to register service: %s", err)
 				return err
 			}
 			svc.localInstances[instName] = struct{}{}

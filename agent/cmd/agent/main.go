@@ -61,23 +61,29 @@ func main() {
 	}
 
 	containerUpdates := make(chan agent.ContainerUpdate)
+	containerUpdatesReset := make(chan struct{})
 	serviceUpdates := make(chan store.ServiceUpdate)
+	serviceUpdatesReset := make(chan struct{})
 
 	conf := agent.SyncInstancesConfig{
 		HostIP:  hostIP,
 		Network: network,
 		Store:   st,
 
-		ContainerUpdates: containerUpdates,
-		ServiceUpdates:   serviceUpdates,
+		ContainerUpdates:      containerUpdates,
+		ContainerUpdatesReset: containerUpdatesReset,
+		ServiceUpdates:        serviceUpdates,
+		ServiceUpdatesReset:   serviceUpdatesReset,
 	}
 
 	daemon.Main(daemon.Aggregate(
-		daemon.Restart(10*time.Second,
-			agent.DockerListenerStartFunc(containerUpdates)),
-		daemon.Restart(10*time.Second,
-			store.WatchServicesStartFunc(st,
-				store.QueryServiceOptions{WithContainerRules: true},
-				serviceUpdates)),
-		conf.StartFunc()))
+		daemon.Reset(containerUpdatesReset,
+			daemon.Restart(10*time.Second,
+				agent.DockerListenerStartFunc(containerUpdates))),
+		daemon.Reset(serviceUpdatesReset,
+			daemon.Restart(10*time.Second,
+				store.WatchServicesStartFunc(st,
+					store.QueryServiceOptions{WithContainerRules: true},
+					serviceUpdates))),
+		daemon.Restart(10*time.Second, conf.StartFunc())))
 }

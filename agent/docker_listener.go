@@ -135,7 +135,11 @@ whileListingContainers:
 		}
 	}
 
-	out <- containerIDs{containers: containers, reset: true}
+	select {
+	case out <- containerIDs{containers: containers, reset: true}:
+	case <-dl.stop:
+		return nil
+	}
 
 	// Handle further events
 	for {
@@ -235,7 +239,7 @@ func (dl *dockerListener) inspectContainers(in <-chan containerIDs, out chan<- C
 			announced[id] = struct{}{}
 		}
 
-		if len(outUpdate) == 0 {
+		if !inUpdate.reset && len(outUpdate) == 0 {
 			continue
 		}
 

@@ -135,3 +135,34 @@ func Par(funcs ...func()) {
 		<-done
 	}
 }
+
+func Reset(reset <-chan struct{}, startFunc StartFunc) StartFunc {
+	return SimpleComponent(func(stop <-chan struct{}, errs ErrorSink) {
+		// Wait for an initial reset signal
+		select {
+		case <-stop:
+			return
+		case <-reset:
+		}
+
+		for {
+			// Drain redundant restart signals
+			select {
+			case <-reset:
+				continue
+			default:
+			}
+
+			c := startFunc(errs)
+
+			select {
+			case <-stop:
+				c.Stop()
+				return
+			case <-reset:
+			}
+
+			c.Stop()
+		}
+	})
+}

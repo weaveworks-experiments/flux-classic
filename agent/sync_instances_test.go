@@ -88,9 +88,8 @@ func makeContainersMap(cs []container) map[string]*docker.Container {
 const GROUP = "deliberately not default"
 
 type harness struct {
-	si *SyncInstances
+	si *syncInstances
 	store.Store
-	es               daemon.ErrorSink
 	serviceUpdates   chan store.ServiceUpdate
 	watchingServices daemon.Component
 }
@@ -105,12 +104,14 @@ func setup(st store.Store, hostIP, netmode string) (h harness) {
 	}
 
 	h.Store = st
-	h.si = NewSyncInstances(Config{
-		Store:   h.Store,
-		Network: netmode,
-		HostIP:  hostIP,
-	})
-	h.es = daemon.NewErrorSink()
+	h.si = &syncInstances{
+		SyncInstancesConfig: SyncInstancesConfig{
+			Store:   h.Store,
+			Network: netmode,
+			HostIP:  hostIP,
+		},
+		ErrorSink: daemon.NewErrorSink(),
+	}
 	h.serviceUpdates = make(chan store.ServiceUpdate)
 	return
 }
@@ -118,12 +119,12 @@ func setup(st store.Store, hostIP, netmode string) (h harness) {
 func (h *harness) watchServices() {
 	h.watchingServices = store.WatchServicesStartFunc(h.Store,
 		store.QueryServiceOptions{WithContainerRules: true},
-		h.serviceUpdates)(h.es)
+		h.serviceUpdates)(h.si.ErrorSink)
 }
 
 func (h *harness) stop(t *testing.T) {
 	h.watchingServices.Stop()
-	require.Empty(t, h.es)
+	require.Empty(t, h.si.ErrorSink)
 }
 
 func (h *harness) addGroup(serviceName string, labels ...string) {
@@ -261,7 +262,7 @@ func TestMappedPort(t *testing.T) {
 	require.Len(t, h.allInstances(t), 1)
 	svc, err := h.GetService("blorp-svc", store.QueryServiceOptions{WithInstances: true})
 	require.Nil(t, err)
-	require.Equal(t, h.si.hostIP, svc.Instances[0].Address)
+	require.Equal(t, h.si.HostIP, svc.Instances[0].Address)
 	require.Equal(t, 3456, svc.Instances[0].Port)
 	require.Equal(t, data.LIVE, svc.Instances[0].State)
 	h.stop(t)
@@ -344,7 +345,7 @@ func TestHostNetworking(t *testing.T) {
 	require.Len(t, h.allInstances(t), 1)
 	svc, err := h.GetService("blorp-svc", store.QueryServiceOptions{WithInstances: true})
 	require.Nil(t, err)
-	require.Equal(t, h.si.hostIP, svc.Instances[0].Address)
+	require.Equal(t, h.si.HostIP, svc.Instances[0].Address)
 	require.Equal(t, 8080, svc.Instances[0].Port)
 	require.Equal(t, data.LIVE, svc.Instances[0].State)
 	h.stop(t)

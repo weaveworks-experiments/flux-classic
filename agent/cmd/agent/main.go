@@ -63,12 +63,14 @@ func main() {
 	containerUpdates := make(chan agent.ContainerUpdate)
 	serviceUpdates := make(chan store.ServiceUpdate)
 
-	si := agent.NewSyncInstances(agent.Config{
+	conf := agent.SyncInstancesConfig{
 		HostIP:  hostIP,
 		Network: network,
 		Store:   st,
-	})
-	go si.Run(containerUpdates, serviceUpdates)
+
+		ContainerUpdates: containerUpdates,
+		ServiceUpdates:   serviceUpdates,
+	}
 
 	daemon.Main(daemon.Aggregate(
 		daemon.Restart(10*time.Second,
@@ -76,5 +78,6 @@ func main() {
 		daemon.Restart(10*time.Second,
 			store.WatchServicesStartFunc(st,
 				store.QueryServiceOptions{WithContainerRules: true},
-				serviceUpdates))))
+				serviceUpdates)),
+		conf.StartFunc()))
 }

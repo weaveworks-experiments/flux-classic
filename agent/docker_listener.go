@@ -54,6 +54,7 @@ func (dl *dockerListener) start(out chan<- ContainerUpdate) error {
 	}
 	log.Infof("Using Docker %+v", env)
 
+	dl.client = client
 	return dl.startAux(out)
 }
 

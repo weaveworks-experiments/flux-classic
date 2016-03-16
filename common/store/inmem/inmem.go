@@ -12,25 +12,27 @@ import (
 	"github.com/weaveworks/flux/common/store"
 )
 
-func NewInMemStore() store.Store {
-	return &inmem{
+func NewInMemStore() *InMem {
+	return &InMem{
 		services:   make(map[string]data.Service),
 		groupSpecs: make(map[string]map[string]data.ContainerRule),
 		instances:  make(map[string]map[string]data.Instance),
 	}
 }
 
-type inmem struct {
-	services     map[string]data.Service
-	groupSpecs   map[string]map[string]data.ContainerRule
-	instances    map[string]map[string]data.Instance
-	watchersLock sync.Mutex
-	watchers     []watcher
+type InMem struct {
+	services      map[string]data.Service
+	groupSpecs    map[string]map[string]data.ContainerRule
+	instances     map[string]map[string]data.Instance
+	watchersLock  sync.Mutex
+	watchers      []watcher
+	injectedError error
 }
 
 type watcher struct {
 	ctx  context.Context
 	ch   chan<- data.ServiceChange
+	errs daemon.ErrorSink
 	opts store.QueryServiceOptions
 }
 
@@ -41,7 +43,7 @@ func (w watcher) Done() <-chan struct{} {
 	return w.ctx.Done()
 }
 
-func (s *inmem) fireServiceChange(name string, deleted bool, optsFilter func(store.QueryServiceOptions) bool) {
+func (s *InMem) fireServiceChange(name string, deleted bool, optsFilter func(store.QueryServiceOptions) bool) {
 	ev := data.ServiceChange{Name: name, ServiceDeleted: deleted}
 
 	s.watchersLock.Lock()
@@ -58,54 +60,68 @@ func (s *inmem) fireServiceChange(name string, deleted bool, optsFilter func(sto
 	}
 }
 
-func (s *inmem) Ping() error {
-	return nil
+func (s *InMem) InjectError(err error) {
+	s.injectedError = err
+
+	if err != nil {
+		// Tell any watchers about the error
+		s.watchersLock.Lock()
+		defer s.watchersLock.Unlock()
+
+		for _, watcher := range s.watchers {
+			watcher.errs.Post(err)
+		}
+	}
 }
 
-func (s *inmem) CheckRegisteredService(name string) error {
+func (s *InMem) Ping() error {
+	return s.injectedError
+}
+
+func (s *InMem) CheckRegisteredService(name string) error {
 	if _, found := s.services[name]; !found {
 		return fmt.Errorf(`Not found "%s"`, name)
 	}
-	return nil
+	return s.injectedError
 }
 
-func (s *inmem) AddService(name string, svc data.Service) error {
+func (s *InMem) AddService(name string, svc data.Service) error {
 	s.services[name] = svc
 	s.groupSpecs[name] = make(map[string]data.ContainerRule)
 	s.instances[name] = make(map[string]data.Instance)
 
 	s.fireServiceChange(name, false, nil)
-	log.Printf("inmem: service %s updated in store", name)
-	return nil
+	log.Printf("InMem: service %s updated in store", name)
+	return s.injectedError
 }
 
-func (s *inmem) RemoveService(name string) error {
+func (s *InMem) RemoveService(name string) error {
 	delete(s.services, name)
 	delete(s.groupSpecs, name)
 	delete(s.instances, name)
 
 	s.fireServiceChange(name, true, nil)
-	log.Printf("inmem: service %s removed from store", name)
-	return nil
+	log.Printf("InMem: service %s removed from store", name)
+	return s.injectedError
 }
 
-func (s *inmem) RemoveAllServices() error {
+func (s *InMem) RemoveAllServices() error {
 	for name, _ := range s.services {
 		s.RemoveService(name)
 	}
-	return nil
+	return s.injectedError
 }
 
-func (s *inmem) GetService(name string, opts store.QueryServiceOptions) (*store.ServiceInfo, error) {
+func (s *InMem) GetService(name string, opts store.QueryServiceOptions) (*store.ServiceInfo, error) {
 	svc, found := s.services[name]
 	if !found {
 		return nil, fmt.Errorf(`Not found "%s"`, name)
 	}
 
-	return s.makeServiceInfo(name, svc, opts), nil
+	return s.makeServiceInfo(name, svc, opts), s.injectedError
 }
 
-func (s *inmem) makeServiceInfo(name string, svc data.Service, opts store.QueryServiceOptions) *store.ServiceInfo {
+func (s *InMem) makeServiceInfo(name string, svc data.Service, opts store.QueryServiceOptions) *store.ServiceInfo {
 	info := &store.ServiceInfo{
 		Name:    name,
 		Service: svc,
@@ -128,21 +144,21 @@ func (s *inmem) makeServiceInfo(name string, svc data.Service, opts store.QueryS
 	return info
 }
 
-func (s *inmem) GetAllServices(opts store.QueryServiceOptions) ([]*store.ServiceInfo, error) {
+func (s *InMem) GetAllServices(opts store.QueryServiceOptions) ([]*store.ServiceInfo, error) {
 	var svcs []*store.ServiceInfo
 
 	for name, svc := range s.services {
 		svcs = append(svcs, s.makeServiceInfo(name, svc, opts))
 	}
 
-	return svcs, nil
+	return svcs, s.injectedError
 }
 
 func withRuleChanges(opts store.QueryServiceOptions) bool {
 	return opts.WithContainerRules
 }
 
-func (s *inmem) SetContainerRule(serviceName string, groupName string, spec data.ContainerRule) error {
+func (s *InMem) SetContainerRule(serviceName string, groupName string, spec data.ContainerRule) error {
 	groupSpecs, found := s.groupSpecs[serviceName]
 	if !found {
 		return fmt.Errorf(`Not found "%s"`, serviceName)
@@ -150,10 +166,10 @@ func (s *inmem) SetContainerRule(serviceName string, groupName string, spec data
 
 	groupSpecs[groupName] = spec
 	s.fireServiceChange(serviceName, false, withRuleChanges)
-	return nil
+	return s.injectedError
 }
 
-func (s *inmem) RemoveContainerRule(serviceName string, groupName string) error {
+func (s *InMem) RemoveContainerRule(serviceName string, groupName string) error {
 	groupSpecs, found := s.groupSpecs[serviceName]
 	if !found {
 		return fmt.Errorf(`Not found "%s"`, serviceName)
@@ -161,20 +177,20 @@ func (s *inmem) RemoveContainerRule(serviceName string, groupName string) error 
 
 	delete(groupSpecs, groupName)
 	s.fireServiceChange(serviceName, false, withRuleChanges)
-	return nil
+	return s.injectedError
 }
 
 func withInstanceChanges(opts store.QueryServiceOptions) bool {
 	return opts.WithInstances
 }
 
-func (s *inmem) AddInstance(serviceName string, instanceName string, inst data.Instance) error {
+func (s *InMem) AddInstance(serviceName string, instanceName string, inst data.Instance) error {
 	s.instances[serviceName][instanceName] = inst
 	s.fireServiceChange(serviceName, false, withInstanceChanges)
-	return nil
+	return s.injectedError
 }
 
-func (s *inmem) RemoveInstance(serviceName string, instanceName string) error {
+func (s *InMem) RemoveInstance(serviceName string, instanceName string) error {
 	if _, found := s.instances[serviceName][instanceName]; !found {
 		return fmt.Errorf("service '%s' has no instance '%s'",
 			serviceName, instanceName)
@@ -182,13 +198,18 @@ func (s *inmem) RemoveInstance(serviceName string, instanceName string) error {
 
 	delete(s.instances[serviceName], instanceName)
 	s.fireServiceChange(serviceName, false, withInstanceChanges)
-	return nil
+	return s.injectedError
 }
 
-func (s *inmem) WatchServices(ctx context.Context, res chan<- data.ServiceChange, _ daemon.ErrorSink, opts store.QueryServiceOptions) {
+func (s *InMem) WatchServices(ctx context.Context, res chan<- data.ServiceChange, errs daemon.ErrorSink, opts store.QueryServiceOptions) {
+	if s.injectedError != nil {
+		errs.Post(s.injectedError)
+		return
+	}
+
 	s.watchersLock.Lock()
 	defer s.watchersLock.Unlock()
-	w := watcher{ctx, res, opts}
+	w := watcher{ctx, res, errs, opts}
 	s.watchers = append(s.watchers, w)
 
 	// discard the watcher upon cancellation

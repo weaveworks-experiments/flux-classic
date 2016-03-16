@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -44,18 +45,6 @@ func TestSyncInstancesComponent(t *testing.T) {
 		errs.Post(dl.startAux(containerUpdates))
 	})
 
-	es := daemon.NewErrorSink()
-	comp := daemon.Aggregate(
-		daemon.Reset(containerUpdatesReset,
-			daemon.Restart(10*time.Second, dlComp)),
-		daemon.Reset(serviceUpdatesReset,
-			daemon.Restart(10*time.Second,
-				store.WatchServicesStartFunc(st,
-					store.QueryServiceOptions{WithContainerRules: true},
-					serviceUpdates))),
-		daemon.Restart(10*time.Second, conf.StartFunc()))(es)
-	time.Sleep(10 * time.Millisecond)
-
 	addService := func(svc string) {
 		st.AddService(svc, data.Service{})
 		st.SetContainerRule(svc, GROUP, data.ContainerRule{
@@ -75,9 +64,36 @@ func TestSyncInstancesComponent(t *testing.T) {
 		}, false)
 	}
 
+	// Add a service before the agent is running
 	addService("svc1")
+
+	es := daemon.NewErrorSink()
+	comp := daemon.Aggregate(
+		daemon.Reset(containerUpdatesReset,
+			daemon.Restart(time.Millisecond, dlComp)),
+		daemon.Reset(serviceUpdatesReset,
+			daemon.Restart(time.Millisecond,
+				store.WatchServicesStartFunc(st,
+					store.QueryServiceOptions{WithContainerRules: true},
+					serviceUpdates))),
+		daemon.Restart(time.Millisecond, conf.StartFunc()))(es)
+
+	// Check that the instance was added appropriately
 	time.Sleep(10 * time.Millisecond)
 	svc, err := st.GetService("svc1", store.QueryServiceOptions{WithInstances: true})
+	require.Nil(t, err)
+	require.Len(t, svc.Instances, 1)
+
+	// Simulate a etcd restart
+	st.InjectError(errors.New("etcd restarting"))
+	time.Sleep(10 * time.Millisecond)
+	st.InjectError(nil)
+	time.Sleep(10 * time.Millisecond)
+
+	// Add another service
+	addService("svc2")
+	time.Sleep(10 * time.Millisecond)
+	svc, err = st.GetService("svc2", store.QueryServiceOptions{WithInstances: true})
 	require.Nil(t, err)
 	require.Len(t, svc.Instances, 1)
 

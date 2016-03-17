@@ -9,17 +9,12 @@ BUILD_IMAGES=build webbuild site
 COMPONENTS:=balancer agent web fluxctl
 IMAGES:=$(COMPONENTS) edgebal prometheus-etcd
 GODIRS:=$(COMPONENTS) common
-CMDS:=$(COMPONENTS) balagent
+
+# The go "main" package directories
+CMD_DIRS:=agent/cmd/agent web fluxctl balancer/cmd/balancer balancer/cmd/balagent
 
 image_stamp=docker/.$1.done
 docker_tag=$(PROJECT)-$1
-
-# Where the main package for each command lives
-CMD_DIR_agent:=agent/cmd/agent
-CMD_DIR_web:=web
-CMD_DIR_fluxctl:=fluxctl
-CMD_DIR_balancer:=balancer/cmd/balancer
-CMD_DIR_balagent:=balancer/cmd/balagent
 
 GO_SRCS:=$(shell find $(GODIRS) -name "*.go")
 
@@ -67,12 +62,12 @@ run_build_container=mkdir -p build/src/$(BASEPKG) && docker run --rm $2 \
 
 get_vendor_submodules=@git submodule update --init
 
-$(foreach c,$(CMDS),$(eval build/bin/$(c): build/bin/.stamp; @true))
+$(foreach d,$(CMD_DIRS),$(eval build/bin/$(notdir $(d)): build/bin/.stamp; @true))
 
 build/bin/.stamp: $(GO_SRCS) $(call image_stamp,build) docker/build-wrapper.sh
 	mkdir -p $(@D) && touch $@.tmp
 	$(get_vendor_submodules)
-	$(call run_build_container,build,-e GOPATH=/build,,go install $(GOFLAGS) $(foreach c,$(CMDS),$(BASEPKG)/$(CMD_DIR_$(c))))
+	$(call run_build_container,build,-e GOPATH=/build,,go install $(GOFLAGS) $(foreach d,$(CMD_DIRS),$(BASEPKG)/$(d)))
 	mv $@.tmp $@
 
 GO_TEST_OPTS:=-timeout 5s

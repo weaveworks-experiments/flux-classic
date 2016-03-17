@@ -21,6 +21,8 @@ CMD_DIR_fluxctl:=fluxctl
 CMD_DIR_balancer:=balancer/cmd/balancer
 CMD_DIR_balagent:=balancer/cmd/balagent
 
+GO_SRCS:=$(shell find $(GODIRS) -name "*.go")
+
 # Delete files produced by failing recipes
 .DELETE_ON_ERROR:
 
@@ -50,12 +52,7 @@ $(foreach i,$(IMAGES) $(BUILD_IMAGES),$(call image_stamp,$(i))): docker/.%.done:
 $(foreach i,$(IMAGES),docker/$(i).tar): docker/%.tar: docker/.%.done
 	docker save --output=$@ $(call docker_tag,$(*F))
 
-# To help catch errors below:
-GO_SRCS_:=!!!BAD GO_SRCS_ USE!!!
-
 $(foreach i,$(COMPONENTS),$(eval $(call image_stamp,$(i)): build/bin/$(i)))
-$(foreach i,$(GODIRS),$(eval GO_SRCS_$(i):=$(shell find $(i) -name '*.go')))
-$(foreach i,$(CMDS),$(eval build/bin/$(i): $(GO_SRCS_$(firstword $(subst /, ,$(CMD_DIR_$(i)))))))
 
 # $1: build image
 # $2: extra docker run args
@@ -70,10 +67,13 @@ run_build_container=mkdir -p build/src/$(BASEPKG) && docker run --rm $2 \
 
 get_vendor_submodules=@git submodule update --init
 
-build/bin/%: $(call image_stamp,build) docker/build-wrapper.sh $(GO_SRCS_common)
+$(foreach c,$(CMDS),$(eval build/bin/$(c): build/bin/.stamp; @true))
+
+build/bin/.stamp: $(GO_SRCS) $(call image_stamp,build) docker/build-wrapper.sh
+	mkdir -p $(@D) && touch $@.tmp
 	$(get_vendor_submodules)
-	rm -f $@
-	$(call run_build_container,build,-e GOPATH=/build,$(CMD_DIR_$(*F)),go install $(GOFLAGS) .)
+	$(call run_build_container,build,-e GOPATH=/build,,go install $(GOFLAGS) $(foreach c,$(CMDS),$(BASEPKG)/$(CMD_DIR_$(c))))
+	mv $@.tmp $@
 
 GO_TEST_OPTS:=-timeout 5s
 

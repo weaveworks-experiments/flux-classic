@@ -42,11 +42,11 @@ realclean:: clean
 .PRECIOUS: $(call image_stamp,build)
 
 $(foreach i,$(IMAGES) $(BUILD_IMAGES),$(call image_stamp,$(i))): docker/.%.done: docker/Dockerfile.%
-	rm -rf build-container
-	mkdir build-container
-	cp -pr $^ build-container/
-	docker build -t $(call docker_tag,$(*F)) -f build-container/$(<F) build-container
-	rm -rf build-container
+	rm -rf build-container.$*
+	mkdir build-container.$*
+	cp -pr $^ build-container.$*/
+	docker build -t $(call docker_tag,$(*F)) -f build-container.$*/$(<F) build-container.$*
+	rm -rf build-container.$*
 	touch $@
 
 $(foreach i,$(IMAGES),docker/$(i).tar): docker/%.tar: docker/.%.done

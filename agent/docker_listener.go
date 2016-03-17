@@ -13,16 +13,9 @@ type ContainerUpdate struct {
 }
 
 type dockerListener struct {
-	client    dockerClient
+	client    DockerClient
 	stop      <-chan struct{}
 	errorSink daemon.ErrorSink
-}
-
-type dockerClient interface {
-	AddEventListener(listener chan<- *docker.APIEvents) error
-	RemoveEventListener(listener chan *docker.APIEvents) error
-	ListContainers(opts docker.ListContainersOptions) ([]docker.APIContainers, error)
-	InspectContainer(id string) (*docker.Container, error)
 }
 
 // Passed from the readContainerIDs goroutine to the inspectContainers
@@ -32,9 +25,10 @@ type containerIDs struct {
 	reset      bool
 }
 
-func DockerListenerStartFunc(out chan<- ContainerUpdate) daemon.StartFunc {
+func dockerListenerStartFunc(client DockerClient, out chan<- ContainerUpdate) daemon.StartFunc {
 	return daemon.SimpleComponent(func(stop <-chan struct{}, errs daemon.ErrorSink) {
 		dl := dockerListener{
+			client:    client,
 			stop:      stop,
 			errorSink: errs,
 		}
@@ -43,22 +37,12 @@ func DockerListenerStartFunc(out chan<- ContainerUpdate) daemon.StartFunc {
 }
 
 func (dl *dockerListener) start(out chan<- ContainerUpdate) error {
-	client, err := docker.NewClientFromEnv()
-	if err != nil {
-		return err
-	}
-
-	env, err := client.Version()
+	env, err := dl.client.Version()
 	if err != nil {
 		return err
 	}
 	log.Infof("Using Docker %+v", env)
 
-	dl.client = client
-	return dl.startAux(out)
-}
-
-func (dl *dockerListener) startAux(out chan<- ContainerUpdate) error {
 	bufContainerIDs := make(chan containerIDs)
 	containerIDs := make(chan containerIDs)
 

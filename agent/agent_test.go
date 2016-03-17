@@ -15,35 +15,9 @@ import (
 )
 
 // An integration test of all the agent bits
-
 func TestSyncInstancesComponent(t *testing.T) {
 	st := inmem.NewInMemStore()
 	mdc := newMockDockerClient()
-
-	containerUpdates := make(chan ContainerUpdate)
-	containerUpdatesReset := make(chan struct{})
-	serviceUpdates := make(chan store.ServiceUpdate)
-	serviceUpdatesReset := make(chan struct{})
-
-	conf := SyncInstancesConfig{
-		HostIP:  "192.168.11.34",
-		Network: LOCAL,
-		Store:   st,
-
-		ContainerUpdates:      containerUpdates,
-		ContainerUpdatesReset: containerUpdatesReset,
-		ServiceUpdates:        serviceUpdates,
-		ServiceUpdatesReset:   serviceUpdatesReset,
-	}
-
-	dlComp := daemon.SimpleComponent(func(stop <-chan struct{}, errs daemon.ErrorSink) {
-		dl := dockerListener{
-			client:    mdc,
-			stop:      stop,
-			errorSink: errs,
-		}
-		errs.Post(dl.startAux(containerUpdates))
-	})
 
 	addService := func(svc string) {
 		st.AddService(svc, data.Service{})
@@ -68,15 +42,13 @@ func TestSyncInstancesComponent(t *testing.T) {
 	addService("svc1")
 
 	es := daemon.NewErrorSink()
-	comp := daemon.Aggregate(
-		daemon.Reset(containerUpdatesReset,
-			daemon.Restart(time.Millisecond, dlComp)),
-		daemon.Reset(serviceUpdatesReset,
-			daemon.Restart(time.Millisecond,
-				store.WatchServicesStartFunc(st,
-					store.QueryServiceOptions{WithContainerRules: true},
-					serviceUpdates))),
-		daemon.Restart(time.Millisecond, conf.StartFunc()))(es)
+	comp := AgentConfig{
+		HostIP:          "192.168.11.34",
+		Network:         LOCAL,
+		Store:           st,
+		DockerClient:    mdc,
+		RestartInterval: time.Millisecond,
+	}.StartFunc()(es)
 
 	// Check that the instance was added appropriately
 	time.Sleep(10 * time.Millisecond)

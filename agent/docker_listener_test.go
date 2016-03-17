@@ -25,6 +25,11 @@ func newMockDockerClient() *mockDockerClient {
 	}
 }
 
+func (mdc *mockDockerClient) Version() (*docker.Env, error) {
+	var env docker.Env
+	return &env, nil
+}
+
 func (mdc *mockDockerClient) AddEventListener(listener chan<- *docker.APIEvents) error {
 	mdc.lock.Lock()
 	defer mdc.lock.Unlock()
@@ -146,14 +151,7 @@ func TestDockerListener(t *testing.T) {
 	updates := make(chan ContainerUpdate)
 
 	errs := daemon.NewErrorSink()
-	dlComp := daemon.SimpleComponent(func(stop <-chan struct{}, errs daemon.ErrorSink) {
-		dl := dockerListener{
-			client:    mdc,
-			stop:      stop,
-			errorSink: errs,
-		}
-		errs.Post(dl.startAux(updates))
-	})(errs)
+	dlComp := dockerListenerStartFunc(mdc, updates)(errs)
 
 	update := <-updates
 	require.True(t, update.Reset)
@@ -191,14 +189,7 @@ func TestDockerListenerEmptyInit(t *testing.T) {
 	updates := make(chan ContainerUpdate)
 
 	errs := daemon.NewErrorSink()
-	dlComp := daemon.SimpleComponent(func(stop <-chan struct{}, errs daemon.ErrorSink) {
-		dl := dockerListener{
-			client:    mdc,
-			stop:      stop,
-			errorSink: errs,
-		}
-		errs.Post(dl.startAux(updates))
-	})(errs)
+	dlComp := dockerListenerStartFunc(mdc, updates)(errs)
 
 	update := <-updates
 	require.True(t, update.Reset)

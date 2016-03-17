@@ -7,15 +7,15 @@ import (
 	"os"
 	"time"
 
+	log "github.com/Sirupsen/logrus"
+	docker "github.com/fsouza/go-dockerclient"
+
 	"github.com/weaveworks/flux/agent"
 	"github.com/weaveworks/flux/common/daemon"
 	"github.com/weaveworks/flux/common/data"
 	"github.com/weaveworks/flux/common/heartbeat"
-	"github.com/weaveworks/flux/common/store"
 	"github.com/weaveworks/flux/common/store/etcdstore"
 	"github.com/weaveworks/flux/common/version"
-
-	log "github.com/Sirupsen/logrus"
 )
 
 const (
@@ -68,20 +68,9 @@ func main() {
 		log.Fatal(err)
 	}
 
-	containerUpdates := make(chan agent.ContainerUpdate)
-	containerUpdatesReset := make(chan struct{})
-	serviceUpdates := make(chan store.ServiceUpdate)
-	serviceUpdatesReset := make(chan struct{})
-
-	conf := agent.SyncInstancesConfig{
-		HostIP:  hostIP,
-		Network: network,
-		Store:   st,
-
-		ContainerUpdates:      containerUpdates,
-		ContainerUpdatesReset: containerUpdatesReset,
-		ServiceUpdates:        serviceUpdates,
-		ServiceUpdatesReset:   serviceUpdatesReset,
+	dc, err := docker.NewClientFromEnv()
+	if err != nil {
+		log.Fatal(err)
 	}
 
 	hb := heartbeat.HeartbeatConfig{
@@ -92,15 +81,12 @@ func main() {
 	}
 
 	daemon.Main(daemon.Aggregate(
-		daemon.Restart(10*time.Second,
-			hb.Start),
-		daemon.Reset(containerUpdatesReset,
-			daemon.Restart(10*time.Second,
-				agent.DockerListenerStartFunc(containerUpdates))),
-		daemon.Reset(serviceUpdatesReset,
-			daemon.Restart(10*time.Second,
-				store.WatchServicesStartFunc(st,
-					store.QueryServiceOptions{WithContainerRules: true},
-					serviceUpdates))),
-		daemon.Restart(10*time.Second, conf.StartFunc())))
+		agent.AgentConfig{
+			HostIP:          hostIP,
+			Network:         network,
+			Store:           st,
+			DockerClient:    dc,
+			RestartInterval: 10 * time.Second,
+		}.StartFunc(),
+		daemon.Restart(10*time.Second, hb.Start)))
 }

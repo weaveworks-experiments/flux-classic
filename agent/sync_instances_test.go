@@ -105,10 +105,10 @@ func setup(st store.Store, hostIP, netmode string) (h harness) {
 
 	h.Store = st
 	h.si = &syncInstances{
-		SyncInstancesConfig: SyncInstancesConfig{
-			Store:   h.Store,
-			Network: netmode,
-			HostIP:  hostIP,
+		syncInstancesConfig: syncInstancesConfig{
+			store:   h.Store,
+			network: netmode,
+			hostIP:  hostIP,
 		},
 		ErrorSink: daemon.NewErrorSink(),
 	}
@@ -262,7 +262,7 @@ func TestMappedPort(t *testing.T) {
 	require.Len(t, h.allInstances(t), 1)
 	svc, err := h.GetService("blorp-svc", store.QueryServiceOptions{WithInstances: true})
 	require.Nil(t, err)
-	require.Equal(t, h.si.HostIP, svc.Instances[0].Address)
+	require.Equal(t, h.si.hostIP, svc.Instances[0].Address)
 	require.Equal(t, 3456, svc.Instances[0].Port)
 	require.Equal(t, data.LIVE, svc.Instances[0].State)
 	h.stop(t)
@@ -345,7 +345,7 @@ func TestHostNetworking(t *testing.T) {
 	require.Len(t, h.allInstances(t), 1)
 	svc, err := h.GetService("blorp-svc", store.QueryServiceOptions{WithInstances: true})
 	require.Nil(t, err)
-	require.Equal(t, h.si.HostIP, svc.Instances[0].Address)
+	require.Equal(t, h.si.hostIP, svc.Instances[0].Address)
 	require.Equal(t, 8080, svc.Instances[0].Port)
 	require.Equal(t, data.LIVE, svc.Instances[0].State)
 	h.stop(t)

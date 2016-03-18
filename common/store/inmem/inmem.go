@@ -313,7 +313,7 @@ func (s *InMem) deleteHost(identity string) {
 	s.fireHostChange(identity, true)
 }
 
-func (s *InMem) WatchHosts(ctx context.Context, errs daemon.ErrorSink, changes chan<- data.HostChange) {
+func (s *InMem) WatchHosts(ctx context.Context, changes chan<- data.HostChange, errs daemon.ErrorSink) {
 	w := hostWatcher{watcher{ctx, errs}, changes}
 	s.addWatcher(w)
 }

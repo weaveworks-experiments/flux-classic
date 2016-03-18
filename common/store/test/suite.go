@@ -29,6 +29,10 @@ func RunStoreTestSuite(ts TestableStore, t *testing.T) {
 	testInstances(ts, t)
 	ts.Reset(t)
 	testWatchServices(ts, t)
+	ts.Reset(t)
+	testHosts(ts, t)
+	ts.Reset(t)
+	testHostWatch(ts, t)
 }
 
 func testPing(s store.Store, t *testing.T) {
@@ -140,17 +144,35 @@ func testInstances(s store.Store, t *testing.T) {
 	require.Equal(t, map[string]data.Instance{}, serviceInstances())
 }
 
-type watcher struct {
-	changes []data.ServiceChange
-	stopCh  chan struct{}
-	done    chan struct{}
+type watch struct {
+	cancel func()
+	stopCh chan struct{}
+	done   chan struct{}
 }
 
-func newWatcher(s store.Store, opts store.QueryServiceOptions) *watcher {
-	w := &watcher{stopCh: make(chan struct{}), done: make(chan struct{})}
-	changes := make(chan data.ServiceChange)
+func newWatch(cancel func()) watch {
+	return watch{
+		cancel: cancel,
+		stopCh: make(chan struct{}),
+		done:   make(chan struct{}),
+	}
+}
 
+func (w *watch) stop() {
+	close(w.stopCh)
+	<-w.done
+}
+
+type serviceWatch struct {
+	watch
+	changes []data.ServiceChange
+}
+
+func newServiceWatch(s store.Store, opts store.QueryServiceOptions) *serviceWatch {
 	ctx, cancel := context.WithCancel(context.Background())
+	w := &serviceWatch{watch: newWatch(cancel)}
+
+	changes := make(chan data.ServiceChange)
 	s.WatchServices(ctx, changes, daemon.NewErrorSink(), opts)
 
 	go func() {
@@ -160,7 +182,7 @@ func newWatcher(s store.Store, opts store.QueryServiceOptions) *watcher {
 			case change := <-changes:
 				w.changes = append(w.changes, change)
 			case <-w.stopCh:
-				cancel()
+				w.cancel()
 				return
 			}
 		}
@@ -169,14 +191,9 @@ func newWatcher(s store.Store, opts store.QueryServiceOptions) *watcher {
 	return w
 }
 
-func (w *watcher) stop() {
-	close(w.stopCh)
-	<-w.done
-}
-
 func testWatchServices(s store.Store, t *testing.T) {
-	check := func(opts store.QueryServiceOptions, body func(w *watcher), changes ...data.ServiceChange) {
-		w := newWatcher(s, opts)
+	check := func(opts store.QueryServiceOptions, body func(w *serviceWatch), changes ...data.ServiceChange) {
+		w := newServiceWatch(s, opts)
 		body(w)
 		// Yuck.  There's a race between making a change in
 		// etcd, and hearing about it via the watch, and I
@@ -187,12 +204,12 @@ func testWatchServices(s store.Store, t *testing.T) {
 		require.Nil(t, s.RemoveAllServices())
 	}
 
-	check(store.QueryServiceOptions{}, func(w *watcher) {
+	check(store.QueryServiceOptions{}, func(w *serviceWatch) {
 		require.Nil(t, s.AddService("svc", testService))
 	}, data.ServiceChange{Name: "svc", ServiceDeleted: false})
 
 	require.Nil(t, s.AddService("svc", testService))
-	check(store.QueryServiceOptions{}, func(w *watcher) {
+	check(store.QueryServiceOptions{}, func(w *serviceWatch) {
 		require.Nil(t, s.RemoveAllServices())
 		require.Nil(t, s.AddService("svc", testService))
 		require.Nil(t, s.RemoveService("svc"))
@@ -203,7 +220,7 @@ func testWatchServices(s store.Store, t *testing.T) {
 	// WithInstances false, so adding an instance should not
 	// cause an event
 	require.Nil(t, s.AddService("svc", testService))
-	check(store.QueryServiceOptions{}, func(w *watcher) {
+	check(store.QueryServiceOptions{}, func(w *serviceWatch) {
 		require.Nil(t, s.AddInstance("svc", "inst", testInst))
 	})
 
@@ -211,7 +228,7 @@ func testWatchServices(s store.Store, t *testing.T) {
 	// cause events
 	require.Nil(t, s.AddService("svc", testService))
 	check(store.QueryServiceOptions{WithInstances: true},
-		func(w *watcher) {
+		func(w *serviceWatch) {
 			require.Nil(t, s.AddInstance("svc", "inst", testInst))
 			require.Nil(t, s.RemoveInstance("svc", "inst"))
 		}, data.ServiceChange{Name: "svc", ServiceDeleted: false},
@@ -220,7 +237,7 @@ func testWatchServices(s store.Store, t *testing.T) {
 	// WithContainerRules false, so adding a rule should not
 	// cause an event
 	require.Nil(t, s.AddService("svc", testService))
-	check(store.QueryServiceOptions{}, func(w *watcher) {
+	check(store.QueryServiceOptions{}, func(w *serviceWatch) {
 		require.Nil(t, s.SetContainerRule("svc", "group", testRule))
 	})
 
@@ -228,9 +245,74 @@ func testWatchServices(s store.Store, t *testing.T) {
 	// cause events
 	require.Nil(t, s.AddService("svc", testService))
 	check(store.QueryServiceOptions{WithContainerRules: true},
-		func(w *watcher) {
+		func(w *serviceWatch) {
 			require.Nil(t, s.SetContainerRule("svc", "group", testRule))
 			require.Nil(t, s.RemoveContainerRule("svc", "group"))
 		}, data.ServiceChange{Name: "svc", ServiceDeleted: false},
 		data.ServiceChange{Name: "svc", ServiceDeleted: false})
+}
+
+func testHosts(ts TestableStore, t *testing.T) {
+	hostID := "foo host"
+	hostData := &data.Host{
+		IPAddress: "192.168.1.65",
+	}
+	err := ts.Heartbeat(hostID, 60*time.Second, hostData)
+	require.Nil(t, err)
+	hosts, err := ts.GetHosts()
+	require.Nil(t, err)
+	require.Len(t, hosts, 1)
+	require.Equal(t, hosts[0], hostData)
+	err = ts.DeregisterHost(hostID)
+	require.Nil(t, err)
+	hosts, err = ts.GetHosts()
+	require.Nil(t, err)
+	require.Len(t, hosts, 0)
+}
+
+type hostWatch struct {
+	watch
+	changes []data.HostChange
+}
+
+func newHostWatch(s store.Store) *hostWatch {
+	ctx, cancel := context.WithCancel(context.Background())
+	w := &hostWatch{watch: newWatch(cancel)}
+
+	changes := make(chan data.HostChange)
+	s.WatchHosts(ctx, changes, daemon.NewErrorSink())
+
+	go func() {
+		defer close(w.done)
+		for {
+			select {
+			case change := <-changes:
+				w.changes = append(w.changes, change)
+			case <-w.stopCh:
+				w.cancel()
+				return
+			}
+		}
+	}()
+
+	return w
+}
+
+func testHostWatch(ts TestableStore, t *testing.T) {
+	check := func(body func(w *hostWatch), changes ...data.HostChange) {
+		w := newHostWatch(ts)
+		body(w)
+		// Yuck.  There's a race between making a change in
+		// etcd, and hearing about it via the watch, and I
+		// haven't found a nicer way to avoid it.
+		time.Sleep(100 * time.Millisecond)
+		w.stop()
+		require.Equal(t, changes, w.changes)
+	}
+
+	hostID := "host number three"
+	check(func(w *hostWatch) {
+		require.Nil(t, ts.Heartbeat(hostID, 5*time.Second, &data.Host{}))
+	}, data.HostChange{Name: hostID, HostDeparted: false})
+	ts.Reset(t)
 }

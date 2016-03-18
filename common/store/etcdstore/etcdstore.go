@@ -471,5 +471,5 @@ func (es *etcdStore) DeregisterHost(identity string) error {
 	return err
 }
 
-func (es *etcdStore) WatchHosts(ctx context.Context, errs daemon.ErrorSink, changes chan<- data.HostChange) {
+func (es *etcdStore) WatchHosts(ctx context.Context, changes chan<- data.HostChange, errs daemon.ErrorSink) {
 }

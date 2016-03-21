@@ -285,7 +285,8 @@ func (s *InMem) Heartbeat(identity string, ttl time.Duration, state *data.Host) 
 		s.hostTimers[identity].Reset(ttl)
 	} else {
 		s.hostTimers[identity] = time.AfterFunc(ttl, func() {
-			delete(s.hosts, identity)
+			fmt.Printf("Host timer fired for %s\n", identity)
+			s.deleteHost(identity)
 		})
 		s.fireHostChange(identity, false)
 	}
@@ -309,8 +310,8 @@ func (s *InMem) deleteHost(identity string) {
 	if s.hostTimers[identity] != nil {
 		s.hostTimers[identity].Stop()
 		delete(s.hostTimers, identity)
+		s.fireHostChange(identity, true)
 	}
-	s.fireHostChange(identity, true)
 }
 
 func (s *InMem) WatchHosts(ctx context.Context, changes chan<- data.HostChange, errs daemon.ErrorSink) {

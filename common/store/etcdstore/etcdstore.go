@@ -472,4 +472,55 @@ func (es *etcdStore) DeregisterHost(identity string) error {
 }
 
 func (es *etcdStore) WatchHosts(ctx context.Context, changes chan<- data.HostChange, errs daemon.ErrorSink) {
+	if ctx == nil {
+		ctx = es.ctx
+	}
+
+	hosts := make(map[string]struct{})
+	node, startIndex, err := es.getDirNode(HOST_ROOT, true, false)
+	if err != nil {
+		errs.Post(err)
+		return
+	}
+
+	handleResponse := func(r *etcd.Response) {
+		fmt.Printf("Change %+v\n", r)
+		hostID := r.Node.Key[len(HOST_ROOT):]
+		switch r.Action {
+		case "delete", "expire":
+			delete(hosts, hostID)
+			changes <- data.HostChange{
+				Name:         hostID,
+				HostDeparted: true,
+			}
+
+		case "set":
+			hosts[hostID] = struct{}{}
+			changes <- data.HostChange{
+				Name:         hostID,
+				HostDeparted: false,
+			}
+		}
+	}
+
+	for name := range indexDir(node) {
+		hosts[name] = struct{}{}
+	}
+	go func() {
+		watcher := es.Watcher(HOST_ROOT,
+			&etcd.WatcherOptions{
+				AfterIndex: startIndex,
+				Recursive:  true,
+			})
+		for {
+			next, err := watcher.Next(ctx)
+			if err != nil {
+				if err != context.Canceled {
+					errs.Post(err)
+				}
+				break
+			}
+			handleResponse(next)
+		}
+	}()
 }

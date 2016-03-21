@@ -302,9 +302,7 @@ func testHostWatch(ts TestableStore, t *testing.T) {
 	check := func(body func(w *hostWatch), changes ...data.HostChange) {
 		w := newHostWatch(ts)
 		body(w)
-		// Yuck.  There's a race between making a change in
-		// etcd, and hearing about it via the watch, and I
-		// haven't found a nicer way to avoid it.
+		// Yuck, as above.
 		time.Sleep(100 * time.Millisecond)
 		w.stop()
 		require.Equal(t, changes, w.changes)
@@ -313,6 +311,18 @@ func testHostWatch(ts TestableStore, t *testing.T) {
 	hostID := "host number three"
 	check(func(w *hostWatch) {
 		require.Nil(t, ts.Heartbeat(hostID, 5*time.Second, &data.Host{}))
-	}, data.HostChange{Name: hostID, HostDeparted: false})
+		require.Nil(t, ts.DeregisterHost(hostID))
+	},
+		data.HostChange{Name: hostID, HostDeparted: false},
+		data.HostChange{Name: hostID, HostDeparted: true})
 	ts.Reset(t)
+
+	hostID = "another host"
+	check(func(w *hostWatch) {
+		ts.Heartbeat(hostID, 1*time.Second, &data.Host{})
+		time.Sleep(2*time.Second + 200*time.Millisecond)
+	}, data.HostChange{hostID, false}, data.HostChange{hostID, true})
+	hosts, err := ts.GetHosts()
+	require.Nil(t, err)
+	require.Len(t, hosts, 0)
 }

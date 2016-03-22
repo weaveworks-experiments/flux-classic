@@ -4,12 +4,13 @@ import (
 	"fmt"
 	log "github.com/Sirupsen/logrus"
 	"io"
-	"math/rand"
 	"net"
 	"sync"
+	"time"
 
 	"github.com/weaveworks/flux/balancer/events"
 	"github.com/weaveworks/flux/balancer/model"
+	"github.com/weaveworks/flux/balancer/pool"
 	"github.com/weaveworks/flux/common/daemon"
 )
 
@@ -26,8 +27,12 @@ type forwarding struct {
 	listener *net.TCPListener
 	stopped  bool
 
-	lock sync.Mutex
-	*model.Service
+	lock    sync.Mutex
+	service *model.Service
+
+	pool        pool.InstancePool
+	retryTicker *time.Ticker
+
 	shim shimFunc
 }
 
@@ -68,8 +73,22 @@ func (fc forwardingConfig) start(svc *model.Service) (serviceState, error) {
 		forwardingConfig: fc,
 		rule:             rule,
 		listener:         listener,
-		Service:          svc,
+		service:          svc,
+		pool:             pool.NewInstancePool(),
+		retryTicker:      time.NewTicker(1 * time.Second),
 	}
+	fwd.pool.UpdateInstances(svc.Instances)
+	go func() {
+		for {
+			t := <-fwd.retryTicker.C
+			if t.IsZero() {
+				return
+			}
+			fwd.lock.Lock()
+			fwd.pool.ReactivateRetries(t)
+			fwd.lock.Unlock()
+		}
+	}()
 
 	fwd.chooseShim()
 	go fwd.run()
@@ -127,16 +146,19 @@ func (fwd *forwarding) update(svc *model.Service) (bool, error) {
 	fwd.lock.Lock()
 	defer fwd.lock.Unlock()
 
-	if svc.Equal(fwd.Service) {
+	// same address and same set of instances; stay as it is
+	if svc.Equal(fwd.service) {
 		return true, nil
 	}
 
-	if !svc.IP.Equal(fwd.Service.IP) || svc.Port != fwd.Service.Port {
+	if !svc.IP.Equal(fwd.service.IP) || svc.Port != fwd.service.Port {
 		return false, nil
 	}
 
 	log.Info("forwarding service: ", svc.Summary())
-	fwd.Service = svc
+
+	fwd.pool.UpdateInstances(svc.Instances)
+	fwd.service = svc
 	fwd.chooseShim()
 	return true, nil
 }
@@ -147,10 +169,10 @@ var shims = map[string]shimFunc{
 }
 
 func (fwd *forwarding) chooseShim() {
-	shim := shims[fwd.Protocol]
+	shim := shims[fwd.service.Protocol]
 	if shim == nil {
-		log.Warn("service ", fwd.Service.Name,
-			": no support for protocol ", fwd.Protocol,
+		log.Warn("service ", fwd.service.Name,
+			": no support for protocol ", fwd.service.Protocol,
 			", falling back to TCP forwarding")
 		shim = tcpShim
 	}
@@ -159,19 +181,27 @@ func (fwd *forwarding) chooseShim() {
 }
 
 func (fwd *forwarding) forward(inbound *net.TCPConn) {
+
+retry:
 	inst, shim := fwd.pickInstanceAndShim()
+	if inst == nil {
+		log.Errorf("ran out of instances on inbound ", inbound.LocalAddr())
+		return
+	}
 	inAddr := inbound.RemoteAddr().(*net.TCPAddr)
-	outAddr := inst.TCPAddr()
+	outAddr := inst.Instance().TCPAddr()
 
 	outbound, err := net.DialTCP("tcp", nil, outAddr)
 	if err != nil {
 		log.Error("connecting to ", outAddr, ": ", err)
-		return
+		inst.Fail()
+		goto retry
 	}
+	inst.Keep()
 
 	connEvent := &events.Connection{
-		Service:  fwd.Service,
-		Instance: inst,
+		Service:  fwd.service,
+		Instance: inst.Instance(),
 		Inbound:  inAddr,
 	}
 	err = shim(inbound, outbound, connEvent, fwd.eventHandler)
@@ -181,10 +211,10 @@ func (fwd *forwarding) forward(inbound *net.TCPConn) {
 	}
 }
 
-func (fwd *forwarding) pickInstanceAndShim() (*model.Instance, shimFunc) {
+func (fwd *forwarding) pickInstanceAndShim() (pool.PooledInstance, shimFunc) {
 	fwd.lock.Lock()
 	defer fwd.lock.Unlock()
-	inst := &fwd.Instances[rand.Intn(len(fwd.Instances))]
+	inst := fwd.pool.PickInstance()
 	return inst, fwd.shim
 }
 

@@ -88,7 +88,7 @@ func (svcs *services) doUpdate(update model.ServiceUpdate) {
 
 			svcs.services[name] = svc
 		} else if ms != nil {
-			err := svc.update(ms)
+			err := svc.updateState(ms)
 			if err != nil {
 				log.WithError(err).Error("updating service ",
 					name)
@@ -118,19 +118,21 @@ type service struct {
 
 type serviceState interface {
 	stop()
+	// return true to keep the same state; false to calculate a new
+	// state
 	update(*model.Service) (bool, error)
 }
 
 func (svcs *services) newService(update *model.Service) (*service, error) {
 	svc := &service{services: svcs}
-	if err := svc.update(update); err != nil {
+	if err := svc.updateState(update); err != nil {
 		return nil, err
 	}
 
 	return svc, nil
 }
 
-func (svc *service) update(update *model.Service) error {
+func (svc *service) updateState(update *model.Service) error {
 	if svc.state != nil {
 		ok, err := svc.state.update(update)
 		if err != nil || ok {

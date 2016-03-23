@@ -16,7 +16,8 @@ type Component interface {
 	// Stop the component.  The implementation of this component
 	// should be synchronous: When it returns, all resources of
 	// the component should have been released, and any activity
-	// associated with the component has ceased.
+	// associated with the component has ceased.  The component
+	// supervisor may call this function at most once.
 	Stop()
 }
 
@@ -165,4 +166,8 @@ func Reset(reset <-chan struct{}, startFunc StartFunc) StartFunc {
 			c.Stop()
 		}
 	})
+}
+
+func NullStartFunc(ErrorSink) Component {
+	return StopFunc(func() {})
 }

@@ -2,6 +2,7 @@ package balancer
 
 import (
 	"container/heap"
+	"math"
 	"math/rand"
 	"time"
 
@@ -11,7 +12,9 @@ import (
 )
 
 const (
-	max_retry_interval = 32
+	retry_initial_interval  = 1
+	retry_backoff_factor    = 4
+	retry_abandon_threshold = 256 // ~4min
 )
 
 type PooledInstance interface {
@@ -54,11 +57,17 @@ func NewInstancePool() *instancePool {
 func (p *instancePool) ReactivateRetries(t time.Time) {
 	for p.retry.beforeOrAt(t) {
 		entry := p.retry.take1()
-		log.Infof("Giving instance %s another chance", entry.instance.Name)
-		if entry.retryInterval < max_retry_interval {
-			entry.retryInterval *= 2
+		if entry.retryInterval < retry_abandon_threshold {
+			log.Infof("Giving instance %s another chance", entry.instance.Name)
+			entry.retryInterval *= retry_backoff_factor
+			p.active = append(p.active, entry)
+		} else {
+			delete(p.members, entry.instance.Name)
+			log.Infof("Abandoning instance %s after %d retries",
+				entry.instance.Name,
+				1+int(math.Log(float64(entry.retryInterval))/
+					math.Log(float64(retry_backoff_factor))))
 		}
-		p.active = append(p.active, entry)
 	}
 }
 
@@ -75,7 +84,7 @@ func (p *instancePool) UpdateInstances(instances []model.Instance) {
 			newActive = append(newActive, &poolEntry{
 				pool:          p,
 				instance:      &instances[i],
-				retryInterval: 1,
+				retryInterval: retry_initial_interval,
 			})
 		}
 	}
@@ -112,7 +121,7 @@ func (p *instancePool) PickInstance() PooledInstance {
 }
 
 func (entry *poolEntry) Keep() {
-	entry.retryInterval = 1
+	entry.retryInterval = retry_initial_interval
 }
 
 func (entry *poolEntry) Fail() {

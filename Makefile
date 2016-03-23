@@ -4,6 +4,7 @@ BASEPKG:=github.com/$(PROJECT)
 REVISION:="$(shell git rev-parse --short=12 HEAD)"
 VERSION:="head"
 GOFLAGS:=-ldflags "-X $(BASEPKG)/common/version.version=$(VERSION) -X $(BASEPKG)/common/version.revision=$(REVISION)"
+RM:=--rm
 
 BUILD_IMAGES=build webbuild site
 COMPONENTS:=balancer agent web fluxctl
@@ -53,7 +54,7 @@ $(foreach i,$(COMPONENTS),$(eval $(call image_stamp,$(i)): build/bin/$(i)))
 # $2: extra docker run args
 # $3: working directory under /build/src/$(BASEPKG)
 # $4: command string to pass to build-wrapper.sh
-run_build_container=mkdir -p build/src/$(BASEPKG) && docker run --rm $2 \
+run_build_container=mkdir -p build/src/$(BASEPKG) && docker run $(RM) $2 \
     -v $$PWD/build:/build \
     -v $$PWD:/build/src/$(BASEPKG) \
     -v $$PWD/docker/build-wrapper.sh:/build-wrapper.sh \

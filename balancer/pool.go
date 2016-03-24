@@ -117,7 +117,10 @@ func (p *instancePool) PickInstance() PooledInstance {
 		return p.active[rand.Intn(n)]
 	}
 	// Ruh-roh, no active instances. Raid the retry queue.
-	return p.retry.take1()
+	if p.retry.Len() > 0 {
+		return p.retry.take1()
+	}
+	return nil
 }
 
 func (entry *poolEntry) Keep() {

@@ -180,7 +180,13 @@ func (fwd *forwarding) chooseShim() {
 }
 
 func (fwd *forwarding) forward(inbound *net.TCPConn) {
+
+retry:
 	inst, shim := fwd.pickInstanceAndShim()
+	if inst == nil {
+		log.Errorf("ran out of instances on inbound ", inbound.LocalAddr())
+		return
+	}
 	inAddr := inbound.RemoteAddr().(*net.TCPAddr)
 	outAddr := inst.Instance().TCPAddr()
 
@@ -188,7 +194,7 @@ func (fwd *forwarding) forward(inbound *net.TCPConn) {
 	if err != nil {
 		log.Error("connecting to ", outAddr, ": ", err)
 		inst.Fail()
-		return
+		goto retry
 	}
 	inst.Keep()
 

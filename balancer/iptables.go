@@ -44,7 +44,7 @@ func (ipt *ipTables) start() error {
 	return nil
 }
 
-func (ipt *ipTables) close() {
+func (ipt *ipTables) stop() {
 	if ipt.natChainSetup {
 		ipt.natChainSetup = false
 		logError(ipt.deleteChain("nat", "PREROUTING"))

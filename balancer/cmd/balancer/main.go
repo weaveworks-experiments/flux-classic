@@ -1,7 +1,6 @@
 package main
 
 import (
-	"os"
 	"os/exec"
 
 	log "github.com/Sirupsen/logrus"
@@ -17,14 +16,6 @@ func iptables(args []string) ([]byte, error) {
 
 func main() {
 	log.Infof("flux balancer version %s", version.Version())
-	daemon.Main(func(errs daemon.ErrorSink) daemon.Component {
-		b, err := balancer.NewBalancer(os.Args, errs, iptables)
-		if err != nil {
-			errs.Post(err)
-			return nil
-		}
-
-		b.Start()
-		return b
-	})
+	daemon.ConfigsMain(
+		&balancer.BalancerConfig{IPTablesCmd: iptables})
 }

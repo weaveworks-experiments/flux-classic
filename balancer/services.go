@@ -22,7 +22,7 @@ type services struct {
 	servicesConfig
 
 	lock     sync.Mutex
-	closed   chan struct{}
+	stopped  chan struct{}
 	finished chan struct{}
 	services map[string]*service
 }
@@ -31,7 +31,7 @@ func (cf servicesConfig) start() *services {
 	svcs := &services{
 		servicesConfig: cf,
 
-		closed:   make(chan struct{}),
+		stopped:  make(chan struct{}),
 		finished: make(chan struct{}),
 		services: make(map[string]*service),
 	}
@@ -39,12 +39,12 @@ func (cf servicesConfig) start() *services {
 	return svcs
 }
 
-func (svcs *services) close() {
+func (svcs *services) stop() {
 	svcs.lock.Lock()
 	defer svcs.lock.Unlock()
 
 	if svcs.services != nil {
-		close(svcs.closed)
+		close(svcs.stopped)
 		<-svcs.finished
 
 		for _, svc := range svcs.services {
@@ -58,7 +58,7 @@ func (svcs *services) close() {
 func (svcs *services) run() {
 	for {
 		select {
-		case <-svcs.closed:
+		case <-svcs.stopped:
 			close(svcs.finished)
 			return
 

@@ -1,7 +1,6 @@
 package balancer
 
 import (
-	"flag"
 	"fmt"
 	"time"
 
@@ -28,138 +27,123 @@ type netConfig struct {
 	bridge string
 }
 
-type BalancerDaemon struct {
-	errorSink   daemon.ErrorSink
-	ipTablesCmd IPTablesCmd
+type BalancerConfig struct {
+	// Should be pre-set
+	IPTablesCmd       IPTablesCmd
+	done              chan<- model.ServiceUpdate
+	reconnectInterval time.Duration
 
-	// From flags
+	// From flags/dependencies
+	netConfig netConfig
+	prom      prometheus.Config
+	debug     bool
+	store     store.Store
+
+	// Filled by Prepare
 	updates      <-chan model.ServiceUpdate
-	controller   daemon.Component
 	eventHandler events.Handler
-	netConfig    netConfig
-	done         chan<- model.ServiceUpdate
-
-	ipTables *ipTables
-	services *services
 }
 
-func (d *BalancerDaemon) parseArgs(args []string) error {
-	fs := flag.NewFlagSet(args[0], flag.ContinueOnError)
-
-	var promCf prometheus.Config
-	var debug bool
-
+func (cf *BalancerConfig) Populate(deps *daemon.Dependencies) {
 	// The bridge specified should be the one where packets sent
 	// to service IP addresses go.  So even with weave, that's
 	// typically 'docker0'.
-	fs.StringVar(&d.netConfig.bridge,
+	deps.StringVar(&cf.netConfig.bridge,
 		"bridge", "docker0", "bridge device")
-	fs.StringVar(&d.netConfig.chain,
+	deps.StringVar(&cf.netConfig.chain,
 		"chain", "FLUX", "iptables chain name")
-	fs.StringVar(&promCf.ListenAddr,
+	deps.StringVar(&cf.prom.ListenAddr,
 		"listen-prometheus", "",
 		"listen for connections from Prometheus on this IP address and port; e.g., :9000")
-	fs.StringVar(&promCf.AdvertiseAddr,
+	deps.StringVar(&cf.prom.AdvertiseAddr,
 		"advertise-prometheus", "",
 		"IP address and port to advertise to Prometheus; e.g. 192.168.42.221:9000")
+	deps.BoolVar(&cf.debug, "debug", false, "output debugging logs")
 
-	fs.BoolVar(&debug, "debug", false, "output debugging logs")
-	if err := fs.Parse(args[1:]); err != nil {
-		return err
-	}
+	deps.Dependency(etcdutil.ClientDependency(&cf.prom.EtcdClient))
+	deps.Dependency(etcdstore.StoreDependency(&cf.store))
+}
 
-	if fs.NArg() > 0 {
-		return fmt.Errorf("excess command line arguments")
-	}
-
-	if debug {
+func (cf *BalancerConfig) Prepare() (daemon.StartFunc, error) {
+	if cf.debug {
 		log.SetLevel(log.DebugLevel)
 	}
 	log.Debug("Debug logging on")
 
-	etcdclient, err := etcdutil.NewClientFromEnv()
-	if err != nil {
+	var startEventHandler func(daemon.ErrorSink) events.Handler
+	if cf.prom.ListenAddr == "" {
+		if cf.prom.AdvertiseAddr != "" {
+			return nil, fmt.Errorf("-advertise-prometheus option must be accompanied by -listen-prometheus")
+		}
+
+		startEventHandler = func(daemon.ErrorSink) events.Handler {
+			return eventlogger.EventLogger{}
+		}
+	} else {
+		if cf.prom.AdvertiseAddr == "" {
+			cf.prom.AdvertiseAddr = cf.prom.ListenAddr
+		}
+
+		var err error
+		if startEventHandler, err = cf.prom.Prepare(); err != nil {
+			return nil, err
+		}
+	}
+
+	if cf.reconnectInterval == 0 {
+		cf.reconnectInterval = 10 * time.Second
+	}
+
+	updates := make(chan model.ServiceUpdate)
+	startWatcher := daemon.Restart(cf.reconnectInterval, model.WatchServicesStartFunc(cf.store, updates))
+
+	startBalancer := func(errs daemon.ErrorSink) daemon.Component {
+		b := &balancer{
+			cf:           cf,
+			errs:         errs,
+			updates:      updates,
+			eventHandler: startEventHandler(errs),
+		}
+
+		errs.Post(b.start())
+		return b
+	}
+
+	return daemon.Aggregate(startWatcher, startBalancer), nil
+}
+
+type balancer struct {
+	cf           *BalancerConfig
+	errs         daemon.ErrorSink
+	updates      <-chan model.ServiceUpdate
+	eventHandler events.Handler
+	ipTables     *ipTables
+	services     *services
+}
+
+func (b *balancer) start() error {
+	b.ipTables = newIPTables(b.cf.netConfig, b.cf.IPTablesCmd)
+	if err := b.ipTables.start(); err != nil {
 		return err
 	}
 
-	d.setStore(etcdstore.New(etcdclient), 10*time.Second)
-
-	if promCf.ListenAddr == "" {
-		if promCf.AdvertiseAddr != "" {
-			return fmt.Errorf("-advertise-prometheus option must be accompanied by -listen-prometheus")
-		}
-
-		d.eventHandler = eventlogger.EventLogger{}
-	} else {
-		if promCf.AdvertiseAddr == "" {
-			promCf.AdvertiseAddr = promCf.ListenAddr
-		}
-
-		promCf.ErrorSink = d.errorSink
-		promCf.EtcdClient = etcdclient
-		handler, err := prometheus.NewEventHandler(promCf)
-		if err != nil {
-			return err
-		}
-		d.eventHandler = handler
-	}
+	b.services = servicesConfig{
+		netConfig:    b.cf.netConfig,
+		updates:      b.updates,
+		eventHandler: b.eventHandler,
+		ipTables:     b.ipTables,
+		errorSink:    b.errs,
+		done:         b.cf.done,
+	}.start()
 
 	return nil
 }
 
-func (d *BalancerDaemon) setStore(st store.Store, reconnectInterval time.Duration) {
-	updates := make(chan model.ServiceUpdate)
-	d.updates = updates
-	d.controller = daemon.Restart(reconnectInterval, model.WatchServicesStartFunc(st, updates))(d.errorSink)
-}
-
-func NewBalancer(args []string, errorSink daemon.ErrorSink, ipTablesCmd IPTablesCmd) (*BalancerDaemon, error) {
-	d := &BalancerDaemon{
-		errorSink:   errorSink,
-		ipTablesCmd: ipTablesCmd,
+func (b *balancer) Stop() {
+	if b.services != nil {
+		b.services.stop()
 	}
 
-	if err := d.parseArgs(args); err != nil {
-		return nil, err
-	}
-
-	return d, nil
-}
-
-func (d *BalancerDaemon) Start() {
-	d.ipTables = newIPTables(d.netConfig, d.ipTablesCmd)
-	if err := d.ipTables.start(); err != nil {
-		d.errorSink.Post(err)
-		return
-	}
-
-	d.services = servicesConfig{
-		netConfig:    d.netConfig,
-		updates:      d.updates,
-		eventHandler: d.eventHandler,
-		ipTables:     d.ipTables,
-		errorSink:    d.errorSink,
-		done:         d.done,
-	}.start()
-
-	d.eventHandler.Start()
-}
-
-func (d *BalancerDaemon) Stop() {
-	d.eventHandler.Stop()
-
-	if controller := d.controller; controller != nil {
-		d.controller = nil
-		controller.Stop()
-	}
-
-	if services := d.services; services != nil {
-		d.services = nil
-		services.close()
-	}
-
-	if ipTables := d.ipTables; ipTables != nil {
-		d.ipTables = nil
-		ipTables.close()
-	}
+	b.ipTables.stop()
+	b.eventHandler.Stop()
 }

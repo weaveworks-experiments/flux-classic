@@ -5,6 +5,8 @@ import (
 	"os"
 
 	etcd "github.com/coreos/etcd/client"
+
+	"github.com/weaveworks/flux/common/daemon"
 )
 
 type Client struct {
@@ -35,4 +37,33 @@ func NewClientFromEnv() (Client, error) {
 
 func (c *Client) EtcdClient() etcd.Client {
 	return c.Client
+}
+
+type dependencySlot struct {
+	slot *Client
+}
+
+type dependencyKey struct{}
+
+func ClientDependency(slot *Client) daemon.DependencySlot {
+	return dependencySlot{slot}
+}
+
+func (dependencySlot) Key() daemon.DependencyKey {
+	return dependencyKey{}
+}
+
+func (s dependencySlot) Assign(value interface{}) {
+	*s.slot = value.(Client)
+}
+
+func (k dependencyKey) MakeConfig() daemon.DependencyConfig {
+	return k
+}
+
+func (dependencyKey) Populate(*daemon.Dependencies) {
+}
+
+func (dependencyKey) MakeValue() (interface{}, error) {
+	return NewClientFromEnv()
 }

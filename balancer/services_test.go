@@ -141,5 +141,5 @@ func TestServices(t *testing.T) {
 	}
 	<-done
 
-	svcs.close()
+	svcs.stop()
 }

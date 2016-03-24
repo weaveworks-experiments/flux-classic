@@ -10,8 +10,7 @@ type EventLogger struct {
 	events.DiscardOthers
 }
 
-func (EventLogger) Start() {}
-func (EventLogger) Stop()  {}
+func (EventLogger) Stop() {}
 
 func (EventLogger) Connection(ev *events.Connection) {
 	log.Infoln("Connection", ev.Inbound, ev.Instance.TCPAddr())

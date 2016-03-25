@@ -41,14 +41,18 @@ func TestSyncInstancesComponent(t *testing.T) {
 	// Add a service before the agent is running
 	addService("svc1")
 
-	es := daemon.NewErrorSink()
-	comp := AgentConfig{
-		HostIP:          "192.168.11.34",
-		Network:         LOCAL,
-		Store:           st,
-		DockerClient:    mdc,
-		RestartInterval: time.Millisecond,
-	}.StartFunc()(es)
+	cf := AgentConfig{
+		hostTTL:           1,
+		hostIP:            "192.168.11.34",
+		network:           LOCAL,
+		store:             st,
+		dockerClient:      mdc,
+		reconnectInterval: time.Millisecond,
+	}
+
+	start, err := cf.Prepare()
+	errs := daemon.NewErrorSink()
+	agent := start(errs)
 
 	// Check that the instance was added appropriately
 	time.Sleep(10 * time.Millisecond)
@@ -69,6 +73,6 @@ func TestSyncInstancesComponent(t *testing.T) {
 	require.Nil(t, err)
 	require.Len(t, svc.Instances, 1)
 
-	comp.Stop()
-	require.Empty(t, es)
+	agent.Stop()
+	require.Empty(t, errs)
 }

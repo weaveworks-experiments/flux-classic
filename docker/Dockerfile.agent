@@ -1,4 +1,0 @@
-FROM gliderlabs/alpine
-ENTRYPOINT ["/home/flux/agent"]
-
-COPY ./agent /home/flux/

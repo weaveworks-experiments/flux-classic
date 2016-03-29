@@ -6,17 +6,17 @@ VERSION:="head"
 GOFLAGS:=-ldflags "-X $(BASEPKG)/common/version.version=$(VERSION) -X $(BASEPKG)/common/version.revision=$(REVISION)"
 
 BUILD_IMAGES=build webbuild site
-COMPONENTS:=balancer agent web fluxctl
-IMAGES:=$(COMPONENTS) edgebal prometheus-etcd
+IMAGES:=fluxd web fluxctl edgebal prometheus-etcd
 GODIRS:=$(COMPONENTS) common
 
 # The go "main" package directories
-CMD_DIRS:=agent/cmd/agent web fluxctl balancer/cmd/balancer balancer/cmd/balagent
+CMD_DIRS:=cmd/fluxd web fluxctl balancer/cmd/balagent
 
 image_stamp=docker/.$1.done
 docker_tag=$(PROJECT)-$1
 
-GO_SRCS:=$(shell find $(GODIRS) -name "*.go")
+GO_SRCS:=$(shell find * -name vendor -prune -o -name "*.go" -print)
+GODIRS:=$(shell find * -name vendor -prune -o -name "*_test.go" -printf "%H\n" | sort -u)
 
 # Delete files produced by failing recipes
 .DELETE_ON_ERROR:
@@ -47,7 +47,9 @@ $(foreach i,$(IMAGES) $(BUILD_IMAGES),$(call image_stamp,$(i))): docker/.%.done:
 $(foreach i,$(IMAGES),docker/$(i).tar): docker/%.tar: docker/.%.done
 	docker save --output=$@ $(call docker_tag,$(*F))
 
-$(foreach i,$(COMPONENTS),$(eval $(call image_stamp,$(i)): build/bin/$(i)))
+$(call image_stamp,fluxd): build/bin/fluxd
+$(call image_stamp,fluxctl): build/bin/fluxctl
+$(call image_stamp,web): build/bin/web
 
 # $1: build image
 # $2: extra docker run args

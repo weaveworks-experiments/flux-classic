@@ -20,6 +20,7 @@ const (
 type InstancePool interface {
 	ReactivateRetries(t time.Time)
 	UpdateInstances(instances []model.Instance)
+	PickActiveInstance() PooledInstance
 	PickInstance() PooledInstance
 }
 
@@ -117,14 +118,31 @@ func (p *instancePool) removeMembers(names map[string]struct{}) {
 	heap.Init(p.retry)
 }
 
-func (p *instancePool) PickInstance() PooledInstance {
+// Pick an instance from amongst the active instances; return nil if
+// there are none.
+func (p *instancePool) PickActiveInstance() PooledInstance {
 	n := len(p.active)
 	if n > 0 {
 		return p.active[rand.Intn(n)]
 	}
+	return nil
+}
+
+// Pick an instance from the pool; ideally, from amongst the active
+// instances, but failing that, from those waiting to be retried.
+func (p *instancePool) PickInstance() PooledInstance {
+	// NB it is an invariant that the instance returned must be
+	// present in the set of active instances, so that if `Keep` is
+	// called, it does not need to be (conditionally) moved.
+	inst := p.PickActiveInstance()
+	if inst != nil {
+		return inst
+	}
 	// Ruh-roh, no active instances. Raid the retry queue.
 	if p.retry.Len() > 0 {
-		return p.retry.take1()
+		entry := p.retry.take1()
+		p.active = []*poolEntry{entry}
+		return entry
 	}
 	return nil
 }

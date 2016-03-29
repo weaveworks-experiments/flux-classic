@@ -10,6 +10,7 @@ import (
 
 	"github.com/weaveworks/flux/balancer/events"
 	"github.com/weaveworks/flux/balancer/model"
+	"github.com/weaveworks/flux/balancer/pool"
 	"github.com/weaveworks/flux/common/daemon"
 )
 
@@ -29,7 +30,7 @@ type forwarding struct {
 	lock    sync.Mutex
 	service *model.Service
 
-	pool        *instancePool
+	pool        pool.InstancePool
 	retryTicker *time.Ticker
 
 	shim shimFunc
@@ -73,7 +74,7 @@ func (fc forwardingConfig) start(svc *model.Service) (serviceState, error) {
 		rule:             rule,
 		listener:         listener,
 		service:          svc,
-		pool:             NewInstancePool(),
+		pool:             pool.NewInstancePool(),
 		retryTicker:      time.NewTicker(1 * time.Second),
 	}
 	fwd.pool.UpdateInstances(svc.Instances)
@@ -210,7 +211,7 @@ retry:
 	}
 }
 
-func (fwd *forwarding) pickInstanceAndShim() (PooledInstance, shimFunc) {
+func (fwd *forwarding) pickInstanceAndShim() (pool.PooledInstance, shimFunc) {
 	fwd.lock.Lock()
 	defer fwd.lock.Unlock()
 	inst := fwd.pool.PickInstance()

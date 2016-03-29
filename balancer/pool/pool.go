@@ -1,4 +1,4 @@
-package balancer
+package pool
 
 import (
 	"container/heap"
@@ -16,6 +16,12 @@ const (
 	retry_backoff_factor    = 4
 	retry_abandon_threshold = 256 // ~4min
 )
+
+type InstancePool interface {
+	ReactivateRetries(t time.Time)
+	UpdateInstances(instances []model.Instance)
+	PickInstance() PooledInstance
+}
 
 type PooledInstance interface {
 	Instance() *model.Instance
@@ -44,7 +50,7 @@ type instancePool struct {
 	retry   *retryQueue
 }
 
-func NewInstancePool() *instancePool {
+func NewInstancePool() InstancePool {
 	pool := &instancePool{
 		members: make(map[string]struct{}),
 		retry:   &retryQueue{},

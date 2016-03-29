@@ -49,48 +49,46 @@ $ export PROMETHEUS_ADDRESS=http://$(docker port prometheus 9090)
 Now we have both etcd and prometheus, and (in the environment entries)
 what we need to tell Flux so it can reach them.
 
-## Starting Flux
+## Starting fluxd
 
-Flux includes a script to start and stop the Flux components, but
-we're going to do it by hand here so we can see what are the moving
-parts. It's not much more complicated.
+`fluxd` is a container that performs two functions:
 
-First, the agent:
+* It listens to a docker daemon running on the same host to find out
+when service containers are started and stopped.
+* It routes connections and requests from client containers on the same
+hosts to the appropriate service containers.
 
-```sh
-$ docker run --name=fluxagent -d -e ETCD_ADDRESS \
-       -v /var/run/docker.sock:/var/run/docker.sock \
-       weaveworks/flux-agent --host-ip $HOST_IP
-```
-
-The agent needs to know where etcd is, and needs to be able to connect
-to the Docker socket, to detect containers starting and stopping. It
-also needs to know what IP address containers will be reachable on --
-in this case, the host IP from before.
-
-Now, the balancer:
+It's necessary to pass a few options to `docker run` to give `fluxd`
+the privileges it needs.  If you were deploying flux as part of a
+production system, you would incorporate these options in your
+deployment scripts, but we show them in full here:
 
 ```sh
-$ docker run --name=fluxbalancer -d -e ETCD_ADDRESS \
+$ docker run --name=fluxd -d -e ETCD_ADDRESS \
        --net=host --cap-add=NET_ADMIN \
-       weaveworks/flux-balancer \
-       --listen-prometheus=:9000 \
-       --advertise-prometheus=$HOST_IP:9000
+       -v /var/run/docker.sock:/var/run/docker.sock \
+       weaveworks/flux-fluxd --host-ip $HOST_IP \
+       --listen-prometheus=:9000 --advertise-prometheus=$HOST_IP:9000
 ```
 
-The balancer needs to run in the host's network namespace
-(`--net=host`), and to have the `NET_ADMIN` capability so it can use
-iptables. We also tell it to serve prometheus metrics
-(`--listen-prometheus`) and supply the address on which those will be
-reachable (`--advertise-prometheus`, again with the host IP address).
+Briefly, the puropse of these options is as follows:
+
+* `-e ETCD_ADDRESS` tells fluxd how to connect to etcd, which is used for
+coordination in flux.
+* `--net=host --cap-add=NET_ADMIN` permit fluxd to do connection routing.
+* `-v /var/run/docker.sock:/var/run/docker.sock` allows fluxd to connect
+to the local docker daemon, to listen for container events.
+* `--host-ip $HOST_IP` tell fluxd what IP address should be used on other
+hosts to connect to containers on this host.
+* `--listen-prometheus=:9000 --advertise-prometheus=$HOST_IP:9000`
+exposes metrics about connections and requests to Prometheus.
 
 Flux is now running, and you can check this in Docker:
 
 ```sh
 $ docker ps
 CONTAINER ID        IMAGE                             COMMAND                  CREATED             STATUS              PORTS                                                         NAMES
-64a9b5cf4290        weaveworks/flux-balancer          "/home/flux/server --"   3 seconds ago       Up 3 seconds                                                                      fluxbalancer
-893f7e238473        weaveworks/flux-agent             "/bin/dlisten --host-"   22 seconds ago      Up 21 seconds                                                                     fluxagent
+27d30bc8ae4a        weaveworks/flux-fluxd             "/home/flux/fluxd --h"   3 seconds ago      Up 3 seconds                                                                    fluxd
 # ...
 ```
 

@@ -1,6 +1,8 @@
 package agent
 
 import (
+	"errors"
+
 	log "github.com/Sirupsen/logrus"
 	docker "github.com/fsouza/go-dockerclient"
 
@@ -92,6 +94,10 @@ whileListingContainers:
 			break whileListingContainers
 
 		case ev := <-events:
+			if ev == nil {
+				return errors.New("docker event stream closed")
+			}
+
 			switch ev.Status {
 			case "start":
 				containers[ev.ID] = true
@@ -133,6 +139,10 @@ whileListingContainers:
 		case ev = <-events:
 		case <-dl.stop:
 			return nil
+		}
+
+		if ev == nil {
+			return errors.New("docker event stream closed")
 		}
 
 		var started bool

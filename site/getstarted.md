@@ -33,7 +33,7 @@ OK, now let's run the two bits of infrastructure we need: etcd and
 Prometheus. We'll run them in containers, of course.
 
 ```sh
-$ docker run --name=etcd -d -p $HOST_IP::2379 quay.io/coreos/etcd \
+$ docker run --name=etcd -d -p $HOST_IP:2379:2379 quay.io/coreos/etcd \
        --listen-client-urls http://0.0.0.0:2379 \
        --advertise-client-urls=http://localhost:2379
 # ...

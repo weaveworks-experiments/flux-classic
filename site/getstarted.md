@@ -37,7 +37,7 @@ $ docker run --name=etcd -d -p $HOST_IP:2379:2379 quay.io/coreos/etcd \
        --listen-client-urls http://0.0.0.0:2379 \
        --advertise-client-urls=http://localhost:2379
 # ...
-$ export ETCD_ADDRESS=http://$(docker port etcd 2379)
+$ export ETCD_ADDRESS=http://$HOST_IP:2379
 
 # And run our pre-baked image of Prometheus
 $ docker run --name=prometheus -d -e ETCD_ADDRESS -p $HOST_IP::9090 \
@@ -71,7 +71,7 @@ $ docker run --name=fluxd -d -e ETCD_ADDRESS \
        --listen-prometheus=:9000 --advertise-prometheus=$HOST_IP:9000
 ```
 
-Briefly, the puropse of these options is as follows:
+Briefly, the purpose of these options is as follows:
 
 * `-e ETCD_ADDRESS` tells fluxd how to connect to etcd, which is used for
 coordination in flux.
@@ -106,12 +106,15 @@ To try it out, see what `fluxctl info` gives us:
 
 ```sh
 $ fluxctl info
-# nothing ...
+HOSTS
+192.168.3.165
+
+SERVICES
 ```
 
-Nothing -- but since we haven't done anything yet, no errors is all we
-should expect. You can try `fluxctl info` at each stage that follows
-to see how it reports the state of the system.
+Not much there -- but since we haven't done anything yet, no errors is
+all we should expect. You can try `fluxctl info` at each stage that
+follows, to see how it reports the state of the system.
 
 We'll start by creating a service `hello`, which will represent some
 hello-world containers we'll run presently.
@@ -151,9 +154,9 @@ hello
   RULES
     default {"image":"weaveworks/hello-world"}
   INSTANCES
-    ccc5ed490a6a6d7d7ee4381857da752f38d995eb08a9a60f19ec946599d76511 192.168.1.129:32770 live
-    3b84320f7958a7159f0d172b8408bb6953f8dfa49e425708377de34c9a97ee08 192.168.1.129:32771 live
-    eba9d0a13a2d6d735a47f2b4e32ead6f6e15e11400b96b15ab566f325fd0574d 192.168.1.129:32772 live
+    df83e63e1d4488126aaa2cd71af7e73b10da13d5b4e6de54bf94d1889758e10a 192.168.3.165:32768 live
+    9e3f36dc6ceb7e24c2a7f06fed950e613f5c856cd2124935cd9d07b8e3872976 192.168.3.165:32769 live
+    8ddfcaaf64fdf10b47440bba61d0560371828ba49d0cde06d7f8969a77ae9e09 192.168.3.165:32770 live
 ```
 
 Neat. Let's check if we can get an actual web page up.
@@ -179,7 +182,7 @@ $ docker run -p 8080:80 -d -e ETCD_ADDRESS -e SERVICE=hello \
 Now you should be able to see the service by pointing a browser at
 `http://$HOST_IP:8080/`.
 
-![Hello World in a browser](hello-world.png)
+![Hello World in a browser](images/hello-world.png)
 
 ## Starting the web UI
 

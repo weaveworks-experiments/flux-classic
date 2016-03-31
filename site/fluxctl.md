@@ -45,6 +45,10 @@ Flags:
 The output looks like this:
 
 ```
+HOSTS
+192.168.3.165
+
+SERVICES
 hello
   RULES
     default {"image":"tutum/hello-world"}
@@ -54,11 +58,13 @@ hello
     4419e651cc298f40463294b4aad9e23c5b530607dc3f9e164718a9f93ebe8a26 192.168.3.165:32768 live
 ```
 
-At the top is a service name, `hello`; after that are the selection
-rules (this one indicates that containers using the image
-`"tutum/hello-world"` should be selected for the `hello`
-service). Last, for each service, is a list of instances, each with
-its address and state.
+At the top there is a list of hosts known to tbe running fluxd.
+
+After the hosts are the services. Here there is a single service, with
+the name `hello`; under that that are the selection rules (this one
+indicates that containers using the image `"tutum/hello-world"` should
+be selected for the `hello` service). Last, for each service, is a
+list of instances, each with its address and state.
 
 `live` here means the instance is on-line. Other states may indicate
 problems with the instance; for example `no address` means the

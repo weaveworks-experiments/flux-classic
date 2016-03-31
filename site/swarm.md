@@ -76,7 +76,7 @@ production etcd deployment already, you can set `$ETCD_ADDRESS` to
 point to it instead.
 
 ```sh
-$ docker run --name=etcd -d -P quay.io/coreos/etcd -listen-client-urls http://0.0.0.0:2379 -advertise-client-urls=http://localhost:2379
+$ docker run --name=etcd -d -p 2379:2379 quay.io/coreos/etcd -listen-client-urls http://0.0.0.0:2379 -advertise-client-urls=http://localhost:2379
 a43f43b6f2958a3143a7c15643b42329768551b87858e965ab2f64b30ce8ac2d
 $ export ETCD_ADDRESS=http://$(docker port etcd 2379)
 ```

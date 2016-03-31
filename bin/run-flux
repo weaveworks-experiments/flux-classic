@@ -2,7 +2,7 @@
 
 set -eo pipefail
 
-DAEMON_IMAGE=weaveworks/flux-fluxd
+DAEMON_IMAGE=weaveworks/fluxd
 DEFAULT_ETCD="http://127.0.0.1:2379"
 
 start() {

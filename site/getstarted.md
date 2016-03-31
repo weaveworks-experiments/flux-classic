@@ -67,7 +67,7 @@ deployment scripts, but we show them in full here:
 $ docker run --name=fluxd -d -e ETCD_ADDRESS \
        --net=host --cap-add=NET_ADMIN \
        -v /var/run/docker.sock:/var/run/docker.sock \
-       weaveworks/flux-fluxd --host-ip $HOST_IP \
+       weaveworks/fluxd --host-ip $HOST_IP \
        --listen-prometheus=:9000 --advertise-prometheus=$HOST_IP:9000
 ```
 
@@ -88,7 +88,7 @@ Flux is now running, and you can check this in Docker:
 ```sh
 $ docker ps
 CONTAINER ID        IMAGE                             COMMAND                  CREATED             STATUS              PORTS                                                         NAMES
-27d30bc8ae4a        weaveworks/flux-fluxd             "/home/flux/fluxd --h"   3 seconds ago      Up 3 seconds                                                                    fluxd
+27d30bc8ae4a        weaveworks/fluxd                  "/home/flux/fluxd --h"   3 seconds ago      Up 3 seconds                                                                    fluxd
 # ...
 ```
 
@@ -99,7 +99,7 @@ Now we'll actually use Flux! Once it's running, you control Flux with
 an alias, to avoid typing the `docker run ...` bit again and again:
 
 ```sh
-$ alias fluxctl="docker run --rm -e ETCD_ADDRESS weaveworks/flux-fluxctl"
+$ alias fluxctl="docker run --rm -e ETCD_ADDRESS weaveworks/fluxctl"
 ```
 
 To try it out, see what `fluxctl info` gives us:

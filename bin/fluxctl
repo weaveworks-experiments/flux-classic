@@ -7,4 +7,4 @@ if [[ -z "$ETCD_ADDRESS" ]]; then
 fi
 export ETCD_ADDRESS
 
-docker run --rm -e ETCD_ADDRESS weaveworks/flux-fluxctl "$@"
+docker run --rm -e ETCD_ADDRESS weaveworks/fluxctl "$@"

@@ -13,7 +13,7 @@ GODIRS:=$(COMPONENTS) common
 CMD_DIRS:=cmd/fluxd web fluxctl balancer/cmd/balagent
 
 image_stamp=docker/.$1.done
-docker_tag=$(PROJECT)-$1
+docker_tag=$(if $(filter flux%,$1),$(REPO)/$1,$(REPO)/flux-$1)
 
 GO_SRCS:=$(shell find * -name vendor -prune -o -name "*.go" -print)
 GODIRS:=$(shell find * -name vendor -prune -o -name "*_test.go" -printf "%H\n" | sort -u)

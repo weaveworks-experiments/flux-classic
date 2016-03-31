@@ -9,7 +9,7 @@ The Flux daemon (`fluxd`) runs on each host, and does two things:
    which containers are service instances;
  - it proxies connections to services, for any clients on the host
 
-`fluxd` is available as the Docker image `weaveworks/flux-fluxd`.
+`fluxd` is available as the Docker image `weaveworks/fluxd`.
 
 ## Operating the daemon
 
@@ -41,7 +41,7 @@ a Docker command to start the daemon looks like this:
 docker run -d --name "fluxd" --cap-add=NET_ADMIN --net=host \
        -e HOST_IP -e ETCD_ADDRESS \
        -v "/var/run/docker.sock:/var/run/docker.sock" \
-       weaveworks/flux-fluxd
+       weaveworks/fluxd
 ```
 
 The script `bin/run-flux` is essentially a wrapper for this

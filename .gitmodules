@@ -1,18 +1,9 @@
-[submodule "vendor/github.com/russross/blackfriday"]
-	path = vendor/github.com/russross/blackfriday
-	url = https://github.com/russross/blackfriday
 [submodule "vendor/github.com/gorilla/mux"]
 	path = vendor/github.com/gorilla/mux
 	url = https://github.com/gorilla/mux
 [submodule "vendor/github.com/gorilla/context"]
 	path = vendor/github.com/gorilla/context
 	url = https://github.com/gorilla/context
-[submodule "vendor/github.com/davecgh/go-spew"]
-	path = vendor/github.com/davecgh/go-spew
-	url = https://github.com/davecgh/go-spew
-[submodule "vendor/github.com/pmezard/go-difflib"]
-	path = vendor/github.com/pmezard/go-difflib
-	url = https://github.com/pmezard/go-difflib
 [submodule "vendor/github.com/beorn7/perks"]
 	path = vendor/github.com/beorn7/perks
 	url = https://github.com/beorn7/perks
@@ -22,9 +13,6 @@
 [submodule "vendor/github.com/Sirupsen/logrus"]
 	path = vendor/github.com/Sirupsen/logrus
 	url = https://github.com/Sirupsen/logrus
-[submodule "vendor/github.com/inconshreveable/mousetrap"]
-	path = vendor/github.com/inconshreveable/mousetrap
-	url = https://github.com/inconshreveable/mousetrap
 [submodule "vendor/github.com/prometheus/procfs"]
 	path = vendor/github.com/prometheus/procfs
 	url = https://github.com/prometheus/procfs
@@ -37,15 +25,9 @@
 [submodule "vendor/github.com/prometheus/client_model"]
 	path = vendor/github.com/prometheus/client_model
 	url = https://github.com/prometheus/client_model
-[submodule "vendor/github.com/shurcooL/sanitized_anchor_name"]
-	path = vendor/github.com/shurcooL/sanitized_anchor_name
-	url = https://github.com/shurcooL/sanitized_anchor_name
 [submodule "vendor/github.com/matttproud/golang_protobuf_extensions"]
 	path = vendor/github.com/matttproud/golang_protobuf_extensions
 	url = https://github.com/matttproud/golang_protobuf_extensions
-[submodule "vendor/github.com/cpuguy83/go-md2man"]
-	path = vendor/github.com/cpuguy83/go-md2man
-	url = https://github.com/cpuguy83/go-md2man
 [submodule "vendor/github.com/coreos/etcd"]
 	path = vendor/github.com/coreos/etcd
 	url = https://github.com/coreos/etcd

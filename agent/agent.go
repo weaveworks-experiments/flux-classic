@@ -34,7 +34,7 @@ type AgentConfig struct {
 }
 
 func (cf *AgentConfig) Populate(deps *daemon.Dependencies) {
-	deps.IntVar(&cf.hostTTL, "host-ttl", 30, "Time-to-live for host record; the agent will try to refresh this on a schedule such that it doesn't lapse")
+	deps.IntVar(&cf.hostTTL, "host-ttl", 30, "Time-to-live for host record; the daemon will try to refresh this on a schedule such that it doesn't lapse")
 	deps.StringVar(&cf.hostIP, "host-ip", "", "IP address for instances with mapped ports")
 	deps.StringVar(&cf.network, "network-mode", LOCAL, fmt.Sprintf(`Kind of network to assume for containers (either "%s" or "%s")`, LOCAL, GLOBAL))
 	deps.Dependency(etcdstore.StoreDependency(&cf.store))

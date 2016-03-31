@@ -35,7 +35,7 @@ The nginx process needs to be able to reach instances of the
 service. Usually, this means you will need one of these situations:
 
  - the edge balancer and the instances are all on a common, cross-host
-   network (e.g., a Weave network), and you have told the agents to
+   network (e.g., a Weave network), and you have told fluxd to
    use `--network-mode=global`. If you run the edge balancer in the
    host network namespace, you will need to give the host an interface
    on the common network, e.g., by using `weave expose`.
@@ -46,9 +46,9 @@ service. Usually, this means you will need one of these situations:
 
 ### Trying it out
 
-Provided you have the Weave Flux prerequisities in the form of an
-endpoint for etcd in `ETCD_ADDRESS`, to expose the service `pages-svc`
-you can do:
+Provided you have the Flux prerequisities in the form of an endpoint
+for etcd in `ETCD_ADDRESS`, to expose the service `pages-svc` you can
+do:
 
 ```bash
 docker run -p 8080:80 -d -e ETCD_ADDRESS -e SERVICE=foo-svc \

@@ -4,31 +4,24 @@ title: Integrating with Prometheus
 ---
 
 Flux has a two-part integration with [Prometheus][prom-site]: firstly,
-the balancer exposes metrics that Prometheus can scrape; and secondly,
-the web dashboard will query those metrics to populate its charts and
-gauges.
+the Flux daemon `fluxd` exposes metrics that Prometheus can scrape;
+and secondly, the web dashboard will query those metrics to populate
+its charts and gauges.
 
-## Exposing stats to Prometheus from the balancer
+## Exposing stats to Prometheus from fluxd
 
-If you're running the balancer yourself, though, to tell it to expose
-stats for Prometheus, supply the `--listen-prometheus` option, with a
-listening address (`:9000` is fine).
+To tell `fluxd` to expose stats for Prometheus, supply the
+`--listen-prometheus` option, with a listening address (`:9000` is
+fine).
 
-```bash
-docker run -d --net=host --privileged \
-       -e ETCD_ADDRESS \
-       weaveworks/flux-balancer --listen-prometheus :9000
-```
-
-The `run-flux` script assumes this is what you want, and does it for
-you.
+The `bin/run-flux` script assumes this is what you want, and does it
+for you.
 
 ## Running Prometheus
 
 It's easy to run Prometheus under Docker; however, you will need some
-way of telling Prometheus about all of the hosts running the balancer,
-so it knows to scrape them for stats. See below for some ways to do
-that.
+way of telling Prometheus about all of the hosts running the fluxd, so
+it knows to scrape them for stats. See below for some ways to do that.
 
 ### Configuring Prometheus
 
@@ -58,9 +51,8 @@ scrape_configs:
         - host-three:9000
 ```
 
-Note the port numbers, which match whatever you told the balancer to
-listen on with `--listen-prometheus` (or `9000` if you use
-`run-flux`).
+Note the port numbers, which match whatever you told fluxd to listen
+on with `--listen-prometheus` (or `9000` if you use `run-flux`).
 
 You can then give the Prometheus container the IP addresses (and the
 configuration, with a volume mount) when starting it:
@@ -105,8 +97,7 @@ scrape_configs:
 ```
 
 The `$(weave expose)` is needed to give the host an IP address on the
-Weave network, since the balancer runs in the host's network
-namespace.
+Weave network, since fluxd runs in the host's network namespace.
 
 [prom-site]: https://github.com/prometheus/prometheus
 [prom-sd]: http://prometheus.io/docs/operating/configuration/#scrape-configurations-scrape_config

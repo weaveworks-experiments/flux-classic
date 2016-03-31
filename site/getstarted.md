@@ -75,7 +75,7 @@ Briefly, the puropse of these options is as follows:
 
 * `-e ETCD_ADDRESS` tells fluxd how to connect to etcd, which is used for
 coordination in flux.
-* `--net=host --cap-add=NET_ADMIN` permit fluxd to do connection routing.
+* `--net=host --cap-add=NET_ADMIN` permits fluxd to do connection routing.
 * `-v /var/run/docker.sock:/var/run/docker.sock` allows fluxd to connect
 to the local docker daemon, to listen for container events.
 * `--host-ip $HOST_IP` tell fluxd what IP address should be used on other
@@ -143,6 +143,10 @@ Now we can see if Flux has noticed them:
 
 ```sh
 $ fluxctl info
+HOSTS
+192.168.3.165
+
+SERVICES
 hello
   RULES
     default {"image":"weaveworks/hello-world"}
@@ -165,7 +169,7 @@ exposing the service on the service address, and that's only available
 locally on the hosts Flux is running on (a bit like 127.0.0.1). If we
 want to expose the service on an externally-accessible address, we can
 run an edge balancer -- so called because it runs on the edge of your
-application, making it available to clients.
+application, making it available to clients from outside.
 
 ```sh
 $ docker run -p 8080:80 -d -e ETCD_ADDRESS -e SERVICE=hello \

@@ -2,9 +2,7 @@
 
 set -eo pipefail
 
-BALANCER=weaveworks/flux-balancer
-AGENT=weaveworks/flux-agent
-
+DAEMON_IMAGE=weaveworks/flux-fluxd
 DEFAULT_ETCD="http://127.0.0.1:2379"
 
 start() {
@@ -21,12 +19,14 @@ start() {
 
     export HOST_IP ETCD_ADDRESS
 
-    docker run -d --name "fluxagent" -e HOST_IP -e ETCD_ADDRESS -v "/var/run/docker.sock:/var/run/docker.sock" "$AGENT"
-    docker run -d --name "fluxbalancer" -e ETCD_ADDRESS --cap-add=NET_ADMIN --net=host "$BALANCER" --listen-prometheus :9000 --advertise-prometheus $HOST_IP:9000
+    docker run -d --name "fluxd" -e HOST_IP -e ETCD_ADDRESS \
+            -v "/var/run/docker.sock:/var/run/docker.sock" \
+            --cap-add=NET_ADMIN --net=host "$DAEMON_IMAGE" \
+            --listen-prometheus :9000 --advertise-prometheus $HOST_IP:9000
 }
 
 stop() {
-    docker rm -f "fluxagent" "fluxbalancer" 2>/dev/null || true
+    docker rm -f "fluxd" 2>/dev/null || true
 }
 
 usage() {

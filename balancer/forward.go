@@ -5,7 +5,6 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"io"
 	"net"
-	"sync"
 	"time"
 
 	"github.com/weaveworks/flux/balancer/events"
@@ -29,7 +28,6 @@ type forwarding struct {
 	listener *net.TCPListener
 	stopped  bool
 
-	lock    sync.Mutex
 	service *model.Service
 
 	pool        pool.InstancePool
@@ -86,9 +84,7 @@ func (fc forwardingConfig) start(svc *model.Service) (serviceState, error) {
 			if t.IsZero() {
 				return
 			}
-			fwd.lock.Lock()
 			fwd.pool.ReactivateRetries(t)
-			fwd.lock.Unlock()
 		}
 	}()
 
@@ -144,9 +140,6 @@ func (fwd *forwarding) update(svc *model.Service) (bool, error) {
 	if len(svc.Instances) == 0 {
 		return false, nil
 	}
-
-	fwd.lock.Lock()
-	defer fwd.lock.Unlock()
 
 	// same address and same set of instances; stay as it is
 	if svc.Equal(fwd.service) {
@@ -220,8 +213,6 @@ func (fwd *forwarding) forward(inbound *net.TCPConn) {
 }
 
 func (fwd *forwarding) pickInstanceAndShim() (pool.PooledInstance, shimFunc) {
-	fwd.lock.Lock()
-	defer fwd.lock.Unlock()
 	inst := fwd.pool.PickInstance()
 	return inst, fwd.shim
 }

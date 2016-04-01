@@ -4,6 +4,7 @@ import (
 	"container/heap"
 	"math"
 	"math/rand"
+	"sync"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
@@ -49,6 +50,7 @@ type instancePool struct {
 	members map[string]struct{}
 	active  []*poolEntry
 	retry   *retryQueue
+	lock    sync.Mutex
 }
 
 func NewInstancePool() InstancePool {
@@ -62,6 +64,8 @@ func NewInstancePool() InstancePool {
 
 // Make any instances that are due for a retry available again
 func (p *instancePool) ReactivateRetries(t time.Time) {
+	p.lock.Lock()
+	defer p.lock.Unlock()
 	for p.retry.beforeOrAt(t) {
 		entry := p.retry.take1()
 		if entry.retryInterval < retry_abandon_threshold {
@@ -79,6 +83,8 @@ func (p *instancePool) ReactivateRetries(t time.Time) {
 }
 
 func (p *instancePool) UpdateInstances(instances []model.Instance) {
+	p.lock.Lock()
+	defer p.lock.Unlock()
 	newActive := []*poolEntry{}
 	remainder := p.members
 	p.members = map[string]struct{}{}
@@ -121,6 +127,12 @@ func (p *instancePool) removeMembers(names map[string]struct{}) {
 // Pick an instance from amongst the active instances; return nil if
 // there are none.
 func (p *instancePool) PickActiveInstance() PooledInstance {
+	p.lock.Lock()
+	defer p.lock.Unlock()
+	return p.pickActiveInstance()
+}
+
+func (p *instancePool) pickActiveInstance() PooledInstance {
 	n := len(p.active)
 	if n > 0 {
 		return p.active[rand.Intn(n)]
@@ -131,10 +143,13 @@ func (p *instancePool) PickActiveInstance() PooledInstance {
 // Pick an instance from the pool; ideally, from amongst the active
 // instances, but failing that, from those waiting to be retried.
 func (p *instancePool) PickInstance() PooledInstance {
+	p.lock.Lock()
+	defer p.lock.Unlock()
+
 	// NB it is an invariant that the instance returned must be
 	// present in the set of active instances, so that if `Keep` is
 	// called, it does not need to be (conditionally) moved.
-	inst := p.PickActiveInstance()
+	inst := p.pickActiveInstance()
 	if inst != nil {
 		return inst
 	}
@@ -154,6 +169,10 @@ func (entry *poolEntry) Keep() {
 func (entry *poolEntry) Fail() {
 	log.Infof("Scheduling instance %s for retry in %d sec", entry.instance.Name, entry.retryInterval)
 	p := entry.pool
+
+	p.lock.Lock()
+	defer p.lock.Unlock()
+
 	for i, e := range p.active {
 		if e == entry {
 			p.active = append(p.active[0:i], p.active[i+1:]...)

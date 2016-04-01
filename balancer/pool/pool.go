@@ -51,12 +51,14 @@ type instancePool struct {
 	active  []*poolEntry
 	retry   *retryQueue
 	lock    sync.Mutex
+	rng     *rand.Rand
 }
 
 func NewInstancePool() InstancePool {
 	pool := &instancePool{
 		members: make(map[string]struct{}),
 		retry:   &retryQueue{},
+		rng:     rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
 	heap.Init(pool.retry)
 	return pool
@@ -135,7 +137,7 @@ func (p *instancePool) PickActiveInstance() PooledInstance {
 func (p *instancePool) pickActiveInstance() PooledInstance {
 	n := len(p.active)
 	if n > 0 {
-		return p.active[rand.Intn(n)]
+		return p.active[p.rng.Intn(n)]
 	}
 	return nil
 }

@@ -14,6 +14,8 @@ import (
 	"github.com/weaveworks/flux/common/daemon"
 )
 
+const max_connection_attempts = 5
+
 type forwardingConfig struct {
 	netConfig
 	*ipTables
@@ -181,34 +183,39 @@ func (fwd *forwarding) chooseShim() {
 }
 
 func (fwd *forwarding) forward(inbound *net.TCPConn) {
+	inAddr := inbound.RemoteAddr().(*net.TCPAddr)
 
-retry:
-	inst, shim := fwd.pickInstanceAndShim()
-	if inst == nil {
-		log.Errorf("ran out of instances on inbound ", inbound.LocalAddr())
+	for i := 0; i < max_connection_attempts; i++ {
+		inst, shim := fwd.pickInstanceAndShim()
+		if inst == nil {
+			log.Errorf("ran out of instances on inbound ", inbound.LocalAddr())
+			return
+		}
+		outAddr := inst.Instance().TCPAddr()
+
+		outbound, err := net.DialTCP("tcp", nil, outAddr)
+		if err != nil {
+			log.Error("connecting to ", outAddr, ": ", err)
+			inst.Fail()
+			continue
+		}
+		inst.Keep()
+
+		connEvent := &events.Connection{
+			Service:  fwd.service,
+			Instance: inst.Instance(),
+			Inbound:  inAddr,
+		}
+		err = shim(inbound, outbound, connEvent, fwd.eventHandler)
+		if err != nil {
+			log.Error("forwarding from ", inAddr, " to ", outAddr, ": ",
+				err)
+		}
 		return
 	}
-	inAddr := inbound.RemoteAddr().(*net.TCPAddr)
-	outAddr := inst.Instance().TCPAddr()
-
-	outbound, err := net.DialTCP("tcp", nil, outAddr)
-	if err != nil {
-		log.Error("connecting to ", outAddr, ": ", err)
-		inst.Fail()
-		goto retry
-	}
-	inst.Keep()
-
-	connEvent := &events.Connection{
-		Service:  fwd.service,
-		Instance: inst.Instance(),
-		Inbound:  inAddr,
-	}
-	err = shim(inbound, outbound, connEvent, fwd.eventHandler)
-	if err != nil {
-		log.Error("forwarding from ", inAddr, " to ", outAddr, ": ",
-			err)
-	}
+	inbound.Close()
+	log.Errorf("abandoned connection from inbound %s, reached max of %d attempts",
+		inAddr, max_connection_attempts)
 }
 
 func (fwd *forwarding) pickInstanceAndShim() (pool.PooledInstance, shimFunc) {

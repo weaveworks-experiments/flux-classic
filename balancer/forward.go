@@ -188,7 +188,8 @@ func (fwd *forwarding) forward(inbound *net.TCPConn) {
 	for i := 0; i < max_connection_attempts; i++ {
 		inst, shim := fwd.pickInstanceAndShim()
 		if inst == nil {
-			log.Errorf("ran out of instances on inbound ", inbound.LocalAddr())
+			log.Errorf("ran out of instances attempting connection %s->%s (%s)",
+				inAddr, fwd.service.TCPAddr(), fwd.service.Name)
 			return
 		}
 		outAddr := inst.Instance().TCPAddr()
@@ -214,8 +215,8 @@ func (fwd *forwarding) forward(inbound *net.TCPConn) {
 		return
 	}
 	inbound.Close()
-	log.Errorf("abandoned connection from inbound %s, reached max of %d attempts",
-		inAddr, max_connection_attempts)
+	log.Errorf("abandoned connection %s->%s (%s) after reaching max of %d attempts",
+		inAddr, fwd.service.TCPAddr(), fwd.service.Name, max_connection_attempts)
 }
 
 func (fwd *forwarding) pickInstanceAndShim() (pool.PooledInstance, shimFunc) {

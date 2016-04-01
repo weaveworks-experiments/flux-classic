@@ -75,9 +75,10 @@ func (opts *queryOpts) run(_ *cobra.Command, args []string) error {
 
 		var tmpl *template.Template
 		if opts.format == "" {
-			out := tabwriter.NewWriter(out, 4, 0, 2, ' ', 0)
-			defer out.Flush()
+			tout := tabwriter.NewWriter(out, 4, 0, 2, ' ', 0)
+			defer tout.Flush()
 			tmpl = template.Must(template.New("row").Parse(tableRowTemplate))
+			out = tout
 			out.Write([]byte(tableHeaders))
 		} else {
 			tmpl = template.Must(template.New("instance").Funcs(extraTemplateFuncs).Parse(opts.format))

@@ -2,16 +2,17 @@ package balancer
 
 import (
 	"fmt"
+	"net"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
 
-	"github.com/weaveworks/flux/balancer/eventlogger"
 	"github.com/weaveworks/flux/balancer/events"
 	"github.com/weaveworks/flux/balancer/model"
 	"github.com/weaveworks/flux/balancer/prometheus"
 	"github.com/weaveworks/flux/common/daemon"
 	"github.com/weaveworks/flux/common/etcdutil"
+	"github.com/weaveworks/flux/common/netutil"
 	"github.com/weaveworks/flux/common/store"
 	"github.com/weaveworks/flux/common/store/etcdstore"
 )
@@ -38,6 +39,7 @@ type BalancerConfig struct {
 	prom      prometheus.Config
 	debug     bool
 	store     store.Store
+	hostIP    net.IP
 
 	// Filled by Prepare
 	updates      <-chan model.ServiceUpdate
@@ -53,7 +55,7 @@ func (cf *BalancerConfig) Populate(deps *daemon.Dependencies) {
 	deps.StringVar(&cf.netConfig.chain,
 		"chain", "FLUX", "iptables chain name")
 	deps.StringVar(&cf.prom.ListenAddr,
-		"listen-prometheus", "",
+		"listen-prometheus", ":9000",
 		"listen for connections from Prometheus on this IP address and port; e.g., :9000")
 	deps.StringVar(&cf.prom.AdvertiseAddr,
 		"advertise-prometheus", "",
@@ -62,6 +64,7 @@ func (cf *BalancerConfig) Populate(deps *daemon.Dependencies) {
 
 	deps.Dependency(etcdutil.ClientDependency(&cf.prom.EtcdClient))
 	deps.Dependency(etcdstore.StoreDependency(&cf.store))
+	deps.Dependency(netutil.HostIPDependency(&cf.hostIP))
 }
 
 func (cf *BalancerConfig) Prepare() (daemon.StartFunc, error) {
@@ -70,24 +73,19 @@ func (cf *BalancerConfig) Prepare() (daemon.StartFunc, error) {
 	}
 	log.Debug("Debug logging on")
 
-	var startEventHandler func(daemon.ErrorSink) events.Handler
-	if cf.prom.ListenAddr == "" {
-		if cf.prom.AdvertiseAddr != "" {
-			return nil, fmt.Errorf("-advertise-prometheus option must be accompanied by -listen-prometheus")
-		}
-
-		startEventHandler = func(daemon.ErrorSink) events.Handler {
-			return eventlogger.EventLogger{}
-		}
-	} else {
-		if cf.prom.AdvertiseAddr == "" {
-			cf.prom.AdvertiseAddr = cf.prom.ListenAddr
-		}
-
-		var err error
-		if startEventHandler, err = cf.prom.Prepare(); err != nil {
+	// Default the prom AdvertiseAddr based on the host IP
+	if cf.prom.AdvertiseAddr == "" {
+		_, port, err := net.SplitHostPort(cf.prom.ListenAddr)
+		if err != nil {
 			return nil, err
 		}
+
+		cf.prom.AdvertiseAddr = fmt.Sprintf("%s:%s", cf.hostIP, port)
+	}
+
+	startEventHandler, err := cf.prom.Prepare()
+	if err != nil {
+		return nil, err
 	}
 
 	if cf.reconnectInterval == 0 {

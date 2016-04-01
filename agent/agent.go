@@ -3,15 +3,14 @@ package agent
 import (
 	"fmt"
 	"net"
-	"os"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
 	docker "github.com/fsouza/go-dockerclient"
 
 	"github.com/weaveworks/flux/common/daemon"
 	"github.com/weaveworks/flux/common/data"
 	"github.com/weaveworks/flux/common/heartbeat"
+	"github.com/weaveworks/flux/common/netutil"
 	"github.com/weaveworks/flux/common/store"
 	"github.com/weaveworks/flux/common/store/etcdstore"
 )
@@ -26,7 +25,7 @@ type DockerClient interface {
 
 type AgentConfig struct {
 	hostTTL           int
-	hostIP            string
+	hostIP            net.IP
 	network           string
 	store             store.Store
 	dockerClient      DockerClient
@@ -35,37 +34,15 @@ type AgentConfig struct {
 
 func (cf *AgentConfig) Populate(deps *daemon.Dependencies) {
 	deps.IntVar(&cf.hostTTL, "host-ttl", 30, "Time-to-live for host record; the daemon will try to refresh this on a schedule such that it doesn't lapse")
-	deps.StringVar(&cf.hostIP, "host-ip", "", "IP address for instances with mapped ports")
 	deps.StringVar(&cf.network, "network-mode", LOCAL, fmt.Sprintf(`Kind of network to assume for containers (either "%s" or "%s")`, LOCAL, GLOBAL))
 	deps.Dependency(etcdstore.StoreDependency(&cf.store))
+	deps.Dependency(netutil.HostIPDependency(&cf.hostIP))
 }
 
 func (cf *AgentConfig) Prepare() (daemon.StartFunc, error) {
 	if !IsValidNetworkMode(cf.network) {
 		return nil, fmt.Errorf("Unknown network mode '%s'", cf.network)
 	}
-
-	hostIpFrom := "argument"
-
-	if cf.hostIP == "" {
-		cf.hostIP = os.Getenv("HOST_IP")
-		hostIpFrom = "HOST_IP in environment"
-	}
-
-	if cf.hostIP == "" {
-		hostname, err := os.Hostname()
-		if err != nil {
-			return nil, fmt.Errorf("Unable to determine host IP via hostname: %s", err)
-		}
-		ip, err := net.ResolveIPAddr("ip", hostname)
-		if err != nil {
-			return nil, fmt.Errorf("Unable to determine host IP via hostname: %s", err)
-		}
-		cf.hostIP = ip.String()
-		hostIpFrom = fmt.Sprintf("resolving hostname '%s'", hostname)
-	}
-
-	log.Infof("Using host IP address '%s' from %s", cf.hostIP, hostIpFrom)
 
 	if cf.dockerClient == nil {
 		var err error
@@ -81,8 +58,8 @@ func (cf *AgentConfig) Prepare() (daemon.StartFunc, error) {
 	hb := heartbeat.HeartbeatConfig{
 		Cluster:      cf.store,
 		TTL:          time.Duration(cf.hostTTL) * time.Second,
-		HostIdentity: cf.hostIP,
-		HostState:    &data.Host{IPAddress: cf.hostIP},
+		HostIdentity: cf.hostIP.String(),
+		HostState:    &data.Host{IPAddress: cf.hostIP.String()},
 	}
 
 	containerUpdates := make(chan ContainerUpdate)
@@ -91,7 +68,7 @@ func (cf *AgentConfig) Prepare() (daemon.StartFunc, error) {
 	serviceUpdatesReset := make(chan struct{})
 
 	siconf := syncInstancesConfig{
-		hostIP:  cf.hostIP,
+		hostIP:  cf.hostIP.String(),
 		network: cf.network,
 		store:   cf.store,
 

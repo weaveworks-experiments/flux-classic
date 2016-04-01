@@ -67,8 +67,7 @@ deployment scripts, but we show them in full here:
 $ docker run --name=fluxd -d -e ETCD_ADDRESS \
        --net=host --cap-add=NET_ADMIN \
        -v /var/run/docker.sock:/var/run/docker.sock \
-       weaveworks/fluxd --host-ip $HOST_IP \
-       --listen-prometheus=:9000 --advertise-prometheus=$HOST_IP:9000
+       weaveworks/fluxd --host-ip $HOST_IP
 ```
 
 Briefly, the purpose of these options is as follows:
@@ -80,8 +79,6 @@ coordination in flux.
 to the local docker daemon, to listen for container events.
 * `--host-ip $HOST_IP` tell fluxd what IP address should be used on other
 hosts to connect to containers on this host.
-* `--listen-prometheus=:9000 --advertise-prometheus=$HOST_IP:9000`
-exposes metrics about connections and requests to Prometheus.
 
 Flux is now running, and you can check this in Docker:
 

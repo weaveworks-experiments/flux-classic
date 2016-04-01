@@ -92,9 +92,7 @@ $ for h in $hosts ; do \
         docker run -d -e constraint:node==$h -e ETCD_ADDRESS \
             --net=host --cap-add=NET_ADMIN \
             -v /var/run/docker.sock:/var/run/docker.sock \
-            weaveworks/fluxd -host-ip $(docker-machine ip $h) \
-            -listen-prometheus=:9000 \
-            -advertise-prometheus=$(docker-machine ip $h):9000 ; \
+            weaveworks/fluxd -host-ip $(docker-machine ip $h) ; \
   done
 6004ddd81bbcf01cb8fa4214546ad12c198fc96dccdd8f0573f9583bc25d9a79
 df705d7e3a3c8b7a1c4e95b9e6c2d005f9bae2088155ac637f0d88802318b014

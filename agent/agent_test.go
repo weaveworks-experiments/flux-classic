@@ -2,6 +2,7 @@ package agent
 
 import (
 	"errors"
+	"net"
 	"testing"
 	"time"
 
@@ -43,7 +44,7 @@ func TestSyncInstancesComponent(t *testing.T) {
 
 	cf := AgentConfig{
 		hostTTL:           1,
-		hostIP:            "192.168.11.34",
+		hostIP:            net.ParseIP("192.168.11.34"),
 		network:           LOCAL,
 		store:             st,
 		dockerClient:      mdc,

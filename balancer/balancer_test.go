@@ -7,6 +7,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/weaveworks/flux/balancer/eventlogger"
+	"github.com/weaveworks/flux/balancer/events"
 	"github.com/weaveworks/flux/balancer/model"
 	"github.com/weaveworks/flux/common/daemon"
 	"github.com/weaveworks/flux/common/data"
@@ -37,8 +39,12 @@ func TestEtcdRestart(t *testing.T) {
 			bridge: "lo",
 		},
 		store: st,
+		startEventHandler: func(daemon.ErrorSink) events.Handler {
+			return eventlogger.EventLogger{}
+		},
 	}
 	start, err := cf.Prepare()
+	require.Nil(t, err)
 	errs := daemon.NewErrorSink()
 
 	// Start the balancer and wait for it to process the initial

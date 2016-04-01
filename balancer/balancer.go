@@ -33,6 +33,7 @@ type BalancerConfig struct {
 	IPTablesCmd       IPTablesCmd
 	done              chan<- model.ServiceUpdate
 	reconnectInterval time.Duration
+	startEventHandler func(daemon.ErrorSink) events.Handler
 
 	// From flags/dependencies
 	netConfig netConfig
@@ -42,8 +43,7 @@ type BalancerConfig struct {
 	hostIP    net.IP
 
 	// Filled by Prepare
-	updates      <-chan model.ServiceUpdate
-	eventHandler events.Handler
+	updates <-chan model.ServiceUpdate
 }
 
 func (cf *BalancerConfig) Populate(deps *daemon.Dependencies) {
@@ -73,19 +73,22 @@ func (cf *BalancerConfig) Prepare() (daemon.StartFunc, error) {
 	}
 	log.Debug("Debug logging on")
 
-	// Default the prom AdvertiseAddr based on the host IP
-	if cf.prom.AdvertiseAddr == "" {
-		_, port, err := net.SplitHostPort(cf.prom.ListenAddr)
+	if cf.startEventHandler == nil {
+		// Default the prom AdvertiseAddr based on the host IP
+		if cf.prom.AdvertiseAddr == "" {
+			_, port, err := net.SplitHostPort(cf.prom.ListenAddr)
+			if err != nil {
+				return nil, err
+			}
+
+			cf.prom.AdvertiseAddr = fmt.Sprintf("%s:%s", cf.hostIP, port)
+		}
+
+		var err error
+		cf.startEventHandler, err = cf.prom.Prepare()
 		if err != nil {
 			return nil, err
 		}
-
-		cf.prom.AdvertiseAddr = fmt.Sprintf("%s:%s", cf.hostIP, port)
-	}
-
-	startEventHandler, err := cf.prom.Prepare()
-	if err != nil {
-		return nil, err
 	}
 
 	if cf.reconnectInterval == 0 {
@@ -100,7 +103,7 @@ func (cf *BalancerConfig) Prepare() (daemon.StartFunc, error) {
 			cf:           cf,
 			errs:         errs,
 			updates:      updates,
-			eventHandler: startEventHandler(errs),
+			eventHandler: cf.startEventHandler(errs),
 		}
 
 		errs.Post(b.start())

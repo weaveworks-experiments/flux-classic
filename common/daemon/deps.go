@@ -9,6 +9,11 @@ import (
 type Dependencies struct {
 	*flag.FlagSet
 	slots map[DependencyKey]depSlots
+
+	// The dependency graph between DependencyConfigs is implicit.
+	// So we have to record the order in which they were created,
+	// in order to call MakeValue on them in the reverse order.
+	keysOrder []DependencyKey
 }
 
 type Config interface {
@@ -39,6 +44,7 @@ func (deps *Dependencies) Dependency(slot DependencySlot) {
 	key := slot.Key()
 	slots, found := deps.slots[key]
 	if !found {
+		deps.keysOrder = append(deps.keysOrder, key)
 		slots.config = key.MakeConfig()
 		slots.config.Populate(deps)
 	}
@@ -76,7 +82,9 @@ func configsToStartFuncs(configs []Config) ([]StartFunc, error) {
 	}
 
 	// Make dependency values, and assign them to slots
-	for _, slots := range deps.slots {
+	for i := len(deps.keysOrder) - 1; i >= 0; i-- {
+		slots := deps.slots[deps.keysOrder[i]]
+
 		val, err := slots.config.MakeValue()
 		if err != nil {
 			return nil, err

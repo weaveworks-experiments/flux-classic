@@ -161,13 +161,17 @@ We can see the result of this using the `fluxctl info` subcommand:
 
 ```sh
 $ $fluxctl info
+HOSTS
+192.168.42.149
+192.168.42.202
+
 SERVICES
 hello
   RULES
     default {"image":"weaveworks/hello-world"}
   INSTANCES
-    3581cc5e0b353f5b140f79ddd87e1d7d7b3611ec6523214807676842329b8164 192.168.42.149:32768 live
-    a47d55b5c5088f42b18e2593c6c8281ff6c0eb57df4edd7ca5511c9862a12a4b 192.168.42.202:32768 live
+    e96c0f2536630d1acec823bf9450474fcc5e3671eb571639be96409f230d9779 192.168.42.149:32768 live
+    45f70013ae1d123d30e9a6eb6f975d594d978909206e7b1fd44cc35df490fa15 192.168.42.202:32769 live
 ```
 
 Now we'll use `curl` to send a request to the service:
@@ -176,7 +180,7 @@ Now we'll use `curl` to send a request to the service:
 $ docker run --rm tutum/curl curl -s http://10.128.0.1/
 <html>
   <head>
-    <title>Hello from a47d55b5c508</title>
+    <title>Hello from 45f70013ae1d</title>
   </head>
 ...
 ```
@@ -210,7 +214,7 @@ $ docker run --name=fluxweb -d -e ETCD_ADDRESS -e PROMETHEUS_ADDRESS -P \
 Now we can point a browser to the address given by `docker port
 fluxweb 7070` in order to view the UI:
 
-<img src="images/swarm-ui-httpd.jpg" alt="Flux UI" width="800" height="522"/>
+<img src="images/swarm-ui.jpg" alt="Flux UI" width="800" height="583"/>
 
 Here we see information about the service, including the instances
 associated with it.  By selecting some instances, the UI will show
@@ -225,13 +229,13 @@ $ docker run --rm tutum/curl sh -c 'while true ; do curl -s http://10.128.0.1/ >
 
 Then view the request rates as a chart:
 
-<img src="images/swarm-ui-httpd-chart.jpg" alt="Flux UI" width="800" height="522"/>
+<img src="images/swarm-ui-chart.jpg" alt="Flux UI" width="800" height="583"/>
 
 If we change the URL used in the curl command to one that does not
 exist, the chart shows the change in HTTP status code indicating the
 error:
 
-<img src="images/swarm-ui-httpd-chart-nosuch.jpg" alt="Flux UI" width="800" height="522"/>
+<img src="images/swarm-ui-chart-nosuch.jpg" alt="Flux UI" width="800" height="583"/>
 
 ## Integrating load balancers
 

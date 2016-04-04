@@ -84,7 +84,7 @@ $ export ETCD_ADDRESS=http://$(docker port etcd 2379)
 Next we start the fluxd, the Flux daemon (see the
 [Overview](overview)).  Fluxd must be run on each host, so we ask
 `docker-machine` to list the hosts and use a Swarm scheduling
-constraint to run an agent on each.
+constraint to run a daemon on each.
 
 ```sh
 $ hosts=$(docker-machine ls -f {% raw %}'{{.Name}}'{% endraw %})

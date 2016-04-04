@@ -53,10 +53,11 @@ what we need to tell Flux so it can reach them.
 
 `fluxd` is a container that performs two functions:
 
-* It listens to a docker daemon running on the same host to find out
-when service containers are started and stopped.
-* It routes connections and requests from client containers on the same
-hosts to the appropriate service containers.
+* It listens to a docker daemon running on the host to find out when
+  containers that are service instances are started and stopped.
+
+* It routes connections and requests from client containers on the
+  host to service instances.
 
 It's necessary to pass a few options to `docker run` to give `fluxd`
 the privileges it needs.  If you were deploying flux as part of a

@@ -45,6 +45,10 @@ Flags:
 The output looks like this:
 
 ```
+HOSTS
+192.168.3.165
+
+SERVICES
 hello
   RULES
     default {"image":"tutum/hello-world"}
@@ -54,11 +58,13 @@ hello
     4419e651cc298f40463294b4aad9e23c5b530607dc3f9e164718a9f93ebe8a26 192.168.3.165:32768 live
 ```
 
-At the top is a service name, `hello`; after that are the selection
-rules (this one indicates that containers using the image
-`"tutum/hello-world"` should be selected for the `hello`
-service). Last, for each service, is a list of instances, each with
-its address and state.
+At the top there is a list of hosts known to tbe running fluxd.
+
+After the hosts are the services. Here there is a single service, with
+the name `hello`; under that that are the selection rules (this one
+indicates that containers using the image `"tutum/hello-world"` should
+be selected for the `hello` service). Last, for each service, is a
+list of instances, each with its address and state.
 
 `live` here means the instance is on-line. Other states may indicate
 problems with the instance; for example `no address` means the
@@ -72,12 +78,15 @@ name, and usually you'll supply the address on which the service
 should listen.
 
 You can specify the protocol for the service -- whether it should be
-treated as HTTP or plain TCP -- in the address, or with another
-option. (Using HTTP means you get extra, HTTP-specific metrics.)
+treated as HTTP or plain TCP -- with the option `--protocol`. (Using
+HTTP means you get extra, HTTP-specific metrics.)
 
 It's possible to create a service that has no address. You might do
 this if you were going to use it only to control an external load
-balancer (like [the edgebal image](edgebal)).
+balancer (like [the edgebal image](edgebal)). If so, you may want to
+supply an `--instance-port` value, since you won't be implying one in
+a service address. Otherwise, instances won't be addressable (and
+therefore won't be used) until you supply a port.
 
 There are also options for selecting containers to be instances, as a
 shortcut to using a subsequent `fluxctl select ...` command.
@@ -91,9 +100,8 @@ Flags:
       --env="": select only containers with these environment variable values, given as comma-delimited key=value pairs
       --image="": select only containers with this image
       --labels="": select only containers with these labels, given as comma-delimited key=value pairs
-      --port-fixed=0: Use a fixed port, and get the IP address from docker network settings
-      --port-mapped=0: Use the host IP address, and the host port mapped to the given container port
-  -p, --protocol="": the protocol to assume for connections to the service; either "http" or "tcp". Overrides the protocol given in --address if present.
+      --instance-port=0: use this port for instance addresses, either in the absence of, or overriding the service address.
+  -p, --protocol="": the protocol to assume for connections to the service; either "http" or "tcp".
       --tag="": select only containers with this tag
 ```
 
@@ -122,21 +130,6 @@ the image name and image tag respectively (`foo-api` and `v0.3` of the
 image `foo-api:v0.3`). These have their own options `--image` and
 `--tag`.
 
-When you select containers, you must also say how to connect to
-them. There are two alternatives: using mapped ports, or assuming a
-common network. The corresponding flags are:
-
- * `--port-mapped <port>`, which means use the host's IP address,
-   along with the host port that is mapped to the given container
-   port. This is for when you are mapping ports on the host using `-p`
-   or `-P` with `docker run ...`.
-
- * `--port-fixed <port>` which means use the IP address reported by
-   Docker (i.e., as from `docker inspect ...`), along with the given
-   port. This is for when your containers have a network connecting
-   them (e.g., if you are using a Weave network) and don't need to map
-   ports.
-
 A service may have several rules, e.g., from more than one invocation
 of `fluxctl select`; a container will be enrolled if it matches _any_
 of the rules. To repeat: matching _any_ rule will do, but _each_part_
@@ -150,8 +143,6 @@ Flags:
       --env="": select only containers with these environment variable values, given as comma-delimited key=value pairs
       --image="": select only containers with this image
       --labels="": select only containers with these labels, given as comma-delimited key=value pairs
-      --port-fixed=0: Use a fixed port, and get the IP address from docker network settings
-      --port-mapped=0: Use the host IP address, and the host port mapped to the given container port
       --tag="": select only containers with this tag
 ```
 

@@ -5,7 +5,7 @@ title: Flux overview
 
 This page describes the main concepts needed to use Flux.
 
-## Model
+## Key concepts
 
 Weave Flux lets you define _services_.  A service has an IP address
 and port.  These service addresses are _floating addresses_; they
@@ -14,7 +14,7 @@ the Flux daemon transparently forwards the connection to a service
 _instance_.  Connections are load balanced over the available
 instances.
 
-_instances_ correspond to Docker containers.  The containers are
+_Instances_ correspond to Docker containers.  The containers are
 automatically enrolled as service instances according to _selection
 rules_ you supply.  For example, a selection rule might specify that
 all containers with a particular image name become instances of a
@@ -24,7 +24,7 @@ corresponding service.
 
 A running Flux deployment consists of
 
- 1. a [daemon](daemon) on each host, which detects instances starting
+ 1. a [fluxd daemon](daemon) on each host, which detects instances starting
  and stopping on that host, and proxies connections to services
  2. Optionally, one or more [edge balancers](edgebal), which accept
  connections to services from the outside world.

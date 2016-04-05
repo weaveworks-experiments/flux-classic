@@ -1,7 +1,6 @@
 package balagent
 
 import (
-	"flag"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -16,23 +15,77 @@ import (
 	"github.com/weaveworks/flux/common/store/etcdstore"
 )
 
-type BalancerAgent struct {
-	errorSink  daemon.ErrorSink
-	store      store.Store
-	filename   string
-	template   *template.Template
-	reloadCmd  string
-	updates    <-chan model.ServiceUpdate
-	controller daemon.Component
-	stop       chan struct{}
-	stopped    bool
+type templateFileSlot struct {
+	slot **template.Template
+}
 
-	services chan Services
+func templateFileDependency(slot **template.Template) daemon.DependencySlot {
+	return templateFileSlot{slot}
+}
+
+func (s templateFileSlot) Key() daemon.DependencyKey {
+	return s
+}
+
+func (s templateFileSlot) Assign(value interface{}) {
+	*s.slot = value.(*template.Template)
+}
+
+type templateFileConfig struct {
+	templateFile string
+}
+
+func (templateFileSlot) MakeConfig() daemon.DependencyConfig {
+	return &templateFileConfig{}
+}
+
+func (cf *templateFileConfig) Populate(deps *daemon.Dependencies) {
+	deps.StringVar(&cf.templateFile, "i", "nginx.tmpl",
+		"name of template file with which to generate the output file")
+}
+
+func (cf *templateFileConfig) MakeValue() (interface{}, error) {
+	tmpl, err := template.ParseFiles(cf.templateFile)
+	if err != nil {
+		return nil, fmt.Errorf(`unable to parse file "%s": %s`, cf.templateFile, err)
+	}
+
+	return tmpl, nil
+}
+
+type BalancerAgentConfig struct {
+	filename          string
+	reloadCmd         string
+	template          *template.Template
+	store             store.Store
+	reconnectInterval time.Duration
 
 	// for tests:
-	generated        chan struct{}
-	updaterStopped   chan struct{}
-	generatorStopped chan struct{}
+	generated chan struct{}
+}
+
+func (cf *BalancerAgentConfig) Populate(deps *daemon.Dependencies) {
+	deps.StringVar(&cf.filename, "o", "/tmp/services",
+		"name of file to generate")
+	deps.StringVar(&cf.reloadCmd, "c", "",
+		"command to run each time the file is regenerated")
+	deps.Dependency(templateFileDependency(&cf.template))
+	deps.Dependency(etcdstore.StoreDependency(&cf.store))
+}
+
+func (cf *BalancerAgentConfig) Prepare() (daemon.StartFunc, error) {
+	if cf.reconnectInterval == 0 {
+		cf.reconnectInterval = 10 * time.Second
+	}
+
+	updates := make(chan model.ServiceUpdate)
+	services := make(chan Services, 1)
+
+	return daemon.Aggregate(
+		daemon.Restart(cf.reconnectInterval,
+			model.WatchServicesStartFunc(cf.store, updates)),
+		daemon.SimpleComponent(updater{updates, services}.run),
+		daemon.SimpleComponent(generator{cf, services}.run)), nil
 }
 
 type Services map[string]*model.Service
@@ -42,89 +95,27 @@ func (Services) Getenv(name string) string {
 	return os.Getenv(name)
 }
 
-func StartBalancerAgent(args []string, errorSink daemon.ErrorSink) *BalancerAgent {
-	a := &BalancerAgent{errorSink: errorSink}
-
-	if err := a.parseArgs(args); err != nil {
-		errorSink.Post(err)
-		return a
-	}
-
-	if err := a.start(); err != nil {
-		errorSink.Post(err)
-	}
-
-	return a
-}
-
-func (a *BalancerAgent) parseArgs(args []string) error {
-	fs := flag.NewFlagSet(args[0], flag.ContinueOnError)
-
-	fs.StringVar(&a.filename, "o", "/tmp/services",
-		"name of file to generate")
-	var templateFile string
-	fs.StringVar(&templateFile, "i", "nginx.tmpl",
-		"name of template file with which to generate the output file")
-	fs.StringVar(&a.reloadCmd, "c", "",
-		"command to run each time the file is regenerated")
-
-	var err error
-	if err = fs.Parse(args[1:]); err != nil {
-		return err
-	}
-
-	a.template, err = template.ParseFiles(templateFile)
-	if err != nil {
-		return fmt.Errorf(`unable to parse file "%s": %s`, templateFile, err)
-	}
-
-	a.store, err = etcdstore.NewFromEnv()
-	return err
-}
-
-func (a *BalancerAgent) start() error {
-	updates := make(chan model.ServiceUpdate)
-	a.updates = updates
-	a.controller = daemon.Restart(time.Second*10, model.WatchServicesStartFunc(a.store, updates))(a.errorSink)
-
-	a.stop = make(chan struct{})
-	a.services = make(chan Services, 1)
-	go a.updater()
-	go a.generator()
-	return nil
-}
-
-func (a *BalancerAgent) Stop() {
-	if a.controller != nil {
-		a.controller.Stop()
-		a.controller = nil
-	}
-
-	if !a.stopped {
-		close(a.stop)
-		a.stopped = true
-	}
-}
-
 // Aggregates service updates, and sends snapshots of the full state
 // to the generator goroutine.
-func (a *BalancerAgent) updater() {
+type updater struct {
+	updates  <-chan model.ServiceUpdate
+	services chan Services
+}
+
+func (u updater) run(stop <-chan struct{}, _ daemon.ErrorSink) {
 	services := make(Services)
 
 	for {
 		select {
-		case <-a.stop:
-			if a.updaterStopped != nil {
-				a.updaterStopped <- struct{}{}
-			}
+		case <-stop:
 			return
 
-		case u := <-a.updates:
-			if u.Reset {
+		case updates := <-u.updates:
+			if updates.Reset {
 				services = make(Services)
 			}
 
-			for name, service := range u.Updates {
+			for name, service := range updates.Updates {
 				if service == nil {
 					delete(services, name)
 				} else {
@@ -139,39 +130,38 @@ func (a *BalancerAgent) updater() {
 			s[k] = v
 		}
 
-		// remove any pending item sitting in a.services:
+		// remove any pending item sitting in servicesCh:
 		select {
-		case <-a.services:
+		case <-u.services:
 		default:
 		}
 
-		a.services <- s
+		u.services <- s
 	}
 }
 
-func (a *BalancerAgent) generator() {
+type generator struct {
+	*BalancerAgentConfig
+	services <-chan Services
+}
+
+func (g generator) run(stop <-chan struct{}, errs daemon.ErrorSink) {
 	for {
 		select {
-		case <-a.stop:
-			if a.generatorStopped != nil {
-				a.generatorStopped <- struct{}{}
-			}
+		case <-stop:
 			return
 
-		case services := <-a.services:
-			if err := a.regenerate(services); err != nil {
-				a.errorSink.Post(err)
-			}
-
-			if a.generated != nil {
-				a.generated <- struct{}{}
+		case services := <-g.services:
+			errs.Post(g.regenerate(services))
+			if g.generated != nil {
+				g.generated <- struct{}{}
 			}
 		}
 	}
 }
 
-func (a *BalancerAgent) regenerate(services Services) error {
-	f, err := ioutil.TempFile(path.Dir(a.filename), path.Base(a.filename))
+func (g generator) regenerate(services Services) error {
+	f, err := ioutil.TempFile(path.Dir(g.filename), path.Base(g.filename))
 	if err != nil {
 		return err
 	}
@@ -184,7 +174,7 @@ func (a *BalancerAgent) regenerate(services Services) error {
 		}
 	}()
 
-	if err := a.template.Execute(f, services); err != nil {
+	if err := g.template.Execute(f, services); err != nil {
 		return err
 	}
 
@@ -192,23 +182,22 @@ func (a *BalancerAgent) regenerate(services Services) error {
 		return err
 	}
 
-	if err := os.Rename(tmpname, a.filename); err != nil {
+	if err := os.Rename(tmpname, g.filename); err != nil {
 		return err
 	}
 
 	f = nil
-
-	return a.runReloadCmd()
+	return g.runReloadCmd()
 }
 
-func (a *BalancerAgent) runReloadCmd() error {
-	if a.reloadCmd == "" {
+func (g generator) runReloadCmd() error {
+	if g.reloadCmd == "" {
 		return nil
 	}
 
 	done := make(chan error)
 	go func() {
-		cmd := exec.Command("sh", "-c", a.reloadCmd)
+		cmd := exec.Command("sh", "-c", g.reloadCmd)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 

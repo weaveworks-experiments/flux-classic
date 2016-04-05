@@ -10,7 +10,7 @@ IMAGES:=fluxd web fluxctl edgebal prometheus-etcd
 GODIRS:=$(COMPONENTS) common
 
 # The go "main" package directories
-CMD_DIRS:=cmd/fluxd web fluxctl balancer/cmd/balagent
+CMD_DIRS:=cmd/fluxd cmd/balagent web fluxctl
 
 image_stamp=docker/.$1.done
 docker_tag=$(if $(filter flux%,$1),$(REPO)/$1,$(REPO)/flux-$1)

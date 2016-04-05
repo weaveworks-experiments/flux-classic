@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 	"text/template"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -38,34 +39,38 @@ func sortInsts(a interface{}) interface{} {
 	return insts
 }
 
-func newBalancerAgent(t *testing.T) *BalancerAgent {
+func newBalancerAgentConfig(t *testing.T) *BalancerAgentConfig {
 	dir, err := ioutil.TempDir("", "balagent_test")
 	require.Nil(t, err)
 
-	return &BalancerAgent{
-		errorSink: daemon.NewErrorSink(),
-		store:     inmem.NewInMemStore(),
-		filename:  path.Join(dir, "output"),
-
-		generated:        make(chan struct{}),
-		updaterStopped:   make(chan struct{}),
-		generatorStopped: make(chan struct{}),
+	return &BalancerAgentConfig{
+		store:             inmem.NewInMemStore(),
+		filename:          path.Join(dir, "output"),
+		reconnectInterval: 100 * time.Millisecond,
+		generated:         make(chan struct{}),
 	}
 }
 
-func cleanup(a *BalancerAgent, t *testing.T) {
-	require.Nil(t, os.RemoveAll(path.Dir(a.filename)))
+func (cf *BalancerAgentConfig) start(t *testing.T) (daemon.Component, daemon.ErrorSink) {
+	start, err := cf.Prepare()
+	require.Nil(t, err)
+	errs := daemon.NewErrorSink()
+	return start(errs), errs
+}
+
+func cleanup(cf *BalancerAgentConfig, t *testing.T) {
+	require.Nil(t, os.RemoveAll(path.Dir(cf.filename)))
 }
 
 func TestBalancerAgent(t *testing.T) {
-	a := newBalancerAgent(t)
-	defer cleanup(a, t)
+	cf := newBalancerAgentConfig(t)
+	defer cleanup(cf, t)
 
 	tmpl := template.New("template")
 	tmpl.Funcs(template.FuncMap{"sortInsts": sortInsts})
 
 	var err error
-	a.template, err = tmpl.Parse(`
+	cf.template, err = tmpl.Parse(`
 {{$HOME := .Getenv "HOME"}}
 {{if len $HOME}}{{else}}No $HOME{{end}}
 {{range .}}{{.Name}}:{{range sortInsts .Instances}} ({{.Name}}, {{.IP}}:{{.Port}}){{end}}
@@ -73,49 +78,47 @@ func TestBalancerAgent(t *testing.T) {
 	require.Nil(t, err)
 
 	// Add an initial service with no instances:
-	require.Nil(t, a.store.AddService("service1", data.Service{
+	require.Nil(t, cf.store.AddService("service1", data.Service{
 		Protocol: "http",
 		Address:  "1.2.3.4",
 	}))
 
-	a.start()
-	<-a.generated
-	requireFile(t, a.filename, "service1:")
+	comp, errs := cf.start(t)
+	<-cf.generated
+	requireFile(t, cf.filename, "service1:")
 
 	// Add an instance to the service:
-	require.Nil(t, a.store.AddInstance("service1", "inst1",
+	require.Nil(t, cf.store.AddInstance("service1", "inst1",
 		data.Instance{State: data.LIVE, Address: "5.6.7.8", Port: 1}))
-	<-a.generated
-	requireFile(t, a.filename, "service1: (inst1, 5.6.7.8:1)")
+	<-cf.generated
+	requireFile(t, cf.filename, "service1: (inst1, 5.6.7.8:1)")
 
 	// And another instance:
-	require.Nil(t, a.store.AddInstance("service1", "inst2",
+	require.Nil(t, cf.store.AddInstance("service1", "inst2",
 		data.Instance{State: data.LIVE, Address: "9.10.11.12", Port: 2}))
-	<-a.generated
-	requireFile(t, a.filename, "service1: (inst1, 5.6.7.8:1) (inst2, 9.10.11.12:2)")
+	<-cf.generated
+	requireFile(t, cf.filename, "service1: (inst1, 5.6.7.8:1) (inst2, 9.10.11.12:2)")
 
 	// Add another service:
-	require.Nil(t, a.store.AddService("service2", data.Service{
+	require.Nil(t, cf.store.AddService("service2", data.Service{
 		Protocol: "http",
 		Address:  "13.14.15.16",
 	}))
-	<-a.generated
-	requireFile(t, a.filename, `service1: (inst1, 5.6.7.8:1) (inst2, 9.10.11.12:2)
+	<-cf.generated
+	requireFile(t, cf.filename, `service1: (inst1, 5.6.7.8:1) (inst2, 9.10.11.12:2)
 service2:`)
 
 	// Delete first service:
-	require.Nil(t, a.store.RemoveService("service1"))
-	<-a.generated
-	requireFile(t, a.filename, "service2:")
+	require.Nil(t, cf.store.RemoveService("service1"))
+	<-cf.generated
+	requireFile(t, cf.filename, "service2:")
 
-	a.Stop()
-	<-a.updaterStopped
-	<-a.generatorStopped
-	require.Len(t, a.errorSink, 0)
+	comp.Stop()
+	require.Len(t, errs, 0)
 
 	// Check that all temporary files got deleted
-	require.Nil(t, os.Remove(a.filename))
-	fis, err := ioutil.ReadDir(path.Dir(a.filename))
+	require.Nil(t, os.Remove(cf.filename))
+	fis, err := ioutil.ReadDir(path.Dir(cf.filename))
 	require.Nil(t, err)
 	require.Empty(t, fis)
 }
@@ -127,48 +130,45 @@ func requireFile(t *testing.T, filename string, expect string) {
 }
 
 func TestBadTemplate(t *testing.T) {
-	a := newBalancerAgent(t)
-	defer cleanup(a, t)
+	cf := newBalancerAgentConfig(t)
+	defer cleanup(cf, t)
 
 	var err error
-	a.template, err = template.New("template").Parse("{{.service1.wut}}")
+	cf.template, err = template.New("template").Parse("{{.service1.wut}}")
 	require.Nil(t, err)
 
 	// Add an initial service with no instances:
-	require.Nil(t, a.store.AddService("service1", data.Service{
+	require.Nil(t, cf.store.AddService("service1", data.Service{
 		Protocol: "http",
 		Address:  "1.2.3.4",
 	}))
 
-	a.start()
-	<-a.generated
-	a.Stop()
-	<-a.updaterStopped
-	<-a.generatorStopped
-	require.Len(t, a.errorSink, 1)
+	comp, errs := cf.start(t)
+	<-cf.generated
+	comp.Stop()
+	require.Len(t, errs, 1)
 }
 
 func TestReloadCmd(t *testing.T) {
-	a := newBalancerAgent(t)
-	defer cleanup(a, t)
+	cf := newBalancerAgentConfig(t)
+	defer cleanup(cf, t)
 
 	var err error
-	a.template, err = template.New("template").Parse("ok")
+	cf.template, err = template.New("template").Parse("ok")
 	require.Nil(t, err)
 
-	require.Nil(t, a.store.AddService("service1", data.Service{
+	require.Nil(t, cf.store.AddService("service1", data.Service{
 		Protocol: "http",
 		Address:  "1.2.3.4",
 	}))
 
-	tmp := a.filename + "-copy"
-	a.reloadCmd = fmt.Sprintf("cp %s %s", a.filename, tmp)
+	tmp := cf.filename + "-copy"
+	cf.reloadCmd = fmt.Sprintf("cp %s %s", cf.filename, tmp)
 
-	a.start()
-	<-a.generated
+	comp, errs := cf.start(t)
+	<-cf.generated
 	requireFile(t, tmp, "ok")
 
-	a.Stop()
-	<-a.updaterStopped
-	<-a.generatorStopped
+	comp.Stop()
+	require.Len(t, errs, 0)
 }

@@ -1,4 +1,4 @@
-# Weave Flux – Microservices Routing
+# Weave Flux – Microservice Routing
 
 Weave Flux provides a simple way to assemble microservices.  It gives
 you a decentralized service router that makes the health and

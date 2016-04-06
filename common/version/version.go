@@ -1,12 +1,22 @@
 package version
 
-import "fmt"
+import (
+	"fmt"
+	"os"
+	"path"
+	"strings"
+)
 
 var (
 	revision = "unknown revision"
 	version  = "head"
 )
 
-func Version() string {
-	return fmt.Sprintf("%s (%s)", version, revision)
+func Banner() string {
+	name := path.Base(os.Args[0])
+	if !strings.HasPrefix(name, "flux") {
+		name = "flux " + name
+	}
+
+	return fmt.Sprintf("%s version %s (%s)", name, version, revision)
 }

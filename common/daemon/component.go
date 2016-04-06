@@ -113,6 +113,10 @@ func (sf *stopFunc) Stop() {
 }
 
 func Aggregate(startFuncs ...StartFunc) StartFunc {
+	if len(startFuncs) == 1 {
+		return startFuncs[0]
+	}
+
 	return func(errs ErrorSink) Component {
 		stopFuncs := make([]func(), len(startFuncs))
 		for i := range startFuncs {

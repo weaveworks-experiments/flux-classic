@@ -9,7 +9,7 @@ import (
 	"syscall"
 )
 
-func Main(start StartFunc) {
+func run(start StartFunc) {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
 	sigs := make(chan os.Signal, 2)

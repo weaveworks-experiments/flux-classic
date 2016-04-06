@@ -2,8 +2,6 @@ package main
 
 import (
 	"fmt"
-	"os"
-	"path"
 
 	"github.com/spf13/cobra"
 
@@ -26,6 +24,6 @@ func (opts *versionOpts) run(_ *cobra.Command, args []string) error {
 	if len(args) > 0 {
 		return fmt.Errorf("Unexpected arguments: %s", args)
 	}
-	fmt.Fprintf(opts.getStdout(), "%s version %s\n", path.Base(os.Args[0]), version.Version())
+	fmt.Fprintln(opts.getStdout(), version.Banner())
 	return nil
 }

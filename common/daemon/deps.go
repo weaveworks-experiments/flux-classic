@@ -1,9 +1,13 @@
 package daemon
 
 import (
+	log "github.com/Sirupsen/logrus"
+
 	"flag"
 	"fmt"
 	"os"
+
+	"github.com/weaveworks/flux/common/version"
 )
 
 type Dependencies struct {
@@ -53,14 +57,16 @@ func (deps *Dependencies) Dependency(slot DependencySlot) {
 	deps.slots[key] = slots
 }
 
-func ConfigsMain(configs ...Config) {
+func Main(configs ...Config) {
+	log.Println(version.Banner())
+
 	sfs, err := configsToStartFuncs(configs)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 
-	Main(Aggregate(sfs...))
+	run(Aggregate(sfs...))
 }
 
 func configsToStartFuncs(configs []Config) ([]StartFunc, error) {

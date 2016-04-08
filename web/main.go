@@ -80,12 +80,16 @@ func (api *api) allServices(w http.ResponseWriter, r *http.Request) {
 
 func (api *api) proxyStats(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Path[len("/stats"):] + "?" + r.URL.RawQuery
-	log.Println(path)
 	resp, err := http.Get(api.promURL + path)
 	if err != nil {
-		http.Error(w, "Error contacting prometheus server: "+err.Error(), 500)
+		log.Printf("Error forwarding to prometheus at %s: %s", path, err)
 		return
 	}
+
+	if resp.StatusCode != 200 {
+		log.Printf("Request to prometheus at %d: %d response", path, resp.StatusCode)
+	}
+
 	defer resp.Body.Close()
 	for k, vs := range resp.Header {
 		w.Header()[k] = vs

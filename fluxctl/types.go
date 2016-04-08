@@ -7,7 +7,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/weaveworks/flux/common/data"
 	"github.com/weaveworks/flux/common/store"
 )
 
@@ -70,7 +69,7 @@ func selectorise(commaSeparatedLabels, keyPrefix string, intoSel map[string]stri
 	}
 }
 
-func (opts *selector) makeSelector() data.Selector {
+func (opts *selector) makeSelector() store.Selector {
 	sel := make(map[string]string)
 	selectorise(opts.labels, "", sel)
 	selectorise(opts.env, "env.", sel)
@@ -98,9 +97,9 @@ func (opts *spec) addSpecVars(cmd *cobra.Command) {
 	opts.addSelectorVars(cmd)
 }
 
-func (opts *spec) makeSpec() (*data.ContainerRule, error) {
+func (opts *spec) makeSpec() (*store.ContainerRule, error) {
 	if sel := opts.makeSelector(); !sel.Empty() {
-		return &data.ContainerRule{
+		return &store.ContainerRule{
 			Selector: sel,
 		}, nil
 	} else {

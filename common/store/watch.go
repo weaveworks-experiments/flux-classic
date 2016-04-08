@@ -4,7 +4,6 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/weaveworks/flux/common/daemon"
-	"github.com/weaveworks/flux/common/data"
 )
 
 type ServiceUpdate struct {
@@ -52,7 +51,7 @@ func WatchServicesStartFunc(store Store, opts QueryServiceOptions, updates chan<
 
 func (ws *watchServices) run() error {
 	defer close(ws.finished)
-	changes := make(chan data.ServiceChange)
+	changes := make(chan ServiceChange)
 	ws.store.WatchServices(ws.context, changes, ws.errorSink, ws.opts)
 
 	err := ws.doInitialQuery()
@@ -61,7 +60,7 @@ func (ws *watchServices) run() error {
 	}
 
 	for {
-		var change data.ServiceChange
+		var change ServiceChange
 		select {
 		case change = <-changes:
 		case <-ws.context.Done():

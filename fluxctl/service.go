@@ -5,8 +5,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/weaveworks/flux/common/data"
 	"github.com/weaveworks/flux/common/netutil"
+	"github.com/weaveworks/flux/common/store"
 )
 
 const DEFAULT_GROUP = string("default")
@@ -34,8 +34,8 @@ func (opts *addOpts) makeCommand() *cobra.Command {
 	return addCmd
 }
 
-func parseAddress(address string) (data.Service, error) {
-	var svc data.Service
+func parseAddress(address string) (store.Service, error) {
+	var svc store.Service
 	if address == "" {
 		return svc, nil
 	}

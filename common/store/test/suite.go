@@ -8,7 +8,6 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/weaveworks/flux/common/daemon"
-	"github.com/weaveworks/flux/common/data"
 	"github.com/weaveworks/flux/common/store"
 )
 
@@ -39,7 +38,7 @@ func testPing(s store.Store, t *testing.T) {
 	require.Nil(t, s.Ping())
 }
 
-var testService = data.Service{
+var testService = store.Service{
 	Address:  "1.2.3.4",
 	Port:     1234,
 	Protocol: "tcp",
@@ -54,8 +53,8 @@ func testServices(s store.Store, t *testing.T) {
 
 	require.Nil(t, s.CheckRegisteredService("svc"))
 
-	services := func() map[string]data.Service {
-		svcs := make(map[string]data.Service)
+	services := func() map[string]store.Service {
+		svcs := make(map[string]store.Service)
 		ss, err := s.GetAllServices(store.QueryServiceOptions{})
 		require.Nil(t, err)
 		for _, svc := range ss {
@@ -64,18 +63,18 @@ func testServices(s store.Store, t *testing.T) {
 		return svcs
 	}
 
-	require.Equal(t, map[string]data.Service{"svc": testService}, services())
+	require.Equal(t, map[string]store.Service{"svc": testService}, services())
 
 	require.Nil(t, s.RemoveService("svc"))
-	require.Equal(t, map[string]data.Service{}, services())
+	require.Equal(t, map[string]store.Service{}, services())
 
 	require.Nil(t, s.AddService("svc", testService))
 	require.Nil(t, s.RemoveAllServices())
-	require.Equal(t, map[string]data.Service{}, services())
+	require.Equal(t, map[string]store.Service{}, services())
 }
 
-var testRule = data.ContainerRule{
-	Selector: data.Selector{
+var testRule = store.ContainerRule{
+	Selector: store.Selector{
 		"foo": "bar",
 	},
 }
@@ -100,7 +99,7 @@ func testRules(s store.Store, t *testing.T) {
 	require.Empty(t, svc.ContainerRules)
 }
 
-var testInst = data.Instance{
+var testInst = store.Instance{
 	ContainerRule: "group",
 	Address:       "1.2.3.4",
 	Port:          12345,
@@ -111,24 +110,24 @@ func testInstances(s store.Store, t *testing.T) {
 	require.Nil(t, s.AddService("svc", testService))
 	require.Nil(t, s.AddInstance("svc", "inst", testInst))
 
-	instances := func() map[string]data.Instance {
+	instances := func() map[string]store.Instance {
 		svc, err := s.GetService("svc", store.QueryServiceOptions{WithInstances: true})
 		require.Nil(t, err)
 
-		insts := make(map[string]data.Instance)
+		insts := make(map[string]store.Instance)
 		for _, inst := range svc.Instances {
 			insts[inst.Name] = inst.Instance
 		}
 		return insts
 	}
 
-	require.Equal(t, map[string]data.Instance{"inst": testInst}, instances())
+	require.Equal(t, map[string]store.Instance{"inst": testInst}, instances())
 
-	serviceInstances := func() map[string]data.Instance {
+	serviceInstances := func() map[string]store.Instance {
 		svcs, err := s.GetAllServices(store.QueryServiceOptions{WithInstances: true})
 		require.Nil(t, err)
 
-		insts := make(map[string]data.Instance)
+		insts := make(map[string]store.Instance)
 		for _, svc := range svcs {
 			for _, inst := range svc.Instances {
 				insts[svc.Name+" "+inst.Name] = inst.Instance
@@ -137,11 +136,11 @@ func testInstances(s store.Store, t *testing.T) {
 		return insts
 	}
 
-	require.Equal(t, map[string]data.Instance{"svc inst": testInst}, serviceInstances())
+	require.Equal(t, map[string]store.Instance{"svc inst": testInst}, serviceInstances())
 
 	require.Nil(t, s.RemoveInstance("svc", "inst"))
-	require.Equal(t, map[string]data.Instance{}, instances())
-	require.Equal(t, map[string]data.Instance{}, serviceInstances())
+	require.Equal(t, map[string]store.Instance{}, instances())
+	require.Equal(t, map[string]store.Instance{}, serviceInstances())
 }
 
 type watch struct {
@@ -165,14 +164,14 @@ func (w *watch) stop() {
 
 type serviceWatch struct {
 	watch
-	changes []data.ServiceChange
+	changes []store.ServiceChange
 }
 
 func newServiceWatch(s store.Store, opts store.QueryServiceOptions) *serviceWatch {
 	ctx, cancel := context.WithCancel(context.Background())
 	w := &serviceWatch{watch: newWatch(cancel)}
 
-	changes := make(chan data.ServiceChange)
+	changes := make(chan store.ServiceChange)
 	s.WatchServices(ctx, changes, daemon.NewErrorSink(), opts)
 
 	go func() {
@@ -192,7 +191,7 @@ func newServiceWatch(s store.Store, opts store.QueryServiceOptions) *serviceWatc
 }
 
 func testWatchServices(s store.Store, t *testing.T) {
-	check := func(opts store.QueryServiceOptions, body func(w *serviceWatch), changes ...data.ServiceChange) {
+	check := func(opts store.QueryServiceOptions, body func(w *serviceWatch), changes ...store.ServiceChange) {
 		w := newServiceWatch(s, opts)
 		body(w)
 		// Yuck.  There's a race between making a change in
@@ -206,16 +205,16 @@ func testWatchServices(s store.Store, t *testing.T) {
 
 	check(store.QueryServiceOptions{}, func(w *serviceWatch) {
 		require.Nil(t, s.AddService("svc", testService))
-	}, data.ServiceChange{Name: "svc", ServiceDeleted: false})
+	}, store.ServiceChange{Name: "svc", ServiceDeleted: false})
 
 	require.Nil(t, s.AddService("svc", testService))
 	check(store.QueryServiceOptions{}, func(w *serviceWatch) {
 		require.Nil(t, s.RemoveAllServices())
 		require.Nil(t, s.AddService("svc", testService))
 		require.Nil(t, s.RemoveService("svc"))
-	}, data.ServiceChange{Name: "svc", ServiceDeleted: true},
-		data.ServiceChange{Name: "svc", ServiceDeleted: false},
-		data.ServiceChange{Name: "svc", ServiceDeleted: true})
+	}, store.ServiceChange{Name: "svc", ServiceDeleted: true},
+		store.ServiceChange{Name: "svc", ServiceDeleted: false},
+		store.ServiceChange{Name: "svc", ServiceDeleted: true})
 
 	// WithInstances false, so adding an instance should not
 	// cause an event
@@ -231,8 +230,8 @@ func testWatchServices(s store.Store, t *testing.T) {
 		func(w *serviceWatch) {
 			require.Nil(t, s.AddInstance("svc", "inst", testInst))
 			require.Nil(t, s.RemoveInstance("svc", "inst"))
-		}, data.ServiceChange{Name: "svc", ServiceDeleted: false},
-		data.ServiceChange{Name: "svc", ServiceDeleted: false})
+		}, store.ServiceChange{Name: "svc", ServiceDeleted: false},
+		store.ServiceChange{Name: "svc", ServiceDeleted: false})
 
 	// WithContainerRules false, so adding a rule should not
 	// cause an event
@@ -248,13 +247,13 @@ func testWatchServices(s store.Store, t *testing.T) {
 		func(w *serviceWatch) {
 			require.Nil(t, s.SetContainerRule("svc", "group", testRule))
 			require.Nil(t, s.RemoveContainerRule("svc", "group"))
-		}, data.ServiceChange{Name: "svc", ServiceDeleted: false},
-		data.ServiceChange{Name: "svc", ServiceDeleted: false})
+		}, store.ServiceChange{Name: "svc", ServiceDeleted: false},
+		store.ServiceChange{Name: "svc", ServiceDeleted: false})
 }
 
 func testHosts(ts TestableStore, t *testing.T) {
 	hostID := "foo host"
-	hostData := &data.Host{
+	hostData := &store.Host{
 		IPAddress: "192.168.1.65",
 	}
 	err := ts.Heartbeat(hostID, 60*time.Second, hostData)
@@ -272,14 +271,14 @@ func testHosts(ts TestableStore, t *testing.T) {
 
 type hostWatch struct {
 	watch
-	changes []data.HostChange
+	changes []store.HostChange
 }
 
 func newHostWatch(s store.Store) *hostWatch {
 	ctx, cancel := context.WithCancel(context.Background())
 	w := &hostWatch{watch: newWatch(cancel)}
 
-	changes := make(chan data.HostChange)
+	changes := make(chan store.HostChange)
 	s.WatchHosts(ctx, changes, daemon.NewErrorSink())
 
 	go func() {
@@ -299,7 +298,7 @@ func newHostWatch(s store.Store) *hostWatch {
 }
 
 func testHostWatch(ts TestableStore, t *testing.T) {
-	check := func(body func(w *hostWatch), changes ...data.HostChange) {
+	check := func(body func(w *hostWatch), changes ...store.HostChange) {
 		w := newHostWatch(ts)
 		body(w)
 		// Yuck, as above.
@@ -310,18 +309,18 @@ func testHostWatch(ts TestableStore, t *testing.T) {
 
 	hostID := "host number three"
 	check(func(w *hostWatch) {
-		require.Nil(t, ts.Heartbeat(hostID, 5*time.Second, &data.Host{}))
+		require.Nil(t, ts.Heartbeat(hostID, 5*time.Second, &store.Host{}))
 		require.Nil(t, ts.DeregisterHost(hostID))
 	},
-		data.HostChange{Name: hostID, HostDeparted: false},
-		data.HostChange{Name: hostID, HostDeparted: true})
+		store.HostChange{Name: hostID, HostDeparted: false},
+		store.HostChange{Name: hostID, HostDeparted: true})
 	ts.Reset(t)
 
 	hostID = "another host"
 	check(func(w *hostWatch) {
-		ts.Heartbeat(hostID, 1*time.Second, &data.Host{})
+		ts.Heartbeat(hostID, 1*time.Second, &store.Host{})
 		time.Sleep(2*time.Second + 200*time.Millisecond)
-	}, data.HostChange{hostID, false}, data.HostChange{hostID, true})
+	}, store.HostChange{hostID, false}, store.HostChange{hostID, true})
 	hosts, err := ts.GetHosts()
 	require.Nil(t, err)
 	require.Len(t, hosts, 0)

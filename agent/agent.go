@@ -8,7 +8,6 @@ import (
 	docker "github.com/fsouza/go-dockerclient"
 
 	"github.com/weaveworks/flux/common/daemon"
-	"github.com/weaveworks/flux/common/data"
 	"github.com/weaveworks/flux/common/heartbeat"
 	"github.com/weaveworks/flux/common/netutil"
 	"github.com/weaveworks/flux/common/store"
@@ -59,7 +58,7 @@ func (cf *AgentConfig) Prepare() (daemon.StartFunc, error) {
 		Cluster:      cf.store,
 		TTL:          time.Duration(cf.hostTTL) * time.Second,
 		HostIdentity: cf.hostIP.String(),
-		HostState:    &data.Host{IPAddress: cf.hostIP.String()},
+		HostState:    &store.Host{IPAddress: cf.hostIP.String()},
 	}
 
 	containerUpdates := make(chan ContainerUpdate)

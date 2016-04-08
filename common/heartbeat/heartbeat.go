@@ -6,7 +6,6 @@ import (
 	log "github.com/Sirupsen/logrus"
 
 	"github.com/weaveworks/flux/common/daemon"
-	"github.com/weaveworks/flux/common/data"
 	"github.com/weaveworks/flux/common/store"
 )
 
@@ -14,7 +13,7 @@ type HeartbeatConfig struct {
 	Cluster      store.Cluster
 	TTL          time.Duration
 	HostIdentity string
-	HostState    *data.Host
+	HostState    *store.Host
 }
 
 func (config HeartbeatConfig) Start(errorSink daemon.ErrorSink) daemon.Component {

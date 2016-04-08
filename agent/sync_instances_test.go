@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/weaveworks/flux/common/daemon"
-	"github.com/weaveworks/flux/common/data"
 	"github.com/weaveworks/flux/common/store"
 	"github.com/weaveworks/flux/common/store/inmem"
 
@@ -137,11 +136,11 @@ func (h *harness) addGroup(serviceName string, labels ...string) {
 	}
 
 	h.SetContainerRule(serviceName, GROUP,
-		data.ContainerRule{Selector: sel})
+		store.ContainerRule{Selector: sel})
 }
 
-func (h *harness) allInstances(t *testing.T) []data.Instance {
-	var res []data.Instance
+func (h *harness) allInstances(t *testing.T) []store.Instance {
+	var res []store.Instance
 	svcs, err := h.GetAllServices(store.QueryServiceOptions{WithInstances: true})
 	require.Nil(t, err)
 	for _, svc := range svcs {
@@ -154,15 +153,15 @@ func (h *harness) allInstances(t *testing.T) []data.Instance {
 
 func TestSyncInstancesReconcile(t *testing.T) {
 	h := setup(nil, "10.98.99.100", GLOBAL)
-	h.AddService("foo-svc", data.Service{
+	h.AddService("foo-svc", store.Service{
 		InstancePort: 80,
 	})
 	h.addGroup("foo-svc", "tag", "bobbins", "image", "foo-image")
-	h.AddService("bar-svc", data.Service{
+	h.AddService("bar-svc", store.Service{
 		InstancePort: 80,
 	})
 	h.addGroup("bar-svc", "flux/foo-label", "blorp")
-	h.AddService("boo-svc", data.Service{
+	h.AddService("boo-svc", store.Service{
 		InstancePort: 80,
 	})
 	h.addGroup("boo-svc", "env.SERVICE_NAME", "boo")
@@ -209,7 +208,7 @@ func TestSyncInstancesEvents(t *testing.T) {
 	}))
 	require.Len(t, h.allInstances(t), 0)
 
-	h.AddService("foo-svc", data.Service{})
+	h.AddService("foo-svc", store.Service{})
 	h.si.processServiceUpdate(<-h.serviceUpdates)
 	h.addGroup("foo-svc", "image", "foo-image")
 	h.si.processServiceUpdate(<-h.serviceUpdates)
@@ -243,7 +242,7 @@ func TestSyncInstancesEvents(t *testing.T) {
 func TestMappedPort(t *testing.T) {
 	h := setup(nil, "11.98.99.98", LOCAL)
 
-	h.AddService("blorp-svc", data.Service{
+	h.AddService("blorp-svc", store.Service{
 		InstancePort: 8080,
 	})
 	h.addGroup("blorp-svc", "image", "blorp-image")
@@ -264,7 +263,7 @@ func TestMappedPort(t *testing.T) {
 	require.Nil(t, err)
 	require.Equal(t, h.si.hostIP, svc.Instances[0].Address)
 	require.Equal(t, 3456, svc.Instances[0].Port)
-	require.Equal(t, data.LIVE, svc.Instances[0].State)
+	require.Equal(t, store.LIVE, svc.Instances[0].State)
 	h.stop(t)
 }
 
@@ -274,7 +273,7 @@ func TestMultihostNetworking(t *testing.T) {
 
 	h := setup(nil, "11.98.99.98", GLOBAL)
 
-	h.AddService("blorp-svc", data.Service{
+	h.AddService("blorp-svc", store.Service{
 		InstancePort: instPort,
 	})
 	h.addGroup("blorp-svc", "image", "blorp-image")
@@ -295,14 +294,14 @@ func TestMultihostNetworking(t *testing.T) {
 	require.Nil(t, err)
 	require.Equal(t, instAddress, svc.Instances[0].Address)
 	require.Equal(t, instPort, svc.Instances[0].Port)
-	require.Equal(t, data.LIVE, svc.Instances[0].State)
+	require.Equal(t, store.LIVE, svc.Instances[0].State)
 	h.stop(t)
 }
 
 func TestNoAddress(t *testing.T) {
 	h := setup(nil, "192.168.3.4", LOCAL)
 
-	h.AddService("important-svc", data.Service{
+	h.AddService("important-svc", store.Service{
 		InstancePort: 80,
 	})
 	h.addGroup("important-svc", "image", "important-image")
@@ -321,14 +320,14 @@ func TestNoAddress(t *testing.T) {
 	require.Nil(t, err)
 	require.Equal(t, "", svc.Instances[0].Address)
 	require.Equal(t, 0, svc.Instances[0].Port)
-	require.Equal(t, data.NOADDR, svc.Instances[0].State)
+	require.Equal(t, store.NOADDR, svc.Instances[0].State)
 	h.stop(t)
 }
 
 func TestHostNetworking(t *testing.T) {
 	h := setup(nil, "192.168.5.135", GLOBAL)
 
-	h.AddService("blorp-svc", data.Service{
+	h.AddService("blorp-svc", store.Service{
 		InstancePort: 8080,
 	})
 	h.addGroup("blorp-svc", "image", "blorp-image")
@@ -347,7 +346,7 @@ func TestHostNetworking(t *testing.T) {
 	require.Nil(t, err)
 	require.Equal(t, h.si.hostIP, svc.Instances[0].Address)
 	require.Equal(t, 8080, svc.Instances[0].Port)
-	require.Equal(t, data.LIVE, svc.Instances[0].State)
+	require.Equal(t, store.LIVE, svc.Instances[0].State)
 	h.stop(t)
 }
 
@@ -356,7 +355,7 @@ func TestOtherHostsEntries(t *testing.T) {
 	h1 := setup(st, "192.168.11.34", LOCAL)
 	h2 := setup(st, "192.168.11.5", LOCAL)
 
-	h1.AddService("foo-svc", data.Service{})
+	h1.AddService("foo-svc", store.Service{})
 	h1.addGroup("foo-svc", "image", "foo-image")
 	h1.si.processContainerUpdate(resetContainers(container{
 		ID:        "bar1",

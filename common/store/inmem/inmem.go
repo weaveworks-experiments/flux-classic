@@ -9,7 +9,6 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/weaveworks/flux/common/daemon"
-	"github.com/weaveworks/flux/common/data"
 	"github.com/weaveworks/flux/common/store"
 )
 
@@ -19,20 +18,20 @@ type heartbeat struct {
 
 func NewInMemStore() *InMem {
 	return &InMem{
-		services:   make(map[string]data.Service),
-		groupSpecs: make(map[string]map[string]data.ContainerRule),
-		instances:  make(map[string]map[string]data.Instance),
-		hosts:      make(map[string]*data.Host),
+		services:   make(map[string]store.Service),
+		groupSpecs: make(map[string]map[string]store.ContainerRule),
+		instances:  make(map[string]map[string]store.Instance),
+		hosts:      make(map[string]*store.Host),
 		heartbeats: make(map[string]*heartbeat),
 		hostTimers: make(map[string]*time.Timer),
 	}
 }
 
 type InMem struct {
-	services      map[string]data.Service
-	groupSpecs    map[string]map[string]data.ContainerRule
-	instances     map[string]map[string]data.Instance
-	hosts         map[string]*data.Host
+	services      map[string]store.Service
+	groupSpecs    map[string]map[string]store.ContainerRule
+	instances     map[string]map[string]store.Instance
+	hosts         map[string]*store.Host
 	heartbeats    map[string]*heartbeat
 	hostTimers    map[string]*time.Timer
 	watchersLock  sync.Mutex
@@ -63,13 +62,13 @@ func (w watcher) PostError(err error) {
 
 type serviceWatcher struct {
 	watcher
-	ch   chan<- data.ServiceChange
+	ch   chan<- store.ServiceChange
 	opts store.QueryServiceOptions
 }
 
 type hostWatcher struct {
 	watcher
-	ch chan<- data.HostChange
+	ch chan<- store.HostChange
 }
 
 func (s *InMem) addWatcher(watcher Watcher) {
@@ -94,7 +93,7 @@ func (s *InMem) addWatcher(watcher Watcher) {
 }
 
 func (s *InMem) fireServiceChange(name string, deleted bool, optsFilter func(store.QueryServiceOptions) bool) {
-	ev := data.ServiceChange{Name: name, ServiceDeleted: deleted}
+	ev := store.ServiceChange{Name: name, ServiceDeleted: deleted}
 
 	s.watchersLock.Lock()
 	watchers := s.watchers
@@ -137,10 +136,10 @@ func (s *InMem) CheckRegisteredService(name string) error {
 	return s.injectedError
 }
 
-func (s *InMem) AddService(name string, svc data.Service) error {
+func (s *InMem) AddService(name string, svc store.Service) error {
 	s.services[name] = svc
-	s.groupSpecs[name] = make(map[string]data.ContainerRule)
-	s.instances[name] = make(map[string]data.Instance)
+	s.groupSpecs[name] = make(map[string]store.ContainerRule)
+	s.instances[name] = make(map[string]store.Instance)
 
 	s.fireServiceChange(name, false, nil)
 	log.Printf("InMem: service %s updated in store", name)
@@ -173,7 +172,7 @@ func (s *InMem) GetService(name string, opts store.QueryServiceOptions) (*store.
 	return s.makeServiceInfo(name, svc, opts), s.injectedError
 }
 
-func (s *InMem) makeServiceInfo(name string, svc data.Service, opts store.QueryServiceOptions) *store.ServiceInfo {
+func (s *InMem) makeServiceInfo(name string, svc store.Service, opts store.QueryServiceOptions) *store.ServiceInfo {
 	info := &store.ServiceInfo{
 		Name:    name,
 		Service: svc,
@@ -210,7 +209,7 @@ func withRuleChanges(opts store.QueryServiceOptions) bool {
 	return opts.WithContainerRules
 }
 
-func (s *InMem) SetContainerRule(serviceName string, groupName string, spec data.ContainerRule) error {
+func (s *InMem) SetContainerRule(serviceName string, groupName string, spec store.ContainerRule) error {
 	groupSpecs, found := s.groupSpecs[serviceName]
 	if !found {
 		return fmt.Errorf(`Not found "%s"`, serviceName)
@@ -236,7 +235,7 @@ func withInstanceChanges(opts store.QueryServiceOptions) bool {
 	return opts.WithInstances
 }
 
-func (s *InMem) AddInstance(serviceName string, instanceName string, inst data.Instance) error {
+func (s *InMem) AddInstance(serviceName string, instanceName string, inst store.Instance) error {
 	s.instances[serviceName][instanceName] = inst
 	s.fireServiceChange(serviceName, false, withInstanceChanges)
 	return s.injectedError
@@ -253,7 +252,7 @@ func (s *InMem) RemoveInstance(serviceName string, instanceName string) error {
 	return s.injectedError
 }
 
-func (s *InMem) WatchServices(ctx context.Context, res chan<- data.ServiceChange, errs daemon.ErrorSink, opts store.QueryServiceOptions) {
+func (s *InMem) WatchServices(ctx context.Context, res chan<- store.ServiceChange, errs daemon.ErrorSink, opts store.QueryServiceOptions) {
 	if s.injectedError != nil {
 		errs.Post(s.injectedError)
 		return
@@ -263,8 +262,8 @@ func (s *InMem) WatchServices(ctx context.Context, res chan<- data.ServiceChange
 	s.addWatcher(w)
 }
 
-func (s *InMem) GetHosts() ([]*data.Host, error) {
-	var hosts []*data.Host = make([]*data.Host, len(s.hosts))
+func (s *InMem) GetHosts() ([]*store.Host, error) {
+	var hosts []*store.Host = make([]*store.Host, len(s.hosts))
 	i := 0
 	for _, host := range s.hosts {
 		hosts[i] = host
@@ -273,7 +272,7 @@ func (s *InMem) GetHosts() ([]*data.Host, error) {
 	return hosts, nil
 }
 
-func (s *InMem) Heartbeat(identity string, ttl time.Duration, state *data.Host) error {
+func (s *InMem) Heartbeat(identity string, ttl time.Duration, state *store.Host) error {
 	fmt.Printf("Heartbeat: %s TTL %d ms\n", identity, ttl/time.Millisecond)
 	s.hosts[identity] = state
 	if record, found := s.heartbeats[identity]; found {
@@ -314,13 +313,13 @@ func (s *InMem) deleteHost(identity string) {
 	}
 }
 
-func (s *InMem) WatchHosts(ctx context.Context, changes chan<- data.HostChange, errs daemon.ErrorSink) {
+func (s *InMem) WatchHosts(ctx context.Context, changes chan<- store.HostChange, errs daemon.ErrorSink) {
 	w := hostWatcher{watcher{ctx, errs}, changes}
 	s.addWatcher(w)
 }
 
 func (s *InMem) fireHostChange(identity string, deleted bool) {
-	change := data.HostChange{Name: identity, HostDeparted: deleted}
+	change := store.HostChange{Name: identity, HostDeparted: deleted}
 	s.watchersLock.Lock()
 	watchers := s.watchers
 	s.watchersLock.Unlock()

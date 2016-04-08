@@ -1,4 +1,4 @@
-package data
+package store
 
 type Selector map[string]string
 

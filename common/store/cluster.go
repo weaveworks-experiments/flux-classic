@@ -5,12 +5,11 @@ import (
 	"time"
 
 	"github.com/weaveworks/flux/common/daemon"
-	"github.com/weaveworks/flux/common/data"
 )
 
 type Cluster interface {
-	GetHosts() ([]*data.Host, error)
-	Heartbeat(identity string, ttl time.Duration, state *data.Host) error
+	GetHosts() ([]*Host, error)
+	Heartbeat(identity string, ttl time.Duration, state *Host) error
 	DeregisterHost(identity string) error
-	WatchHosts(ctx context.Context, changes chan<- data.HostChange, errs daemon.ErrorSink)
+	WatchHosts(ctx context.Context, changes chan<- HostChange, errs daemon.ErrorSink)
 }

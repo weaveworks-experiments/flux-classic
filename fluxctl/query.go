@@ -7,7 +7,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/weaveworks/flux/common/data"
 	"github.com/weaveworks/flux/common/store"
 )
 
@@ -43,7 +42,7 @@ func (opts *queryOpts) makeCommand() *cobra.Command {
 type instanceForFormat struct {
 	Service string `json:"service"`
 	Name    string `json:"name"`
-	data.Instance
+	store.Instance
 }
 
 const (
@@ -55,13 +54,13 @@ func (opts *queryOpts) run(_ *cobra.Command, args []string) error {
 	sel := opts.makeSelector()
 
 	if opts.host != "" {
-		sel[data.HostLabel] = opts.host
+		sel[store.HostLabel] = opts.host
 	}
 	if opts.state != "" {
-		sel[data.StateLabel] = opts.state
+		sel[store.StateLabel] = opts.state
 	}
 	if opts.rule != "" {
-		sel[data.RuleLabel] = opts.rule
+		sel[store.RuleLabel] = opts.rule
 	}
 
 	var printInstance func(svc *store.ServiceInfo, inst *store.InstanceInfo) error

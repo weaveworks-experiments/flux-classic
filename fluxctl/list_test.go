@@ -5,13 +5,13 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/weaveworks/flux/common/data"
+	"github.com/weaveworks/flux/common/store"
 	"github.com/weaveworks/flux/common/store/inmem"
 )
 
 func TestList(t *testing.T) {
 	st := inmem.NewInMemStore()
-	err := st.AddService("foo", data.Service{})
+	err := st.AddService("foo", store.Service{})
 	require.NoError(t, err)
 
 	opts := &listOpts{}

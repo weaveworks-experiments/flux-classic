@@ -10,7 +10,6 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/weaveworks/flux/common/daemon"
-	"github.com/weaveworks/flux/common/data"
 	"github.com/weaveworks/flux/common/etcdutil"
 	"github.com/weaveworks/flux/common/store"
 )
@@ -127,7 +126,7 @@ func (es *etcdStore) CheckRegisteredService(serviceName string) error {
 	return err
 }
 
-func (es *etcdStore) AddService(name string, details data.Service) error {
+func (es *etcdStore) AddService(name string, details store.Service) error {
 	json, err := json.Marshal(&details)
 	if err != nil {
 		return fmt.Errorf("Failed to encode: %s", err)
@@ -262,8 +261,8 @@ func serviceInfoFromNode(name string, node *etcd.Node, opts store.QueryServiceOp
 	return svc, nil
 }
 
-func unmarshalService(node *etcd.Node, errp *error) data.Service {
-	var svc data.Service
+func unmarshalService(node *etcd.Node, errp *error) store.Service {
+	var svc store.Service
 
 	if *errp == nil {
 		*errp = json.Unmarshal([]byte(node.Value), &svc)
@@ -272,8 +271,8 @@ func unmarshalService(node *etcd.Node, errp *error) data.Service {
 	return svc
 }
 
-func unmarshalRule(node *etcd.Node, errp *error) data.ContainerRule {
-	var gs data.ContainerRule
+func unmarshalRule(node *etcd.Node, errp *error) store.ContainerRule {
+	var gs store.ContainerRule
 
 	if *errp == nil {
 		*errp = json.Unmarshal([]byte(node.Value), &gs)
@@ -282,8 +281,8 @@ func unmarshalRule(node *etcd.Node, errp *error) data.ContainerRule {
 	return gs
 }
 
-func unmarshalInstance(node *etcd.Node, errp *error) data.Instance {
-	var instance data.Instance
+func unmarshalInstance(node *etcd.Node, errp *error) store.Instance {
+	var instance store.Instance
 
 	if *errp == nil {
 		*errp = json.Unmarshal([]byte(node.Value), &instance)
@@ -292,7 +291,7 @@ func unmarshalInstance(node *etcd.Node, errp *error) data.Instance {
 	return instance
 }
 
-func (es *etcdStore) SetContainerRule(serviceName string, ruleName string, spec data.ContainerRule) error {
+func (es *etcdStore) SetContainerRule(serviceName string, ruleName string, spec store.ContainerRule) error {
 	return es.setJSON(ruleKey(serviceName, ruleName), spec)
 }
 
@@ -300,7 +299,7 @@ func (es *etcdStore) RemoveContainerRule(serviceName string, ruleName string) er
 	return es.deleteRecursive(ruleKey(serviceName, ruleName))
 }
 
-func (es *etcdStore) AddInstance(serviceName string, instanceName string, inst data.Instance) error {
+func (es *etcdStore) AddInstance(serviceName string, instanceName string, inst store.Instance) error {
 	return es.setJSON(instanceKey(serviceName, instanceName), inst)
 }
 
@@ -318,7 +317,7 @@ func (es *etcdStore) setJSON(key string, val interface{}) error {
 	return err
 }
 
-func (es *etcdStore) WatchServices(ctx context.Context, resCh chan<- data.ServiceChange, errorSink daemon.ErrorSink, opts store.QueryServiceOptions) {
+func (es *etcdStore) WatchServices(ctx context.Context, resCh chan<- store.ServiceChange, errorSink daemon.ErrorSink, opts store.QueryServiceOptions) {
 	if ctx == nil {
 		ctx = es.ctx
 	}
@@ -331,7 +330,7 @@ func (es *etcdStore) WatchServices(ctx context.Context, resCh chan<- data.Servic
 			switch key := parseKey(r.Node.Key).(type) {
 			case parsedRootKey:
 				for name := range svcs {
-					resCh <- data.ServiceChange{
+					resCh <- store.ServiceChange{
 						Name:           name,
 						ServiceDeleted: true,
 					}
@@ -340,7 +339,7 @@ func (es *etcdStore) WatchServices(ctx context.Context, resCh chan<- data.Servic
 
 			case parsedServiceRootKey:
 				delete(svcs, key.serviceName)
-				resCh <- data.ServiceChange{
+				resCh <- store.ServiceChange{
 					Name:           key.serviceName,
 					ServiceDeleted: true,
 				}
@@ -349,7 +348,7 @@ func (es *etcdStore) WatchServices(ctx context.Context, resCh chan<- data.Servic
 				relevantTo(opts store.QueryServiceOptions) (bool, string)
 			}:
 				if relevant, service := key.relevantTo(opts); relevant {
-					resCh <- data.ServiceChange{
+					resCh <- store.ServiceChange{
 						Name:           service,
 						ServiceDeleted: false,
 					}
@@ -360,7 +359,7 @@ func (es *etcdStore) WatchServices(ctx context.Context, resCh chan<- data.Servic
 			switch key := parseKey(r.Node.Key).(type) {
 			case parsedServiceKey:
 				svcs[key.serviceName] = struct{}{}
-				resCh <- data.ServiceChange{
+				resCh <- store.ServiceChange{
 					Name:           key.serviceName,
 					ServiceDeleted: false,
 				}
@@ -369,7 +368,7 @@ func (es *etcdStore) WatchServices(ctx context.Context, resCh chan<- data.Servic
 				relevantTo(opts store.QueryServiceOptions) (bool, string)
 			}:
 				if relevant, service := key.relevantTo(opts); relevant {
-					resCh <- data.ServiceChange{
+					resCh <- store.ServiceChange{
 						Name:           service,
 						ServiceDeleted: false,
 					}
@@ -419,7 +418,7 @@ These follow the scheme of
 
 /weave-flux/hosts/<identity>
 
-where the individual values are serialised `data.Host`s. A host's IP
+where the individual values are serialised `store.Host`s. A host's IP
 address is used to identify a host (i.e., the last part of the key),
 and included in the value. This may change, and if so would need a bit
 of teasing apart; in the meantime, we ought to be careful to
@@ -431,13 +430,13 @@ func hostKey(identity string) string {
 	return HOST_ROOT + identity
 }
 
-func (es *etcdStore) GetHosts() ([]*data.Host, error) {
+func (es *etcdStore) GetHosts() ([]*store.Host, error) {
 	node, _, err := es.getDirNode(HOST_ROOT, true, false)
 	if err != nil {
 		return nil, err
 	}
 
-	var hosts []*data.Host
+	var hosts []*store.Host
 
 	for _, n := range indexDir(node) {
 		host, err := hostFromNode(n)
@@ -451,12 +450,12 @@ func (es *etcdStore) GetHosts() ([]*data.Host, error) {
 	return hosts, nil
 }
 
-func hostFromNode(node *etcd.Node) (*data.Host, error) {
-	var host data.Host
+func hostFromNode(node *etcd.Node) (*store.Host, error) {
+	var host store.Host
 	return &host, json.Unmarshal([]byte(node.Value), &host)
 }
 
-func (es *etcdStore) Heartbeat(identity string, ttl time.Duration, info *data.Host) error {
+func (es *etcdStore) Heartbeat(identity string, ttl time.Duration, info *store.Host) error {
 	json, err := json.Marshal(&info)
 	if err != nil {
 		return fmt.Errorf("Failed to encode: %s", err)
@@ -471,7 +470,7 @@ func (es *etcdStore) DeregisterHost(identity string) error {
 	return err
 }
 
-func (es *etcdStore) WatchHosts(ctx context.Context, changes chan<- data.HostChange, errs daemon.ErrorSink) {
+func (es *etcdStore) WatchHosts(ctx context.Context, changes chan<- store.HostChange, errs daemon.ErrorSink) {
 	if ctx == nil {
 		ctx = es.ctx
 	}
@@ -489,14 +488,14 @@ func (es *etcdStore) WatchHosts(ctx context.Context, changes chan<- data.HostCha
 		switch r.Action {
 		case "delete", "expire":
 			delete(hosts, hostID)
-			changes <- data.HostChange{
+			changes <- store.HostChange{
 				Name:         hostID,
 				HostDeparted: true,
 			}
 
 		case "set":
 			hosts[hostID] = struct{}{}
-			changes <- data.HostChange{
+			changes <- store.HostChange{
 				Name:         hostID,
 				HostDeparted: false,
 			}

@@ -11,8 +11,8 @@ import (
 	"github.com/weaveworks/flux/balancer/events"
 	"github.com/weaveworks/flux/balancer/model"
 	"github.com/weaveworks/flux/common/daemon"
-	"github.com/weaveworks/flux/common/data"
 	"github.com/weaveworks/flux/common/etcdutil"
+	"github.com/weaveworks/flux/common/store"
 	"github.com/weaveworks/flux/common/store/etcdstore"
 	"github.com/weaveworks/flux/common/test/embeddedetcd"
 )
@@ -55,7 +55,7 @@ func TestEtcdRestart(t *testing.T) {
 
 	// Add a service and instance, and check that the balancer
 	// heard about it
-	require.Nil(t, st.AddService("svc", data.Service{
+	require.Nil(t, st.AddService("svc", store.Service{
 		Address:  "127.42.0.1",
 		Port:     8888,
 		Protocol: "tcp",
@@ -71,10 +71,10 @@ func TestEtcdRestart(t *testing.T) {
 	// The reconnection should lead to a reset update
 	require.True(t, (<-done).Reset)
 
-	require.Nil(t, st.AddInstance("svc", "inst", data.Instance{
+	require.Nil(t, st.AddInstance("svc", "inst", store.Instance{
 		Address: "127.0.0.1",
 		Port:    10000,
-		State:   data.LIVE,
+		State:   store.LIVE,
 	}))
 	require.False(t, (<-done).Reset)
 

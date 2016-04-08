@@ -5,7 +5,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/weaveworks/flux/common/data"
 	"github.com/weaveworks/flux/common/store"
 )
 
@@ -43,7 +42,7 @@ func TestSelect(t *testing.T) {
 	rule := svc.ContainerRules[0]
 	require.Equal(t, store.ContainerRuleInfo{
 		Name: "ok-rule",
-		ContainerRule: data.ContainerRule{
+		ContainerRule: store.ContainerRule{
 			Selector: map[string]string{
 				"image": "foo/bar",
 			},

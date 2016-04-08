@@ -66,7 +66,7 @@ func (api *api) router() http.Handler {
 }
 
 // List all services, along with their instances and accompanying
-// metadata.
+// metastore.
 
 func (api *api) allServices(w http.ResponseWriter, r *http.Request) {
 	services, err := api.store.GetAllServices(store.QueryServiceOptions{WithInstances: true})

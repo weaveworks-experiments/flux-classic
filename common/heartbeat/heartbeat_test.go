@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/weaveworks/flux/common/daemon"
-	"github.com/weaveworks/flux/common/data"
+	"github.com/weaveworks/flux/common/store"
 	"github.com/weaveworks/flux/common/store/inmem"
 )
 
@@ -22,7 +22,7 @@ func TestHeartbeat(t *testing.T) {
 		st,
 		ttl,
 		hostID,
-		&data.Host{IPAddress: "192.168.3.34"},
+		&store.Host{IPAddress: "192.168.3.34"},
 	}
 	sink := daemon.NewErrorSink()
 

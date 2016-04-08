@@ -6,14 +6,13 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/weaveworks/flux/common/daemon"
-	"github.com/weaveworks/flux/common/data"
 	"github.com/weaveworks/flux/common/store"
 	"github.com/weaveworks/flux/common/store/inmem"
 )
 
 func TestWatchServices(t *testing.T) {
 	st := inmem.NewInMemStore()
-	st.AddService("foo-svc", data.Service{
+	st.AddService("foo-svc", store.Service{
 		InstancePort: 80,
 	})
 
@@ -26,7 +25,7 @@ func TestWatchServices(t *testing.T) {
 	require.Len(t, update.Services, 1)
 	require.NotNil(t, update.Services["foo-svc"])
 
-	st.AddService("bar-svc", data.Service{
+	st.AddService("bar-svc", store.Service{
 		InstancePort: 80,
 	})
 

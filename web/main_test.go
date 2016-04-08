@@ -8,7 +8,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/weaveworks/flux/common/data"
 	"github.com/weaveworks/flux/common/store"
 	"github.com/weaveworks/flux/common/store/inmem"
 )
@@ -22,13 +21,13 @@ func doRequest(t *testing.T, st store.Store, url string) *httptest.ResponseRecor
 	return resp
 }
 
-var testService = data.Service{
+var testService = store.Service{
 	Address:  "1.2.3.4",
 	Port:     1234,
 	Protocol: "tcp",
 }
 
-var testInstance = data.Instance{
+var testInstance = store.Instance{
 	ContainerRule: "group",
 	Address:       "1.2.3.4",
 	Port:          12345,

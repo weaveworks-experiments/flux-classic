@@ -5,7 +5,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/weaveworks/flux/common/data"
 	"github.com/weaveworks/flux/common/store"
 )
 
@@ -34,7 +33,7 @@ func TestParseAddress(t *testing.T) {
 
 	svc, err = parseAddress("192.168.45.76:8000")
 	require.NoError(t, err)
-	require.Equal(t, data.Service{
+	require.Equal(t, store.Service{
 		Address:  "192.168.45.76",
 		Port:     8000,
 		Protocol: "",
@@ -67,7 +66,7 @@ func TestServiceSelect(t *testing.T) {
 	spec := specs[0]
 	require.NotNil(t, spec)
 	require.Equal(t, DEFAULT_GROUP, spec.Name)
-	require.Equal(t, data.Selector(map[string]string{
+	require.Equal(t, store.Selector(map[string]string{
 		"image": "repo/image",
 	}), spec.Selector)
 }

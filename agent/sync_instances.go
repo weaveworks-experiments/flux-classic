@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/weaveworks/flux/common/daemon"
-	"github.com/weaveworks/flux/common/data"
 	"github.com/weaveworks/flux/common/store"
 
 	log "github.com/Sirupsen/logrus"
@@ -180,7 +179,7 @@ func (si *syncInstances) syncInstances(svc *service) error {
 	return nil
 }
 
-func (si *syncInstances) owns(inst data.Instance) bool {
+func (si *syncInstances) owns(inst store.Instance) bool {
 	return si.hostIP == inst.Host.IPAddress
 }
 
@@ -207,8 +206,8 @@ func instanceNameFor(c *docker.Container) string {
 	return c.ID
 }
 
-func (si *syncInstances) extractInstance(spec data.ContainerRule, svc data.Service, container *docker.Container) (data.Instance, bool) {
-	var inst data.Instance
+func (si *syncInstances) extractInstance(spec store.ContainerRule, svc store.Service, container *docker.Container) (store.Instance, bool) {
+	var inst store.Instance
 	if !spec.Includes(containerLabels{container}) {
 		return inst, false
 	}
@@ -216,11 +215,11 @@ func (si *syncInstances) extractInstance(spec data.ContainerRule, svc data.Servi
 	ipAddress, port := si.getAddress(spec, svc, container)
 	if port == 0 {
 		log.Infof(`Cannot extract address for instance, from container '%s'`, container.ID)
-		inst.State = data.NOADDR
+		inst.State = store.NOADDR
 	} else {
 		inst.Address = ipAddress
 		inst.Port = port
-		inst.State = data.LIVE
+		inst.State = store.LIVE
 	}
 
 	labels := map[string]string{
@@ -235,7 +234,7 @@ func (si *syncInstances) extractInstance(spec data.ContainerRule, svc data.Servi
 		labels["env."+kv[0]] = kv[1]
 	}
 	inst.Labels = labels
-	inst.Host = data.Host{IPAddress: si.hostIP}
+	inst.Host = store.Host{IPAddress: si.hostIP}
 	return inst, true
 }
 
@@ -266,7 +265,7 @@ container is using the host's networking stack, so we should use the
 host IP address.
 
 */
-func (si *syncInstances) getAddress(spec data.ContainerRule, svc data.Service, container *docker.Container) (string, int) {
+func (si *syncInstances) getAddress(spec store.ContainerRule, svc store.Service, container *docker.Container) (string, int) {
 	if svc.InstancePort == 0 {
 		return "", 0
 	}
@@ -324,7 +323,7 @@ func envValue(env []string, key string) string {
 	return ""
 }
 
-func (si *syncInstances) processHostChange(change data.HostChange) {
+func (si *syncInstances) processHostChange(change store.HostChange) {
 	// TODO: if the host has been removed, mark the instances as dubious, and schedule something to delete them if that's still the case in now + T.
 	action := "arrived"
 	if change.HostDeparted {

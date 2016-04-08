@@ -6,7 +6,6 @@ import (
 	log "github.com/Sirupsen/logrus"
 
 	"github.com/weaveworks/flux/common/daemon"
-	"github.com/weaveworks/flux/common/data"
 	"github.com/weaveworks/flux/common/store"
 )
 
@@ -50,7 +49,7 @@ func translateService(svc *store.ServiceInfo) *Service {
 
 	insts := []Instance{}
 	for _, instance := range svc.Instances {
-		if instance.State != data.LIVE {
+		if instance.State != store.LIVE {
 			continue // try next instance
 		}
 

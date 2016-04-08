@@ -15,7 +15,7 @@ import (
 
 	"github.com/weaveworks/flux/balancer/model"
 	"github.com/weaveworks/flux/common/daemon"
-	"github.com/weaveworks/flux/common/data"
+	"github.com/weaveworks/flux/common/store"
 	"github.com/weaveworks/flux/common/store/inmem"
 )
 
@@ -78,7 +78,7 @@ func TestBalancerAgent(t *testing.T) {
 	require.Nil(t, err)
 
 	// Add an initial service with no instances:
-	require.Nil(t, cf.store.AddService("service1", data.Service{
+	require.Nil(t, cf.store.AddService("service1", store.Service{
 		Protocol: "http",
 		Address:  "1.2.3.4",
 	}))
@@ -89,18 +89,18 @@ func TestBalancerAgent(t *testing.T) {
 
 	// Add an instance to the service:
 	require.Nil(t, cf.store.AddInstance("service1", "inst1",
-		data.Instance{State: data.LIVE, Address: "5.6.7.8", Port: 1}))
+		store.Instance{State: store.LIVE, Address: "5.6.7.8", Port: 1}))
 	<-cf.generated
 	requireFile(t, cf.filename, "service1: (inst1, 5.6.7.8:1)")
 
 	// And another instance:
 	require.Nil(t, cf.store.AddInstance("service1", "inst2",
-		data.Instance{State: data.LIVE, Address: "9.10.11.12", Port: 2}))
+		store.Instance{State: store.LIVE, Address: "9.10.11.12", Port: 2}))
 	<-cf.generated
 	requireFile(t, cf.filename, "service1: (inst1, 5.6.7.8:1) (inst2, 9.10.11.12:2)")
 
 	// Add another service:
-	require.Nil(t, cf.store.AddService("service2", data.Service{
+	require.Nil(t, cf.store.AddService("service2", store.Service{
 		Protocol: "http",
 		Address:  "13.14.15.16",
 	}))
@@ -138,7 +138,7 @@ func TestBadTemplate(t *testing.T) {
 	require.Nil(t, err)
 
 	// Add an initial service with no instances:
-	require.Nil(t, cf.store.AddService("service1", data.Service{
+	require.Nil(t, cf.store.AddService("service1", store.Service{
 		Protocol: "http",
 		Address:  "1.2.3.4",
 	}))
@@ -157,7 +157,7 @@ func TestReloadCmd(t *testing.T) {
 	cf.template, err = template.New("template").Parse("ok")
 	require.Nil(t, err)
 
-	require.Nil(t, cf.store.AddService("service1", data.Service{
+	require.Nil(t, cf.store.AddService("service1", store.Service{
 		Protocol: "http",
 		Address:  "1.2.3.4",
 	}))

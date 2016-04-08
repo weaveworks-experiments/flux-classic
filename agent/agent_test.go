@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/weaveworks/flux/common/daemon"
-	"github.com/weaveworks/flux/common/data"
 	"github.com/weaveworks/flux/common/store"
 	"github.com/weaveworks/flux/common/store/inmem"
 
@@ -21,8 +20,8 @@ func TestSyncInstancesComponent(t *testing.T) {
 	mdc := newMockDockerClient()
 
 	addService := func(svc string) {
-		st.AddService(svc, data.Service{})
-		st.SetContainerRule(svc, GROUP, data.ContainerRule{
+		st.AddService(svc, store.Service{})
+		st.SetContainerRule(svc, GROUP, store.ContainerRule{
 			Selector: map[string]string{"image": "foo-image"},
 		})
 		mdc.addContainer(&docker.Container{

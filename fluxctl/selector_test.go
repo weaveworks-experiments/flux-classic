@@ -3,12 +3,12 @@ package main
 import (
 	"testing"
 
-	"github.com/weaveworks/flux/common/data"
-
 	"github.com/stretchr/testify/require"
+
+	"github.com/weaveworks/flux/common/store"
 )
 
-func sel(kv []string) data.Selector {
+func sel(kv []string) store.Selector {
 	m := make(map[string]string)
 	if len(kv)%2 != 0 {
 		panic("Expected sel(k, v, ...)")
@@ -16,7 +16,7 @@ func sel(kv []string) data.Selector {
 	for i := 0; i < len(kv); i += 2 {
 		m[kv[i]] = kv[i+1]
 	}
-	return data.Selector(m)
+	return store.Selector(m)
 }
 
 func testSel(t *testing.T, s selector, kv ...string) {

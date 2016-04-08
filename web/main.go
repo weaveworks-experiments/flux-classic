@@ -18,7 +18,7 @@ func main() {
 	log.Println(version.Banner())
 	prom := os.Getenv("PROMETHEUS_ADDRESS")
 	if prom == "" {
-		prom = "http://localhost:9090"
+		log.Fatal("PROMETHEUS_ADDRESS environment variable not set")
 	}
 
 	store, err := etcdstore.NewFromEnv()

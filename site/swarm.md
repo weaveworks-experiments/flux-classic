@@ -167,6 +167,8 @@ HOSTS
 
 SERVICES
 hello
+  Address: 10.128.0.1:80
+  Protocol: http
   RULES
     default {"image":"weaveworks/hello-world"}
   INSTANCES

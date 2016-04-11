@@ -50,6 +50,8 @@ HOSTS
 
 SERVICES
 hello
+  Address: 10.128.0.1:80
+  Protocol: http
   RULES
     default {"image":"tutum/hello-world"}
   INSTANCES
@@ -60,11 +62,13 @@ hello
 
 At the top there is a list of hosts known to tbe running fluxd.
 
-After the hosts are the services. Here there is a single service, with
-the name `hello`; under that that are the selection rules (this one
-indicates that containers using the image `"tutum/hello-world"` should
-be selected for the `hello` service). Last, for each service, is a
-list of instances, each with its address and state.
+After the hosts are the details of each services. Here there is a
+single service with the name `hello`.  It is accessed using http on
+port 80 of the floating IP address 10.128.0.1.  Under that that are
+the selection rules (this one indicates that containers using the
+image `"tutum/hello-world"` should be selected for the `hello`
+service). Last, for each service, is a list of instances, each with
+its address and state.
 
 `live` here means the instance is on-line. Other states may indicate
 problems with the instance; for example `no address` means the
@@ -167,7 +171,7 @@ Usage:
 Flags:
   -f, --format="": format each service with the go template expression given
       --format-rule="": format each rule with the go template expression given (implies --verbose)
-  -v, --verbose[=false]: show the list of selection rules for each service
+  -v, --verbose[=false]: show the details of each service
 ```
 
 You can also query for instances, of a particular service or of any

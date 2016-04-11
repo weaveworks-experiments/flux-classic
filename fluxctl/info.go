@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	//	"text/tabwriter"
-	//	"text/template"
 
 	"github.com/spf13/cobra"
 
@@ -67,7 +65,18 @@ func (opts *infoOpts) run(_ *cobra.Command, args []string) error {
 }
 
 func printService(out io.Writer, svc *store.ServiceInfo) error {
-	fmt.Fprintf(out, "%s\n", svc.Name)
+	fmt.Fprintln(out, svc.Name)
+
+	if svc.Address != "" {
+		fmt.Fprintf(out, "  Address: %s:%d\n", svc.Address, svc.Port)
+	}
+	if svc.Address == "" || svc.InstancePort != svc.Port {
+		fmt.Fprintf(out, "  InstancePort: %d\n", svc.InstancePort)
+	}
+	if svc.Protocol != "" {
+		fmt.Fprintf(out, "  Protocol: %s\n", svc.Protocol)
+	}
+
 	fmt.Fprint(out, "  RULES\n")
 	for _, rule := range svc.ContainerRules {
 		selectBytes, err := json.Marshal(rule.Selector)

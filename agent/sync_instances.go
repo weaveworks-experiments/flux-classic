@@ -46,7 +46,7 @@ type syncInstancesConfig struct {
 
 type syncInstances struct {
 	syncInstancesConfig
-	daemon.ErrorSink
+	errs       daemon.ErrorSink
 	services   map[string]*service
 	containers map[string]*docker.Container
 }
@@ -55,7 +55,7 @@ func (conf syncInstancesConfig) StartFunc() daemon.StartFunc {
 	return daemon.SimpleComponent(func(stop <-chan struct{}, errs daemon.ErrorSink) {
 		si := syncInstances{
 			syncInstancesConfig: conf,
-			ErrorSink:           errs,
+			errs:                errs,
 		}
 
 		si.containerUpdatesReset <- struct{}{}
@@ -80,7 +80,7 @@ func (si *syncInstances) processContainerUpdate(update ContainerUpdate) {
 	if update.Reset {
 		si.containers = update.Containers
 		for _, svc := range si.services {
-			si.Post(si.syncInstances(svc))
+			si.errs.Post(si.syncInstances(svc))
 		}
 
 		return
@@ -89,10 +89,10 @@ func (si *syncInstances) processContainerUpdate(update ContainerUpdate) {
 	for id, cont := range update.Containers {
 		if cont != nil {
 			si.containers[id] = cont
-			si.Post(si.addContainer(cont))
+			si.errs.Post(si.addContainer(cont))
 		} else if cont := si.containers[id]; cont != nil {
 			delete(si.containers, id)
-			si.Post(si.removeContainer(cont))
+			si.errs.Post(si.removeContainer(cont))
 		}
 	}
 }
@@ -130,7 +130,7 @@ func (si *syncInstances) processServiceUpdate(update store.ServiceUpdate) {
 	for name, svcInfo := range update.Services {
 		if svcInfo != nil {
 			svc := si.redefineService(svcInfo)
-			si.Post(si.syncInstances(svc))
+			si.errs.Post(si.syncInstances(svc))
 		} else if svc := si.containers[name]; svc != nil {
 			delete(si.services, name)
 		}

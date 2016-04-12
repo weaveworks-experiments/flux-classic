@@ -109,7 +109,7 @@ func setup(st store.Store, hostIP, netmode string) (h harness) {
 			network: netmode,
 			hostIP:  hostIP,
 		},
-		ErrorSink: daemon.NewErrorSink(),
+		errs: daemon.NewErrorSink(),
 	}
 	h.serviceUpdates = make(chan store.ServiceUpdate)
 	return
@@ -118,12 +118,12 @@ func setup(st store.Store, hostIP, netmode string) (h harness) {
 func (h *harness) watchServices() {
 	h.watchingServices = store.WatchServicesStartFunc(h.Store,
 		store.QueryServiceOptions{WithContainerRules: true},
-		h.serviceUpdates)(h.si.ErrorSink)
+		h.serviceUpdates)(h.si.errs)
 }
 
 func (h *harness) stop(t *testing.T) {
 	h.watchingServices.Stop()
-	require.Empty(t, h.si.ErrorSink)
+	require.Empty(t, h.si.errs)
 }
 
 func (h *harness) addGroup(serviceName string, labels ...string) {

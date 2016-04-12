@@ -71,7 +71,7 @@ func printService(out io.Writer, svc *store.ServiceInfo) error {
 		fmt.Fprintf(out, "  Address: %s\n", svc.Address)
 	}
 	if svc.InstancePort != 0 {
-		fmt.Fprintf(out, "  InstancePort: %d\n", svc.InstancePort)
+		fmt.Fprintf(out, "  Instance port: %d\n", svc.InstancePort)
 	}
 	if svc.Protocol != "" {
 		fmt.Fprintf(out, "  Protocol: %s\n", svc.Protocol)

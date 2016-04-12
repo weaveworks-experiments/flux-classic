@@ -66,10 +66,9 @@ func translateService(svc *store.ServiceInfo) *Service {
 		}
 
 		insts = append(insts, Instance{
-			Name:  instance.Name,
-			Group: instance.ContainerRule,
-			IP:    ip,
-			Port:  instance.Port,
+			Name: instance.Name,
+			IP:   ip,
+			Port: instance.Port,
 		})
 	}
 

@@ -72,10 +72,9 @@ func TestServices(t *testing.T) {
 		Port:     port,
 		Instances: []model.Instance{
 			{
-				Name:  "foo",
-				Group: "bar",
-				IP:    net.ParseIP("127.0.0.1"),
-				Port:  10000,
+				Name: "foo",
+				IP:   net.ParseIP("127.0.0.1"),
+				Port: 10000,
 			},
 		},
 	}
@@ -84,10 +83,9 @@ func TestServices(t *testing.T) {
 
 	insts := []model.Instance{
 		{
-			Name:  "foo",
-			Group: "bar",
-			IP:    net.ParseIP("127.0.0.1"),
-			Port:  10001,
+			Name: "foo",
+			IP:   net.ParseIP("127.0.0.1"),
+			Port: 10001,
 		},
 	}
 

@@ -45,10 +45,9 @@ func TestForward(t *testing.T) {
 		Port:     8888,
 		Instances: []model.Instance{
 			{
-				Name:  "inst",
-				Group: "group",
-				IP:    laddr.IP,
-				Port:  laddr.Port,
+				Name: "inst",
+				IP:   laddr.IP,
+				Port: laddr.Port,
 			},
 		},
 	})

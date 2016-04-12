@@ -7,10 +7,9 @@ import (
 )
 
 type Instance struct {
-	Name  string
-	Group string
-	IP    net.IP
-	Port  int
+	Name string
+	IP   net.IP
+	Port int
 }
 
 func (inst *Instance) TCPAddr() *net.TCPAddr {
@@ -37,7 +36,7 @@ func (svc *Service) Summary() string {
 
 	comma := ""
 	for _, inst := range svc.Instances {
-		fmt.Fprintf(&buf, "%s%s(%s) %s", comma, inst.Name, inst.Group, inst.TCPAddr())
+		fmt.Fprintf(&buf, "%s%s %s", comma, inst.Name, inst.TCPAddr())
 		comma = ", "
 	}
 
@@ -51,14 +50,13 @@ func (a *Service) Equal(b *Service) bool {
 	}
 
 	type instKey struct {
-		name  string
-		group string
-		ip    string
-		port  int
+		name string
+		ip   string
+		port int
 	}
 
 	key := func(i *Instance) instKey {
-		return instKey{i.Name, i.Group, string(i.IP), i.Port}
+		return instKey{i.Name, string(i.IP), i.Port}
 	}
 
 	m := make(map[instKey]struct{})

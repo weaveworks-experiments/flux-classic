@@ -57,10 +57,9 @@ func wrapShim(shim shimFunc, target *net.TCPAddr, t *testing.T) *shimWrapper {
 						Port:     8888,
 					},
 					Instance: &model.Instance{
-						Name:  "inst",
-						Group: "default",
-						IP:    laddr.IP,
-						Port:  laddr.Port,
+						Name: "inst",
+						IP:   laddr.IP,
+						Port: laddr.Port,
 					},
 					Inbound: inbound.RemoteAddr().(*net.TCPAddr),
 				}

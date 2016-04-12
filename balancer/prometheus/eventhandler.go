@@ -58,9 +58,9 @@ func (h *EventHandler) start(listenAddr string) error {
 	h.connections = prom.NewCounterVec(prom.CounterOpts{
 		Name: "flux_connections_total",
 		Help: "Number of TCP connections established",
-	}, []string{"individual", "group", "src", "dst", "protocol"})
+	}, []string{"individual", "src", "dst", "protocol"})
 
-	httpLabels := []string{"individual", "group", "src", "dst", "method", "code"}
+	httpLabels := []string{"individual", "src", "dst", "method", "code"}
 
 	h.http = prom.NewCounterVec(prom.CounterOpts{
 		Name: "flux_http_total",
@@ -120,19 +120,18 @@ func (h *EventHandler) collectors() []prom.Collector {
 }
 
 func (h *EventHandler) Connection(ev *events.Connection) {
-	h.connections.WithLabelValues(ev.Instance.Name, ev.Instance.Group, ev.Inbound.IP.String(), ev.Instance.IP.String(), ev.Service.Protocol).Inc()
+	h.connections.WithLabelValues(ev.Instance.Name, ev.Inbound.IP.String(), ev.Instance.IP.String(), ev.Service.Protocol).Inc()
 }
 
 func (h *EventHandler) HttpExchange(ev *events.HttpExchange) {
 	instName := ev.Instance.Name
-	group := ev.Instance.Group
 	src := ev.Inbound.IP.String()
 	dst := ev.Instance.IP.String()
 	method := ev.Request.Method
 	code := strconv.Itoa(ev.Response.StatusCode)
-	h.http.WithLabelValues(instName, group, src, dst, method, code).Inc()
-	h.httpRoundtrip.WithLabelValues(instName, group, src, dst, method, code).Observe(float64(ev.RoundTrip / time.Microsecond))
-	h.httpTotal.WithLabelValues(instName, group, src, dst, method, code).Observe(float64(ev.TotalTime / time.Microsecond))
+	h.http.WithLabelValues(instName, src, dst, method, code).Inc()
+	h.httpRoundtrip.WithLabelValues(instName, src, dst, method, code).Observe(float64(ev.RoundTrip / time.Microsecond))
+	h.httpTotal.WithLabelValues(instName, src, dst, method, code).Observe(float64(ev.TotalTime / time.Microsecond))
 }
 
 const TTL = 5 * time.Minute

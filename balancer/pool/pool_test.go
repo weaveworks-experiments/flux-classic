@@ -19,10 +19,9 @@ func TestPoolOfOne(t *testing.T) {
 	require.Nil(t, pool.PickInstance())
 
 	instance := model.Instance{
-		Name:  "foo instance",
-		Group: "bar group",
-		IP:    net.IP{192, 168, 3, 135},
-		Port:  32768,
+		Name: "foo instance",
+		IP:   net.IP{192, 168, 3, 135},
+		Port: 32768,
 	}
 
 	pool.UpdateInstances([]model.Instance{instance})
@@ -45,16 +44,14 @@ func TestFailAndRetryInstance(t *testing.T) {
 
 	instances := []model.Instance{
 		model.Instance{
-			Name:  "instance one",
-			Group: "bar group",
-			IP:    net.IP{192, 168, 3, 101},
-			Port:  32768,
+			Name: "instance one",
+			IP:   net.IP{192, 168, 3, 101},
+			Port: 32768,
 		},
 		model.Instance{
-			Name:  "instance two",
-			Group: "bar group",
-			IP:    net.IP{192, 168, 3, 135},
-			Port:  32761,
+			Name: "instance two",
+			IP:   net.IP{192, 168, 3, 135},
+			Port: 32761,
 		},
 	}
 
@@ -90,10 +87,9 @@ func TestRetryBackoff(t *testing.T) {
 	require.Nil(t, pool.PickInstance())
 
 	instance := model.Instance{
-		Name:  "instance one",
-		Group: "bar group",
-		IP:    net.IP{192, 168, 3, 101},
-		Port:  32768,
+		Name: "instance one",
+		IP:   net.IP{192, 168, 3, 101},
+		Port: 32768,
 	}
 
 	pool.UpdateInstances([]model.Instance{instance})
@@ -120,10 +116,9 @@ func TestRetryKeep(t *testing.T) {
 	require.Nil(t, pool.PickInstance())
 
 	instance := model.Instance{
-		Name:  "janky instance",
-		Group: "what is a group",
-		IP:    net.IP{192, 168, 35, 10},
-		Port:  32716,
+		Name: "janky instance",
+		IP:   net.IP{192, 168, 35, 10},
+		Port: 32716,
 	}
 
 	pool.UpdateInstances([]model.Instance{instance})

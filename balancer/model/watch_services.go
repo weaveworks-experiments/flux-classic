@@ -37,14 +37,19 @@ func WatchServicesStartFunc(st store.Store, updates chan<- ServiceUpdate) daemon
 }
 
 func translateService(svc *store.ServiceInfo) *Service {
-	var ip net.IP
-	if svc.Address != "" {
-		ip = net.ParseIP(svc.Address)
-		if ip == nil {
+	var (
+		ip   net.IP
+		port int
+	)
+
+	if svc.Address != nil {
+		if svc.Address.IP == nil {
 			log.Errorf("Bad address \"%s\" for service %s",
 				svc.Address, svc.Name)
 			return nil
 		}
+		ip = svc.Address.IP
+		port = svc.Address.Port
 	}
 
 	insts := []Instance{}
@@ -72,7 +77,7 @@ func translateService(svc *store.ServiceInfo) *Service {
 		Name:      svc.Name,
 		Protocol:  svc.Protocol,
 		IP:        ip,
-		Port:      svc.Port,
+		Port:      port,
 		Instances: insts,
 	}
 }

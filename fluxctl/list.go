@@ -19,11 +19,10 @@ type listOpts struct {
 }
 
 const defaultFormat = "{{.Name}}"
-const defaultVerboseFormat = `{{.Name}}
-{{if .Address}}  Address: {{.Address}}:{{.Port}}
-{{end}}{{if not (and .Address (eq .InstancePort .Port))}}{{"\n"}}  InstancePort: {{.InstancePort}}
-{{end}}{{if .Protocol}}  Protocol: {{.Protocol}}
-{{end}}`
+const defaultVerboseFormat = `{{.Name}}{{if .Address}}
+  Address: {{.Address}}{{end}}{{if (ne .InstancePort 0)}}
+  Instance port: {{.InstancePort}}{{end}}{{if .Protocol}}
+  Protocol: {{.Protocol}}{{end}}`
 
 func (opts *listOpts) makeCommand() *cobra.Command {
 	cmd := &cobra.Command{

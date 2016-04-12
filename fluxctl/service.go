@@ -41,7 +41,7 @@ func parseAddress(address string) (store.Service, error) {
 	}
 
 	var err error
-	svc.Address, svc.Port, err = netutil.SplitAddressPort(address, "", false)
+	svc.Address, err = netutil.ParseTCPAddr(address, "", false)
 	return svc, err
 }
 
@@ -52,12 +52,16 @@ func (opts *addOpts) run(cmd *cobra.Command, args []string) error {
 	serviceName := args[0]
 
 	svc, err := parseAddress(opts.address)
+	if err != nil {
+		return fmt.Errorf(`Did not understand the address supplied "%s"; expected to be ipaddress:port`,
+			opts.address)
+	}
 
 	if opts.protocol != "" {
 		svc.Protocol = opts.protocol
 	}
-	if opts.instancePort == 0 {
-		svc.InstancePort = svc.Port
+	if opts.instancePort == 0 && svc.Address != nil {
+		svc.InstancePort = svc.Address.Port
 	} else {
 		svc.InstancePort = opts.instancePort
 	}

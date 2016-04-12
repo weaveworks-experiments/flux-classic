@@ -5,30 +5,44 @@ import (
 	"net"
 )
 
-// Check that an "address:port" string looks reasonable, and split it
-// into and address and port, resolving the port.  network is a go net
+// Check that a string can be parsed as "ipaddress:port", and return
+// the net.TCPAddr made from those parts if so.
+func ParseTCPAddr(addrPort, network string, emptyAddrOk bool) (*net.TCPAddr, error) {
+	ip, port, err := SplitIPAddressPort(addrPort, network, emptyAddrOk)
+	if err != nil {
+		return nil, err
+	}
+	return &net.TCPAddr{
+		IP:   ip,
+		Port: port,
+	}, nil
+}
+
+// Check that an "ipaddress:port" string looks reasonable, and split it
+// into an IP address and port, resolving the port.  network is a go net
 // pkg network type identifier.
-func SplitAddressPort(addrPort string, network string, emptyAddrOk bool) (string, int, error) {
+func SplitIPAddressPort(addrPort string, network string, emptyAddrOk bool) (net.IP, int, error) {
+	var ip net.IP
 	addr, port, err := net.SplitHostPort(addrPort)
 	if err != nil {
-		return "", 0, err
+		return nil, 0, err
 	}
 
 	if addr == "" {
 		if !emptyAddrOk {
-			return "", 0, fmt.Errorf("expected IP address in '%s'",
+			return nil, 0, fmt.Errorf("expected IP address in '%s'",
 				addrPort)
 		}
-	} else if net.ParseIP(addr) == nil {
-		return "", 0, fmt.Errorf("bad IP address in '%s'", addrPort)
+	} else if ip = net.ParseIP(addr); ip == nil {
+		return nil, 0, fmt.Errorf("bad IP address in '%s'", addrPort)
 	}
 
 	portNum, err := net.LookupPort(network, port)
 	if err != nil {
-		return "", 0, err
+		return nil, 0, err
 	}
 
-	return addr, portNum, nil
+	return ip, portNum, nil
 }
 
 // Check that a "host:port" string looks reasonable, and split it

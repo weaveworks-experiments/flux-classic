@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -22,8 +23,7 @@ func doRequest(t *testing.T, st store.Store, url string) *httptest.ResponseRecor
 }
 
 var testService = store.Service{
-	Address:  "1.2.3.4",
-	Port:     1234,
+	Address:  &net.TCPAddr{net.ParseIP("1.2.3.4"), 4321, ""},
 	Protocol: "tcp",
 }
 

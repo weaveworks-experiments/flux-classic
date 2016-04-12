@@ -67,10 +67,10 @@ func (opts *infoOpts) run(_ *cobra.Command, args []string) error {
 func printService(out io.Writer, svc *store.ServiceInfo) error {
 	fmt.Fprintln(out, svc.Name)
 
-	if svc.Address != "" {
-		fmt.Fprintf(out, "  Address: %s:%d\n", svc.Address, svc.Port)
+	if svc.Address != nil {
+		fmt.Fprintf(out, "  Address: %s\n", svc.Address)
 	}
-	if svc.Address == "" || svc.InstancePort != svc.Port {
+	if svc.InstancePort != 0 {
 		fmt.Fprintf(out, "  InstancePort: %d\n", svc.InstancePort)
 	}
 	if svc.Protocol != "" {

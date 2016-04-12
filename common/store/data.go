@@ -1,5 +1,9 @@
 package store
 
+import (
+	"net"
+)
+
 type Selector map[string]string
 
 func (sel Selector) Empty() bool {
@@ -22,10 +26,9 @@ type ContainerRule struct {
 }
 
 type Service struct {
-	Address      string `json:"address,omitempty"`
-	Port         int    `json:"port,omitempty"`
-	InstancePort int    `json:"instancePort,omitempty"`
-	Protocol     string `json:"protocol,omitempty"`
+	Address      *net.TCPAddr `json:"address,omitempty"`
+	InstancePort int          `json:"instancePort,omitempty"`
+	Protocol     string       `json:"protocol,omitempty"`
 }
 
 type InstanceState string

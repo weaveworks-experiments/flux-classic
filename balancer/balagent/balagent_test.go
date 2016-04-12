@@ -3,6 +3,7 @@ package balagent
 import (
 	"fmt"
 	"io/ioutil"
+	"net"
 	"os"
 	"path"
 	"sort"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/weaveworks/flux/balancer/model"
 	"github.com/weaveworks/flux/common/daemon"
+	"github.com/weaveworks/flux/common/netutil"
 	"github.com/weaveworks/flux/common/store"
 	"github.com/weaveworks/flux/common/store/inmem"
 )
@@ -62,6 +64,11 @@ func cleanup(cf *BalancerAgentConfig, t *testing.T) {
 	require.Nil(t, os.RemoveAll(path.Dir(cf.filename)))
 }
 
+func mkAddr(addrPort string) *net.TCPAddr {
+	addr, _ := netutil.ParseTCPAddr(addrPort, "", false)
+	return addr
+}
+
 func TestBalancerAgent(t *testing.T) {
 	cf := newBalancerAgentConfig(t)
 	defer cleanup(cf, t)
@@ -80,7 +87,7 @@ func TestBalancerAgent(t *testing.T) {
 	// Add an initial service with no instances:
 	require.Nil(t, cf.store.AddService("service1", store.Service{
 		Protocol: "http",
-		Address:  "1.2.3.4",
+		Address:  mkAddr("1.2.3.4:80"),
 	}))
 
 	comp, errs := cf.start(t)
@@ -102,7 +109,7 @@ func TestBalancerAgent(t *testing.T) {
 	// Add another service:
 	require.Nil(t, cf.store.AddService("service2", store.Service{
 		Protocol: "http",
-		Address:  "13.14.15.16",
+		Address:  nil,
 	}))
 	<-cf.generated
 	requireFile(t, cf.filename, `service1: (inst1, 5.6.7.8:1) (inst2, 9.10.11.12:2)
@@ -140,7 +147,7 @@ func TestBadTemplate(t *testing.T) {
 	// Add an initial service with no instances:
 	require.Nil(t, cf.store.AddService("service1", store.Service{
 		Protocol: "http",
-		Address:  "1.2.3.4",
+		Address:  mkAddr("1.2.3.4:80"),
 	}))
 
 	comp, errs := cf.start(t)
@@ -159,7 +166,7 @@ func TestReloadCmd(t *testing.T) {
 
 	require.Nil(t, cf.store.AddService("service1", store.Service{
 		Protocol: "http",
-		Address:  "1.2.3.4",
+		Address:  mkAddr("1.2.3.4:90"),
 	}))
 
 	tmp := cf.filename + "-copy"

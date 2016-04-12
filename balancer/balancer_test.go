@@ -1,6 +1,7 @@
 package balancer
 
 import (
+	"net"
 	"strings"
 	"testing"
 	"time"
@@ -56,8 +57,10 @@ func TestEtcdRestart(t *testing.T) {
 	// Add a service and instance, and check that the balancer
 	// heard about it
 	require.Nil(t, st.AddService("svc", store.Service{
-		Address:  "127.42.0.1",
-		Port:     8888,
+		Address: &net.TCPAddr{
+			IP:   net.ParseIP("127.42.0.1"),
+			Port: 8888,
+		},
 		Protocol: "tcp",
 	}))
 	require.False(t, (<-done).Reset)

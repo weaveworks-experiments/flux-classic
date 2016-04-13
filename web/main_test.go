@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/weaveworks/flux/common/netutil"
 	"github.com/weaveworks/flux/common/store"
 	"github.com/weaveworks/flux/common/store/inmem"
 )
@@ -23,7 +24,7 @@ func doRequest(t *testing.T, st store.Store, url string) *httptest.ResponseRecor
 }
 
 var testService = store.Service{
-	Address:  &net.TCPAddr{net.ParseIP("1.2.3.4"), 4321, ""},
+	Address:  &netutil.IPPort{net.ParseIP("1.2.3.4"), 4321},
 	Protocol: "tcp",
 }
 

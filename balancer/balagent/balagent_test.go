@@ -64,11 +64,6 @@ func cleanup(cf *BalancerAgentConfig, t *testing.T) {
 	require.Nil(t, os.RemoveAll(path.Dir(cf.filename)))
 }
 
-func mkAddr(addrPort string) *net.TCPAddr {
-	addr, _ := netutil.ParseTCPAddr(addrPort, "", false)
-	return addr
-}
-
 func TestBalancerAgent(t *testing.T) {
 	cf := newBalancerAgentConfig(t)
 	defer cleanup(cf, t)
@@ -87,7 +82,7 @@ func TestBalancerAgent(t *testing.T) {
 	// Add an initial service with no instances:
 	require.Nil(t, cf.store.AddService("service1", store.Service{
 		Protocol: "http",
-		Address:  mkAddr("1.2.3.4:80"),
+		Address:  &netutil.IPPort{net.ParseIP("1.2.3.4"), 80},
 	}))
 
 	comp, errs := cf.start(t)
@@ -147,7 +142,7 @@ func TestBadTemplate(t *testing.T) {
 	// Add an initial service with no instances:
 	require.Nil(t, cf.store.AddService("service1", store.Service{
 		Protocol: "http",
-		Address:  mkAddr("1.2.3.4:80"),
+		Address:  &netutil.IPPort{net.ParseIP("1.2.3.4"), 80},
 	}))
 
 	comp, errs := cf.start(t)
@@ -166,7 +161,7 @@ func TestReloadCmd(t *testing.T) {
 
 	require.Nil(t, cf.store.AddService("service1", store.Service{
 		Protocol: "http",
-		Address:  mkAddr("1.2.3.4:90"),
+		Address:  &netutil.IPPort{net.ParseIP("1.2.3.4"), 90},
 	}))
 
 	tmp := cf.filename + "-copy"

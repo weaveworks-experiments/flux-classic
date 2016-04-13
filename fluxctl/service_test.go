@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/weaveworks/flux/common/netutil"
 	"github.com/weaveworks/flux/common/store"
 )
 
@@ -35,10 +36,7 @@ func TestParseAddress(t *testing.T) {
 	svc, err = parseAddress("192.168.45.76:8000")
 	require.NoError(t, err)
 	require.Equal(t, store.Service{
-		Address: &net.TCPAddr{
-			IP:   net.ParseIP("192.168.45.76"),
-			Port: 8000,
-		},
+		Address:  &netutil.IPPort{net.ParseIP("192.168.45.76"), 8000},
 		Protocol: "",
 	}, svc)
 }
@@ -50,7 +48,7 @@ func TestServiceAddress(t *testing.T) {
 	services := allServices(t, st)
 	require.Len(t, services, 1)
 	require.Equal(t, "foo", services[0].Name)
-	require.Equal(t, &net.TCPAddr{net.ParseIP("10.3.4.5"), 8000, ""}, services[0].Address)
+	require.Equal(t, &netutil.IPPort{net.ParseIP("10.3.4.5"), 8000}, services[0].Address)
 	require.Equal(t, 7777, services[0].InstancePort)
 }
 

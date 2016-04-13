@@ -1,7 +1,7 @@
 package store
 
 import (
-	"net"
+	"github.com/weaveworks/flux/common/netutil"
 )
 
 type Selector map[string]string
@@ -26,9 +26,9 @@ type ContainerRule struct {
 }
 
 type Service struct {
-	Address      *net.TCPAddr `json:"address,omitempty"`
-	InstancePort int          `json:"instancePort,omitempty"`
-	Protocol     string       `json:"protocol,omitempty"`
+	Address      *netutil.IPPort `json:"address,omitempty"`
+	InstancePort int             `json:"instancePort,omitempty"`
+	Protocol     string          `json:"protocol,omitempty"`
 }
 
 type InstanceState string

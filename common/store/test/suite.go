@@ -40,13 +40,8 @@ func testPing(s store.Store, t *testing.T) {
 	require.Nil(t, s.Ping())
 }
 
-func mkAddr(addrPort string) *net.TCPAddr {
-	addr, _ := netutil.ParseTCPAddr(addrPort, "", false)
-	return addr
-}
-
 var testService = store.Service{
-	Address:  mkAddr("1.2.3.4:1234"),
+	Address:  &netutil.IPPort{net.ParseIP("1.2.3.4"), 1234},
 	Protocol: "tcp",
 }
 

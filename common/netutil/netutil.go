@@ -3,19 +3,28 @@ package netutil
 import (
 	"fmt"
 	"net"
+	"strconv"
 )
 
-// Check that a string can be parsed as "ipaddress:port", and return
-// the net.TCPAddr made from those parts if so.
-func ParseTCPAddr(addrPort, network string, emptyAddrOk bool) (*net.TCPAddr, error) {
-	ip, port, err := SplitIPAddressPort(addrPort, network, emptyAddrOk)
-	if err != nil {
-		return nil, err
+type IPPort struct {
+	IP   net.IP
+	Port int
+}
+
+func (ipPort IPPort) String() string {
+	var ipStr string
+	if len(ipPort.IP) != 0 {
+		ipStr = ipPort.IP.String()
 	}
-	return &net.TCPAddr{
-		IP:   ip,
-		Port: port,
-	}, nil
+
+	return net.JoinHostPort(ipStr, strconv.Itoa(ipPort.Port))
+}
+
+// Check that a string can be parsed as "ipaddress:port", and return
+// the AddrPort made from those parts if so.
+func ParseIPPort(addrPort, network string, emptyAddrOk bool) (IPPort, error) {
+	ip, port, err := SplitIPAddressPort(addrPort, network, emptyAddrOk)
+	return IPPort{ip, port}, err
 }
 
 // Check that an "ipaddress:port" string looks reasonable, and split it

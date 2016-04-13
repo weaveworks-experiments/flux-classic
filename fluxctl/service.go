@@ -40,8 +40,8 @@ func parseAddress(address string) (store.Service, error) {
 		return svc, nil
 	}
 
-	var err error
-	svc.Address, err = netutil.ParseTCPAddr(address, "", false)
+	addr, err := netutil.ParseIPPort(address, "", false)
+	svc.Address = &addr
 	return svc, err
 }
 

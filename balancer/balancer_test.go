@@ -13,6 +13,7 @@ import (
 	"github.com/weaveworks/flux/balancer/model"
 	"github.com/weaveworks/flux/common/daemon"
 	"github.com/weaveworks/flux/common/etcdutil"
+	"github.com/weaveworks/flux/common/netutil"
 	"github.com/weaveworks/flux/common/store"
 	"github.com/weaveworks/flux/common/store/etcdstore"
 	"github.com/weaveworks/flux/common/test/embeddedetcd"
@@ -57,10 +58,7 @@ func TestEtcdRestart(t *testing.T) {
 	// Add a service and instance, and check that the balancer
 	// heard about it
 	require.Nil(t, st.AddService("svc", store.Service{
-		Address: &net.TCPAddr{
-			IP:   net.ParseIP("127.42.0.1"),
-			Port: 8888,
-		},
+		Address:  &netutil.IPPort{net.ParseIP("127.42.0.1"), 8888},
 		Protocol: "tcp",
 	}))
 	require.False(t, (<-done).Reset)

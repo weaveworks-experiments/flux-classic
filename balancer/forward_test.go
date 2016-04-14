@@ -14,6 +14,7 @@ import (
 	"github.com/weaveworks/flux/balancer/events"
 	"github.com/weaveworks/flux/balancer/model"
 	"github.com/weaveworks/flux/common/daemon"
+	"github.com/weaveworks/flux/common/netutil"
 )
 
 // Test that forward.go plugs everything together correctly, and
@@ -41,13 +42,11 @@ func TestForward(t *testing.T) {
 	}.start(&model.Service{
 		Name:     "service",
 		Protocol: "tcp",
-		IP:       net.ParseIP("127.42.0.1"),
-		Port:     8888,
+		Address:  &netutil.IPPort{net.ParseIP("127.42.0.1"), 8888},
 		Instances: []model.Instance{
 			{
-				Name: "inst",
-				IP:   laddr.IP,
-				Port: laddr.Port,
+				Name:    "inst",
+				Address: netutil.IPPort{laddr.IP, laddr.Port},
 			},
 		},
 	})

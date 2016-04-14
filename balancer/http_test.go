@@ -11,10 +11,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/weaveworks/flux/balancer/events"
 	"github.com/weaveworks/flux/balancer/model"
-
-	"github.com/stretchr/testify/require"
+	"github.com/weaveworks/flux/common/netutil"
 )
 
 type shimWrapper struct {
@@ -53,13 +54,11 @@ func wrapShim(shim shimFunc, target *net.TCPAddr, t *testing.T) *shimWrapper {
 					Service: &model.Service{
 						Name:     "service",
 						Protocol: "http",
-						IP:       net.ParseIP("127.42.0.1"),
-						Port:     8888,
+						Address:  &netutil.IPPort{net.ParseIP("127.42.0.1"), 8888},
 					},
 					Instance: &model.Instance{
-						Name: "inst",
-						IP:   laddr.IP,
-						Port: laddr.Port,
+						Name:    "inst",
+						Address: netutil.IPPort{laddr.IP, laddr.Port},
 					},
 					Inbound: inbound.RemoteAddr().(*net.TCPAddr),
 				}

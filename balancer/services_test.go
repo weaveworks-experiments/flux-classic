@@ -10,6 +10,7 @@ import (
 	"github.com/weaveworks/flux/balancer/events"
 	"github.com/weaveworks/flux/balancer/model"
 	"github.com/weaveworks/flux/common/daemon"
+	"github.com/weaveworks/flux/common/netutil"
 )
 
 func requireForwarding(t *testing.T, mipt *mockIPTables) {
@@ -68,13 +69,11 @@ func TestServices(t *testing.T) {
 	svc := model.Service{
 		Name:     "service",
 		Protocol: "tcp",
-		IP:       ip,
-		Port:     port,
+		Address:  &netutil.IPPort{ip, port},
 		Instances: []model.Instance{
 			{
-				Name: "foo",
-				IP:   net.ParseIP("127.0.0.1"),
-				Port: 10000,
+				Name:    "foo",
+				Address: netutil.IPPort{net.ParseIP("127.0.0.1"), 10000},
 			},
 		},
 	}
@@ -83,9 +82,8 @@ func TestServices(t *testing.T) {
 
 	insts := []model.Instance{
 		{
-			Name: "foo",
-			IP:   net.ParseIP("127.0.0.1"),
-			Port: 10001,
+			Name:    "foo",
+			Address: netutil.IPPort{net.ParseIP("127.0.0.1"), 10001},
 		},
 	}
 
@@ -100,28 +98,24 @@ func TestServices(t *testing.T) {
 	requireRejecting(t, &mipt)
 
 	// rejecting -> not forwarding
-	svc.IP = nil
-	svc.Port = 0
+	svc.Address = nil
 	update(svc, false)
 	requireNotForwarding(t, &mipt)
 
 	// not forwarding -> forwarding
-	svc.IP = ip
-	svc.Port = port
+	svc.Address = &netutil.IPPort{ip, port}
 	svc.Instances = insts
 	update(svc, false)
 	requireForwarding(t, &mipt)
 
 	// Now back the other way
 	// forwarding -> not forwarding
-	svc.IP = nil
-	svc.Port = 0
+	svc.Address = nil
 	update(svc, false)
 	requireNotForwarding(t, &mipt)
 
 	// not forwarding -> rejecting
-	svc.IP = ip
-	svc.Port = port
+	svc.Address = &netutil.IPPort{ip, port}
 	svc.Instances = nil
 	update(svc, false)
 	requireRejecting(t, &mipt)

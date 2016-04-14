@@ -20,6 +20,18 @@ func (ipPort IPPort) String() string {
 	return net.JoinHostPort(ipStr, strconv.Itoa(ipPort.Port))
 }
 
+func (ipPort *IPPort) TCPAddr() *net.TCPAddr {
+	if ipPort == nil {
+		return nil
+	} else {
+		return &net.TCPAddr{IP: ipPort.IP, Port: ipPort.Port}
+	}
+}
+
+func (a IPPort) Equal(b IPPort) bool {
+	return a.Port == b.Port && a.IP.Equal(b.IP)
+}
+
 // Check that a string can be parsed as "ipaddress:port", and return
 // the AddrPort made from those parts if so.
 func ParseIPPort(addrPort, network string, emptyAddrOk bool) (IPPort, error) {

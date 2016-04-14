@@ -178,7 +178,7 @@ func (svc *service) close() {
 // sophisticated rules later, if e.g., there are different kinds of
 // forwarding.
 func shouldForward(s *model.Service) bool {
-	return s.IP != nil && s.Port > 0
+	return s.Address != nil
 }
 
 // When a service shouldn't be forwarded
@@ -203,8 +203,8 @@ func (svc *service) startRejecting(s *model.Service) (serviceState, error) {
 	log.Info("rejecting service: ", s.Summary())
 	rule := []interface{}{
 		"-p", "tcp",
-		"-d", s.IP,
-		"--dport", s.Port,
+		"-d", s.Address.IP,
+		"--dport", s.Address.Port,
 		"-j", "REJECT",
 	}
 

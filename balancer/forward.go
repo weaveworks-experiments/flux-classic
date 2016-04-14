@@ -59,8 +59,8 @@ func (fc forwardingConfig) start(svc *model.Service) (serviceState, error) {
 
 	rule := []interface{}{
 		"-p", "tcp",
-		"-d", svc.IP,
-		"--dport", svc.Port,
+		"-d", svc.Address.IP,
+		"--dport", svc.Address.Port,
 		"-j", "DNAT",
 		"--to-destination", listener.Addr(),
 	}
@@ -146,7 +146,7 @@ func (fwd *forwarding) update(svc *model.Service) (bool, error) {
 		return true, nil
 	}
 
-	if !svc.IP.Equal(fwd.service.IP) || svc.Port != fwd.service.Port {
+	if svc.Address == nil || !svc.Address.Equal(*fwd.service.Address) {
 		return false, nil
 	}
 
@@ -179,37 +179,37 @@ func (fwd *forwarding) forward(inbound *net.TCPConn) {
 	inAddr := inbound.RemoteAddr().(*net.TCPAddr)
 
 	for i := 0; i < max_connection_attempts; i++ {
-		inst, shim := fwd.pickInstanceAndShim()
-		if inst == nil {
+		pinst, shim := fwd.pickInstanceAndShim()
+		if pinst == nil {
 			log.Errorf("ran out of instances attempting connection %s->%s (%s)",
-				inAddr, fwd.service.TCPAddr(), fwd.service.Name)
+				inAddr, fwd.service.Address, fwd.service.Name)
 			return
 		}
-		outAddr := inst.Instance().TCPAddr()
 
-		outbound, err := net.DialTCP("tcp", nil, outAddr)
+		inst := pinst.Instance()
+		outbound, err := net.DialTCP("tcp", nil, inst.Address.TCPAddr())
 		if err != nil {
-			log.Error("connecting to ", outAddr, ": ", err)
-			inst.Fail()
+			log.Error("connecting to ", inst.Address, ": ", err)
+			pinst.Fail()
 			continue
 		}
-		inst.Keep()
+		pinst.Keep()
 
 		connEvent := &events.Connection{
 			Service:  fwd.service,
-			Instance: inst.Instance(),
+			Instance: inst,
 			Inbound:  inAddr,
 		}
 		err = shim(inbound, outbound, connEvent, fwd.eventHandler)
 		if err != nil {
-			log.Error("forwarding from ", inAddr, " to ", outAddr, ": ",
-				err)
+			log.Error("forwarding from ", inAddr, " to ",
+				inst.Address, ": ", err)
 		}
 		return
 	}
 	inbound.Close()
 	log.Errorf("abandoned connection %s->%s (%s) after reaching max of %d attempts",
-		inAddr, fwd.service.TCPAddr(), fwd.service.Name, max_connection_attempts)
+		inAddr, fwd.service.Address, fwd.service.Name, max_connection_attempts)
 }
 
 func (fwd *forwarding) pickInstanceAndShim() (pool.PooledInstance, shimFunc) {

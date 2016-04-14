@@ -75,7 +75,7 @@ func TestBalancerAgent(t *testing.T) {
 	cf.template, err = tmpl.Parse(`
 {{$HOME := .Getenv "HOME"}}
 {{if len $HOME}}{{else}}No $HOME{{end}}
-{{range .}}{{.Name}}:{{range sortInsts .Instances}} ({{.Name}}, {{.IP}}:{{.Port}}){{end}}
+{{range .}}{{.Name}}:{{range sortInsts .Instances}} ({{.Name}}, {{.Address}}){{end}}
 {{end}}`)
 	require.Nil(t, err)
 

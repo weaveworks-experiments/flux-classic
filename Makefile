@@ -98,7 +98,7 @@ cover: $(call image_stamp,build)
 .PHONY: vet
 vet:: $(call image_stamp,build)
 	$(get_vendor_submodules)
-	$(call run_build_container,build,-e GOPATH=/build,,go vet $$(go list ./... | grep -v /vendor/))
+	$(call run_build_container,build,-e GOPATH=/build,,go tool vet -composites=false $$(find * -maxdepth 0 -type d -not -name vendor))
 
 # Subdir-specific rules
 include ./*/local.mk

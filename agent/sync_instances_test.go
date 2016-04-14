@@ -1,10 +1,12 @@
 package agent
 
 import (
+	"net"
 	"strings"
 	"testing"
 
 	"github.com/weaveworks/flux/common/daemon"
+	"github.com/weaveworks/flux/common/netutil"
 	"github.com/weaveworks/flux/common/store"
 	"github.com/weaveworks/flux/common/store/inmem"
 
@@ -107,7 +109,7 @@ func setup(st store.Store, hostIP, netmode string) (h harness) {
 		syncInstancesConfig: syncInstancesConfig{
 			store:   h.Store,
 			network: netmode,
-			hostIP:  hostIP,
+			hostIP:  net.ParseIP(hostIP),
 		},
 		errs: daemon.NewErrorSink(),
 	}
@@ -166,13 +168,13 @@ func TestSyncInstancesReconcile(t *testing.T) {
 	})
 	h.addGroup("boo-svc", "env.SERVICE_NAME", "boo")
 
-	selectedAddress := "192.168.45.67"
+	selectedAddress := net.ParseIP("192.168.45.67")
 
 	h.watchServices()
 	h.si.processServiceUpdate(<-h.serviceUpdates)
 	h.si.processContainerUpdate(resetContainers(container{
 		ID:        "selected",
-		IPAddress: selectedAddress,
+		IPAddress: selectedAddress.String(),
 		Image:     "foo-image:bobbins",
 		Labels:    map[string]string{"flux/foo-label": "blorp"},
 		Env:       map[string]string{"SERVICE_NAME": "boo"},
@@ -187,7 +189,7 @@ func TestSyncInstancesReconcile(t *testing.T) {
 	insts := h.allInstances(t)
 	require.Len(t, insts, 3)
 	for _, inst := range insts {
-		require.Equal(t, selectedAddress, inst.Address)
+		require.Equal(t, selectedAddress, inst.Address.IP)
 	}
 
 	h.stop(t)
@@ -261,14 +263,12 @@ func TestMappedPort(t *testing.T) {
 	require.Len(t, h.allInstances(t), 1)
 	svc, err := h.GetService("blorp-svc", store.QueryServiceOptions{WithInstances: true})
 	require.Nil(t, err)
-	require.Equal(t, h.si.hostIP, svc.Instances[0].Address)
-	require.Equal(t, 3456, svc.Instances[0].Port)
-	require.Equal(t, store.LIVE, svc.Instances[0].State)
+	require.Equal(t, &netutil.IPPort{h.si.hostIP, 3456}, svc.Instances[0].Address)
 	h.stop(t)
 }
 
 func TestMultihostNetworking(t *testing.T) {
-	instAddress := "10.13.14.15"
+	instAddress := net.ParseIP("10.13.14.15")
 	instPort := 8080
 
 	h := setup(nil, "11.98.99.98", GLOBAL)
@@ -280,7 +280,7 @@ func TestMultihostNetworking(t *testing.T) {
 
 	h.si.processContainerUpdate(resetContainers(container{
 		ID:        "blorp-instance",
-		IPAddress: instAddress,
+		IPAddress: instAddress.String(),
 		Image:     "blorp-image:tag",
 		Ports: map[string]string{
 			"8080/tcp": "3456",
@@ -292,9 +292,7 @@ func TestMultihostNetworking(t *testing.T) {
 	require.Len(t, h.allInstances(t), 1)
 	svc, err := h.GetService("blorp-svc", store.QueryServiceOptions{WithInstances: true})
 	require.Nil(t, err)
-	require.Equal(t, instAddress, svc.Instances[0].Address)
-	require.Equal(t, instPort, svc.Instances[0].Port)
-	require.Equal(t, store.LIVE, svc.Instances[0].State)
+	require.Equal(t, &netutil.IPPort{instAddress, instPort}, svc.Instances[0].Address)
 	h.stop(t)
 }
 
@@ -318,9 +316,7 @@ func TestNoAddress(t *testing.T) {
 	require.Len(t, h.allInstances(t), 1)
 	svc, err := h.GetService("important-svc", store.QueryServiceOptions{WithInstances: true})
 	require.Nil(t, err)
-	require.Equal(t, "", svc.Instances[0].Address)
-	require.Equal(t, 0, svc.Instances[0].Port)
-	require.Equal(t, store.NOADDR, svc.Instances[0].State)
+	require.Nil(t, svc.Instances[0].Address)
 	h.stop(t)
 }
 
@@ -344,9 +340,7 @@ func TestHostNetworking(t *testing.T) {
 	require.Len(t, h.allInstances(t), 1)
 	svc, err := h.GetService("blorp-svc", store.QueryServiceOptions{WithInstances: true})
 	require.Nil(t, err)
-	require.Equal(t, h.si.hostIP, svc.Instances[0].Address)
-	require.Equal(t, 8080, svc.Instances[0].Port)
-	require.Equal(t, store.LIVE, svc.Instances[0].State)
+	require.Equal(t, &netutil.IPPort{h.si.hostIP, 8080}, svc.Instances[0].Address)
 	h.stop(t)
 }
 

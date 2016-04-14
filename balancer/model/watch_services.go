@@ -1,12 +1,7 @@
 package model
 
 import (
-	"net"
-
-	log "github.com/Sirupsen/logrus"
-
 	"github.com/weaveworks/flux/common/daemon"
-	"github.com/weaveworks/flux/common/netutil"
 	"github.com/weaveworks/flux/common/store"
 )
 
@@ -40,21 +35,12 @@ func WatchServicesStartFunc(st store.Store, updates chan<- ServiceUpdate) daemon
 func translateService(svc *store.ServiceInfo) *Service {
 	insts := []Instance{}
 	for _, instance := range svc.Instances {
-		if instance.State != store.LIVE {
-			continue // try next instance
+		if instance.Address != nil {
+			insts = append(insts, Instance{
+				Name:    instance.Name,
+				Address: *instance.Address,
+			})
 		}
-
-		ip := net.ParseIP(instance.Address)
-		if ip == nil {
-			log.Errorf("Bad address \"%s\" for instance %s/%s",
-				instance.Address, svc.Name, instance.Name)
-			continue
-		}
-
-		insts = append(insts, Instance{
-			Name:    instance.Name,
-			Address: netutil.IPPort{ip, instance.Port},
-		})
 	}
 
 	return &Service{

@@ -34,7 +34,7 @@ func (opts *infoOpts) run(_ *cobra.Command, args []string) error {
 	}
 	fmt.Fprint(opts.getStdout(), "HOSTS\n")
 	for _, host := range hosts {
-		fmt.Fprintln(opts.getStdout(), host.IPAddress)
+		fmt.Fprintln(opts.getStdout(), host.IP)
 	}
 	fmt.Fprint(opts.getStdout(), "\nSERVICES\n")
 
@@ -87,7 +87,7 @@ func printService(out io.Writer, svc *store.ServiceInfo) error {
 	}
 	fmt.Fprint(out, "  INSTANCES\n")
 	for _, inst := range svc.Instances {
-		fmt.Fprintf(out, "    %s %s:%d %s\n", inst.Name, inst.Address, inst.Port, inst.State)
+		fmt.Fprintf(out, "    %s %s\n", inst.Name, inst.Address)
 	}
 	return nil
 }

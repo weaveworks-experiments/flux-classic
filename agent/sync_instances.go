@@ -2,10 +2,12 @@ package agent
 
 import (
 	"fmt"
+	"net"
 	"strconv"
 	"strings"
 
 	"github.com/weaveworks/flux/common/daemon"
+	"github.com/weaveworks/flux/common/netutil"
 	"github.com/weaveworks/flux/common/store"
 
 	log "github.com/Sirupsen/logrus"
@@ -34,7 +36,7 @@ func (svc *service) includes(instanceName string) bool {
 }
 
 type syncInstancesConfig struct {
-	hostIP  string
+	hostIP  net.IP
 	network string
 	store   store.Store
 
@@ -180,7 +182,7 @@ func (si *syncInstances) syncInstances(svc *service) error {
 }
 
 func (si *syncInstances) owns(inst store.Instance) bool {
-	return si.hostIP == inst.Host.IPAddress
+	return si.hostIP.Equal(inst.Host.IP)
 }
 
 func (si *syncInstances) evaluate(container *docker.Container, svc *service) error {
@@ -193,7 +195,7 @@ func (si *syncInstances) evaluate(container *docker.Container, svc *service) err
 				return err
 			}
 			svc.localInstances[instName] = struct{}{}
-			log.Infof(`Registered %s instance '%.12s' at %s:%d`, svc.Name, instName, instance.Address, instance.Port)
+			log.Infof(`Registered %s instance '%.12s' at %s`, svc.Name, instName, instance.Address)
 			return nil
 		}
 	}
@@ -212,14 +214,9 @@ func (si *syncInstances) extractInstance(spec store.ContainerRule, svc store.Ser
 		return inst, false
 	}
 
-	ipAddress, port := si.getAddress(spec, svc, container)
-	if port == 0 {
+	inst.Address = si.getAddress(spec, svc, container)
+	if inst.Address == nil {
 		log.Infof(`Cannot extract address for instance, from container '%s'`, container.ID)
-		inst.State = store.NOADDR
-	} else {
-		inst.Address = ipAddress
-		inst.Port = port
-		inst.State = store.LIVE
 	}
 
 	labels := map[string]string{
@@ -234,7 +231,7 @@ func (si *syncInstances) extractInstance(spec store.ContainerRule, svc store.Ser
 		labels["env."+kv[0]] = kv[1]
 	}
 	inst.Labels = labels
-	inst.Host = store.Host{IPAddress: si.hostIP}
+	inst.Host = store.Host{IP: si.hostIP}
 	return inst, true
 }
 
@@ -265,12 +262,12 @@ container is using the host's networking stack, so we should use the
 host IP address.
 
 */
-func (si *syncInstances) getAddress(spec store.ContainerRule, svc store.Service, container *docker.Container) (string, int) {
+func (si *syncInstances) getAddress(spec store.ContainerRule, svc store.Service, container *docker.Container) *netutil.IPPort {
 	if svc.InstancePort == 0 {
-		return "", 0
+		return nil
 	}
 	if container.HostConfig.NetworkMode == "host" {
-		return si.hostIP, svc.InstancePort
+		return &netutil.IPPort{si.hostIP, svc.InstancePort}
 	}
 	switch si.network {
 	case LOCAL:
@@ -278,7 +275,7 @@ func (si *syncInstances) getAddress(spec store.ContainerRule, svc store.Service,
 	case GLOBAL:
 		return si.fixedPortAddress(container, svc.InstancePort)
 	}
-	return "", 0
+	return nil
 }
 
 /*
@@ -288,20 +285,30 @@ Docker. Therefore it looks for the port mentioned in the list of
 published ports, and finds the host port it has been mapped to. The IP
 address is that given as the host's IP address.
 */
-func (si *syncInstances) mappedPortAddress(container *docker.Container, port int) (string, int) {
+func (si *syncInstances) mappedPortAddress(container *docker.Container, port int) *netutil.IPPort {
 	p := docker.Port(fmt.Sprintf("%d/tcp", port))
 	if bindings, found := container.NetworkSettings.Ports[p]; found {
 		for _, binding := range bindings {
-			if binding.HostIP == si.hostIP || binding.HostIP == "" || binding.HostIP == "0.0.0.0" {
-				mappedToPort, err := strconv.Atoi(binding.HostPort)
-				if err != nil {
-					return "", 0
+			switch binding.HostIP {
+			case "", "0.0.0.0":
+				// matches
+			default:
+				ip := net.ParseIP(binding.HostIP)
+				if ip == nil || !ip.Equal(si.hostIP) {
+					continue
 				}
-				return si.hostIP, mappedToPort
 			}
+
+			mappedToPort, err := strconv.Atoi(binding.HostPort)
+			if err != nil {
+				return nil
+			}
+
+			return &netutil.IPPort{si.hostIP, mappedToPort}
 		}
 	}
-	return "", 0
+
+	return nil
 }
 
 /*
@@ -309,8 +316,13 @@ Extract a "fixed port" address. This mode assumes that the balancer
 will be able to connect to the container, potentially across hosts,
 using the address Docker has assigned it.
 */
-func (si *syncInstances) fixedPortAddress(container *docker.Container, port int) (string, int) {
-	return container.NetworkSettings.IPAddress, port
+func (si *syncInstances) fixedPortAddress(container *docker.Container, port int) *netutil.IPPort {
+	ip := net.ParseIP(container.NetworkSettings.IPAddress)
+	if ip == nil {
+		return nil
+	}
+
+	return &netutil.IPPort{ip, port}
 }
 
 func envValue(env []string, key string) string {

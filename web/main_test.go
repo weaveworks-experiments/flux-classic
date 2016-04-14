@@ -30,8 +30,7 @@ var testService = store.Service{
 
 var testInstance = store.Instance{
 	ContainerRule: "group",
-	Address:       "1.2.3.4",
-	Port:          12345,
+	Address:       &netutil.IPPort{net.ParseIP("1.2.3.4"), 12345},
 	Labels:        map[string]string{"key": "val"},
 }
 

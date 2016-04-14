@@ -1,6 +1,7 @@
 package heartbeat
 
 import (
+	"net"
 	"testing"
 	"time"
 
@@ -22,7 +23,7 @@ func TestHeartbeat(t *testing.T) {
 		st,
 		ttl,
 		hostID,
-		&store.Host{IPAddress: "192.168.3.34"},
+		&store.Host{IP: net.ParseIP("192.168.3.34")},
 	}
 	sink := daemon.NewErrorSink()
 

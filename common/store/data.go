@@ -1,6 +1,8 @@
 package store
 
 import (
+	"net"
+
 	"github.com/weaveworks/flux/common/netutil"
 )
 
@@ -11,7 +13,7 @@ func (sel Selector) Empty() bool {
 }
 
 type Host struct {
-	IPAddress string `json:"address"`
+	IP net.IP `json:"address"`
 }
 
 type HostChange struct {
@@ -31,13 +33,6 @@ type Service struct {
 	Protocol     string          `json:"protocol,omitempty"`
 }
 
-type InstanceState string
-
-const (
-	LIVE   InstanceState = "live"
-	NOADDR InstanceState = "no address"
-)
-
 const (
 	HostLabel  = "host"
 	StateLabel = "state"
@@ -45,11 +40,9 @@ const (
 )
 
 type Instance struct {
-	State         InstanceState     `json:"state"`
 	Host          Host              `json:"host"`
 	ContainerRule string            `json:"containerRule"`
-	Address       string            `json:"address,omitempty"`
-	Port          int               `json:"port,omitempty"`
+	Address       *netutil.IPPort   `json:"address,omitempty"`
 	Labels        map[string]string `json:"labels"`
 }
 
@@ -60,9 +53,13 @@ type Labeled interface {
 func (inst Instance) Label(k string) string {
 	switch k {
 	case HostLabel:
-		return inst.Host.IPAddress
+		return inst.Host.IP.String()
 	case StateLabel:
-		return string(inst.State)
+		if inst.Address == nil {
+			return "no address"
+		} else {
+			return "live"
+		}
 	case RuleLabel:
 		return inst.ContainerRule
 	default:

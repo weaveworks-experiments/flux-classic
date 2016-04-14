@@ -73,9 +73,7 @@ func TestEtcdRestart(t *testing.T) {
 	require.True(t, (<-done).Reset)
 
 	require.Nil(t, st.AddInstance("svc", "inst", store.Instance{
-		Address: "127.0.0.1",
-		Port:    10000,
-		State:   store.LIVE,
+		Address: &netutil.IPPort{net.ParseIP("127.0.0.1"), 10000},
 	}))
 	require.False(t, (<-done).Reset)
 

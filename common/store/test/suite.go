@@ -102,8 +102,7 @@ func testRules(s store.Store, t *testing.T) {
 
 var testInst = store.Instance{
 	ContainerRule: "group",
-	Address:       "1.2.3.4",
-	Port:          12345,
+	Address:       &netutil.IPPort{net.ParseIP("1.2.3.4"), 12345},
 	Labels:        map[string]string{"key": "val"},
 }
 
@@ -254,9 +253,7 @@ func testWatchServices(s store.Store, t *testing.T) {
 
 func testHosts(ts TestableStore, t *testing.T) {
 	hostID := "foo host"
-	hostData := &store.Host{
-		IPAddress: "192.168.1.65",
-	}
+	hostData := &store.Host{IP: net.ParseIP("192.168.1.65")}
 	err := ts.Heartbeat(hostID, 60*time.Second, hostData)
 	require.Nil(t, err)
 	hosts, err := ts.GetHosts()

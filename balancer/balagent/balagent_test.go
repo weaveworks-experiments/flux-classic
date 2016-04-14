@@ -91,20 +91,19 @@ func TestBalancerAgent(t *testing.T) {
 
 	// Add an instance to the service:
 	require.Nil(t, cf.store.AddInstance("service1", "inst1",
-		store.Instance{State: store.LIVE, Address: "5.6.7.8", Port: 1}))
+		store.Instance{Address: &netutil.IPPort{net.ParseIP("5.6.7.8"), 1}}))
 	<-cf.generated
 	requireFile(t, cf.filename, "service1: (inst1, 5.6.7.8:1)")
 
 	// And another instance:
 	require.Nil(t, cf.store.AddInstance("service1", "inst2",
-		store.Instance{State: store.LIVE, Address: "9.10.11.12", Port: 2}))
+		store.Instance{Address: &netutil.IPPort{net.ParseIP("9.10.11.12"), 2}}))
 	<-cf.generated
 	requireFile(t, cf.filename, "service1: (inst1, 5.6.7.8:1) (inst2, 9.10.11.12:2)")
 
 	// Add another service:
 	require.Nil(t, cf.store.AddService("service2", store.Service{
 		Protocol: "http",
-		Address:  nil,
 	}))
 	<-cf.generated
 	requireFile(t, cf.filename, `service1: (inst1, 5.6.7.8:1) (inst2, 9.10.11.12:2)

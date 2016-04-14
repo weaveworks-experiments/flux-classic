@@ -58,7 +58,7 @@ func (cf *AgentConfig) Prepare() (daemon.StartFunc, error) {
 		Cluster:      cf.store,
 		TTL:          time.Duration(cf.hostTTL) * time.Second,
 		HostIdentity: cf.hostIP.String(),
-		HostState:    &store.Host{IPAddress: cf.hostIP.String()},
+		HostState:    &store.Host{IP: cf.hostIP},
 	}
 
 	containerUpdates := make(chan ContainerUpdate)
@@ -67,7 +67,7 @@ func (cf *AgentConfig) Prepare() (daemon.StartFunc, error) {
 	serviceUpdatesReset := make(chan struct{})
 
 	siconf := syncInstancesConfig{
-		hostIP:  cf.hostIP.String(),
+		hostIP:  cf.hostIP,
 		network: cf.network,
 		store:   cf.store,
 

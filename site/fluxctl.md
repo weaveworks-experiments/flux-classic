@@ -141,18 +141,20 @@ of the rule must match.
 
 ```
 Usage:
-  fluxctl select <service> <rule> [flags]
+  fluxctl select <service> [flags]
 
 Flags:
-      --env="": select only containers with these environment variable values, given as comma-delimited key=value pairs
-      --image="": select only containers with this image
-      --labels="": select only containers with these labels, given as comma-delimited key=value pairs
-      --tag="": select only containers with this tag
+      --env string      select only containers with these environment variable values, given as comma-delimited key=value pairs
+      --image string    select only containers with this image
+      --labels string   select only containers with these labels, given as comma-delimited key=value pairs
+      --name string     give the selection a friendly name (otherwise it will get a random name)
+      --tag string      select only containers with this tag
 ```
 
-When you use `fluxctl select ...`, you give the rule a name. The name
-can be used to remove that rule later. A container that matched the
-removed rule may remain as an instance, if it matches another rule.
+When you use `fluxctl select ...`, the rule is given a name (which is
+generated if you don't supply it). The name is used to remove that
+rule later. A container that matched the removed rule may remain as an
+instance, if it matches another rule.
 
 ```
 Usage:

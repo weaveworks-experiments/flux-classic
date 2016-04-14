@@ -1,7 +1,10 @@
 package main
 
 import (
+	"crypto/rand"
+	"encoding/base32"
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -9,24 +12,38 @@ import (
 type selectOpts struct {
 	baseOpts
 	spec
+	name string
+}
+
+const RANDOM_NAME_SIZE_BYTES = 160 / 8
+
+func randomName() string {
+	bytes := make([]byte, RANDOM_NAME_SIZE_BYTES)
+	rand.Read(bytes)
+	return strings.ToLower(base32.HexEncoding.EncodeToString(bytes))
 }
 
 func (opts *selectOpts) makeCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "select <service> <rule>",
+		Use:   "select <service>",
 		Short: "include containers in a service",
-		Long:  "Select containers to be instances of <service>, giving the selection a name <rule> so it can be rescinded later, and the properties to match (via the flags).",
+		Long:  "Select containers to be instances of <service>, giving the properties to match (via the flags).",
 		RunE:  opts.run,
 	}
 	opts.addSpecVars(cmd)
+	cmd.Flags().StringVar(&opts.name, "name", "", "give the selection a friendly name (otherwise it will get a random name)")
 	return cmd
 }
 
 func (opts *selectOpts) run(_ *cobra.Command, args []string) error {
-	if len(args) != 2 {
-		return fmt.Errorf("You must supply <service> and <rule>")
+	if len(args) != 1 {
+		return fmt.Errorf("You must supply <service>")
 	}
-	serviceName, name := args[0], args[1]
+	serviceName := args[0]
+	ruleName := opts.name
+	if ruleName == "" {
+		ruleName = randomName()
+	}
 
 	// Check that the service exists
 	err := opts.store.CheckRegisteredService(serviceName)
@@ -42,10 +59,10 @@ func (opts *selectOpts) run(_ *cobra.Command, args []string) error {
 		return fmt.Errorf("Nothing will be selected by empty rule")
 	}
 
-	if err = opts.store.SetContainerRule(serviceName, name, *spec); err != nil {
+	if err = opts.store.SetContainerRule(serviceName, ruleName, *spec); err != nil {
 		return fmt.Errorf("Error updating service: %s", err)
 	}
 
-	fmt.Fprintln(opts.getStdout(), name)
+	fmt.Fprintln(opts.getStdout(), ruleName)
 	return nil
 }

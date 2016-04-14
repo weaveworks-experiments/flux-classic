@@ -62,7 +62,7 @@ func (cf *hostIPConfig) findHostIP() (net.IP, string, error) {
 	if hostIP != "" {
 		ip := net.ParseIP(hostIP)
 		if ip == nil {
-			return nil, "", fmt.Errorf("Bad host IP address '%' from %s", hostIP, source)
+			return nil, "", fmt.Errorf("Bad host IP address '%s' from %s", hostIP, source)
 		}
 
 		return ip, source, nil

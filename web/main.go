@@ -87,7 +87,7 @@ func (api *api) proxyStats(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if resp.StatusCode != 200 {
-		log.Printf("Request to prometheus at %d: %d response", path, resp.StatusCode)
+		log.Printf("Request to prometheus at %s: %d response", path, resp.StatusCode)
 	}
 
 	defer resp.Body.Close()

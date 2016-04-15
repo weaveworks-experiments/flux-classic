@@ -9,7 +9,7 @@ export default class Instance extends React.Component {
 
   renderOther() {
     const imageTitle = `Image:tag: ${this.props.labels.image}:${this.props.labels.tag}`;
-    const address = (this.props.state === 'live') ? `${this.props.address}:${this.props.port}` : this.props.state;
+    const address = (this.props.address === undefined) ? `${this.props.address}:${this.props.port}` : 'No address';
     return (
       <div className="instance-other">
         <div className="instance-title truncate" title={'Name: ' + this.props.name}>
@@ -34,8 +34,8 @@ export default class Instance extends React.Component {
     const className = classnames({
       instance: true,
       'instance-selected': this.props.selected,
-      'state-live': this.props.state === 'live',
-      'state-unused': this.props.state !== 'live',
+      'state-live': this.props.address !== undefined,
+      'state-unused': this.props.address === undefined,
     });
     const metricTitle = `Last ${QUERY_WINDOW_SECS}s`;
     return (

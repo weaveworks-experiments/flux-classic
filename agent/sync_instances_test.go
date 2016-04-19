@@ -97,7 +97,7 @@ type harness struct {
 
 func setup(st store.Store, hostIP, netmode string) (h harness) {
 	if st == nil {
-		st = inmem.NewInMemStore()
+		st = inmem.NewInMem().Store("test session")
 	}
 
 	if netmode == "" {
@@ -345,7 +345,7 @@ func TestHostNetworking(t *testing.T) {
 }
 
 func TestOtherHostsEntries(t *testing.T) {
-	st := inmem.NewInMemStore()
+	st := inmem.NewInMem().Store("test session")
 	h1 := setup(st, "192.168.11.34", LOCAL)
 	h2 := setup(st, "192.168.11.5", LOCAL)
 

@@ -1,6 +1,8 @@
 package etcdstore
 
 import (
+	"crypto/rand"
+	"encoding/base32"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -16,7 +18,8 @@ import (
 
 type etcdStore struct {
 	etcdutil.Client
-	ctx context.Context
+	ctx     context.Context
+	session string
 }
 
 func NewFromEnv() (store.Store, error) {
@@ -33,7 +36,14 @@ func New(c etcdutil.Client) store.Store {
 }
 
 func newEtcdStore(c etcdutil.Client) *etcdStore {
-	return &etcdStore{Client: c, ctx: context.Background()}
+	session := makeSessionID()
+	return &etcdStore{Client: c, ctx: context.Background(), session: session}
+}
+
+func makeSessionID() string {
+	bytes := make([]byte, 160/8)
+	rand.Read(bytes)
+	return base32.HexEncoding.EncodeToString(bytes)
 }
 
 // Check if we can talk to etcd
@@ -45,6 +55,7 @@ func (es *etcdStore) Ping() error {
 const ROOT = "/weave-flux/"
 const SERVICE_ROOT = ROOT + "service/"
 const HOST_ROOT = ROOT + "host/"
+const SESSION_ROOT = ROOT + "session/"
 
 func serviceRootKey(serviceName string) string {
 	return SERVICE_ROOT + serviceName
@@ -412,25 +423,35 @@ func (es *etcdStore) WatchServices(ctx context.Context, resCh chan<- store.Servi
 	}()
 }
 
-/* store.Cluster methods
-
-These follow the scheme of
-
-/weave-flux/hosts/<identity>
-
-where the individual values are serialised `store.Host`s. A host's IP
-address is used to identify a host (i.e., the last part of the key),
-and included in the value. This may change, and if so would need a bit
-of teasing apart; in the meantime, we ought to be careful to
-distinguish the uses of identity and IP address.
-
-*/
+/* Host methods */
 
 func hostKey(identity string) string {
 	return HOST_ROOT + identity
 }
 
+type sessionHost struct {
+	*store.Host
+	Session string
+}
+
+func (es *etcdStore) RegisterHost(identity string, details *store.Host) error {
+	sh := sessionHost{
+		Host:    details,
+		Session: es.session,
+	}
+	return es.setJSON(hostKey(identity), sh)
+}
+
+func (es *etcdStore) DeregisterHost(identity string) error {
+	return es.deleteRecursive(hostKey(identity))
+}
+
 func (es *etcdStore) GetHosts() ([]*store.Host, error) {
+	live, err := es.liveSessions()
+	if err != nil {
+		return nil, err
+	}
+
 	node, _, err := es.getDirNode(HOST_ROOT, true, false)
 	if err != nil {
 		return nil, err
@@ -443,31 +464,17 @@ func (es *etcdStore) GetHosts() ([]*store.Host, error) {
 		if err != nil {
 			return nil, err
 		}
-
-		hosts = append(hosts, host)
+		if _, found := live[host.Session]; found {
+			hosts = append(hosts, host.Host)
+		}
 	}
 
 	return hosts, nil
 }
 
-func hostFromNode(node *etcd.Node) (*store.Host, error) {
-	var host store.Host
+func hostFromNode(node *etcd.Node) (*sessionHost, error) {
+	var host sessionHost
 	return &host, json.Unmarshal([]byte(node.Value), &host)
-}
-
-func (es *etcdStore) Heartbeat(identity string, ttl time.Duration, info *store.Host) error {
-	json, err := json.Marshal(&info)
-	if err != nil {
-		return fmt.Errorf("Failed to encode: %s", err)
-	}
-
-	_, err = es.Set(es.ctx, hostKey(identity), string(json), &etcd.SetOptions{TTL: ttl})
-	return err
-}
-
-func (es *etcdStore) DeregisterHost(identity string) error {
-	_, err := es.Delete(es.ctx, hostKey(identity), &etcd.DeleteOptions{Recursive: false})
-	return err
 }
 
 func (es *etcdStore) WatchHosts(ctx context.Context, changes chan<- store.HostChange, errs daemon.ErrorSink) {
@@ -522,4 +529,32 @@ func (es *etcdStore) WatchHosts(ctx context.Context, changes chan<- store.HostCh
 			handleResponse(next)
 		}
 	}()
+}
+
+/* store.Cluster methods */
+
+func sessionKey(id string) string {
+	return SESSION_ROOT + id
+}
+
+func (es *etcdStore) Heartbeat(ttl time.Duration) error {
+	_, err := es.Set(es.ctx, sessionKey(es.session), es.session, &etcd.SetOptions{TTL: ttl})
+	return err
+}
+
+func (es *etcdStore) EndSession() error {
+	_, err := es.Delete(es.ctx, sessionKey(es.session), &etcd.DeleteOptions{Recursive: false})
+	return err
+}
+
+func (es *etcdStore) liveSessions() (map[string]struct{}, error) {
+	node, _, err := es.getDirNode(SESSION_ROOT, true, false)
+	if err != nil {
+		return nil, err
+	}
+	live := map[string]struct{}{}
+	for name := range indexDir(node) {
+		live[name] = struct{}{}
+	}
+	return live, nil
 }

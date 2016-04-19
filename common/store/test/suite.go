@@ -254,7 +254,8 @@ func testWatchServices(s store.Store, t *testing.T) {
 func testHosts(ts TestableStore, t *testing.T) {
 	hostID := "foo host"
 	hostData := &store.Host{IP: net.ParseIP("192.168.1.65")}
-	err := ts.Heartbeat(hostID, 60*time.Second, hostData)
+	ts.Heartbeat(10 * time.Second) // hosts depend on the session
+	err := ts.RegisterHost(hostID, hostData)
 	require.Nil(t, err)
 	hosts, err := ts.GetHosts()
 	require.Nil(t, err)
@@ -262,6 +263,17 @@ func testHosts(ts TestableStore, t *testing.T) {
 	require.Equal(t, hosts[0], hostData)
 	err = ts.DeregisterHost(hostID)
 	require.Nil(t, err)
+	hosts, err = ts.GetHosts()
+	require.Nil(t, err)
+	require.Len(t, hosts, 0)
+
+	err = ts.RegisterHost(hostID, hostData)
+	require.Nil(t, err)
+	hosts, err = ts.GetHosts()
+	require.Nil(t, err)
+	require.Len(t, hosts, 1)
+	require.Equal(t, hosts[0], hostData)
+	ts.EndSession()
 	hosts, err = ts.GetHosts()
 	require.Nil(t, err)
 	require.Len(t, hosts, 0)
@@ -307,18 +319,12 @@ func testHostWatch(ts TestableStore, t *testing.T) {
 
 	hostID := "host number three"
 	check(func(w *hostWatch) {
-		require.Nil(t, ts.Heartbeat(hostID, 5*time.Second, &store.Host{}))
+		require.Nil(t, ts.Heartbeat(5*time.Second))
+		require.Nil(t, ts.RegisterHost(hostID, &store.Host{IP: net.ParseIP("192.168.3.89")}))
 		require.Nil(t, ts.DeregisterHost(hostID))
-	},
-		store.HostChange{Name: hostID, HostDeparted: false},
-		store.HostChange{Name: hostID, HostDeparted: true})
+	}, store.HostChange{hostID, false}, store.HostChange{hostID, true})
 	ts.Reset(t)
 
-	hostID = "another host"
-	check(func(w *hostWatch) {
-		ts.Heartbeat(hostID, 1*time.Second, &store.Host{})
-		time.Sleep(2*time.Second + 200*time.Millisecond)
-	}, store.HostChange{hostID, false}, store.HostChange{hostID, true})
 	hosts, err := ts.GetHosts()
 	require.Nil(t, err)
 	require.Len(t, hosts, 0)

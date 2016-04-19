@@ -16,27 +16,92 @@ type heartbeat struct {
 	updateCount int
 }
 
-func NewInMemStore() *InMem {
+type sessionHost struct {
+	*store.Host
+	session string
+}
+
+func NewInMem() *InMem {
 	return &InMem{
-		services:   make(map[string]store.Service),
-		groupSpecs: make(map[string]map[string]store.ContainerRule),
-		instances:  make(map[string]map[string]store.Instance),
-		hosts:      make(map[string]*store.Host),
-		heartbeats: make(map[string]*heartbeat),
-		hostTimers: make(map[string]*time.Timer),
+		services:        make(map[string]store.Service),
+		groupSpecs:      make(map[string]map[string]store.ContainerRule),
+		instances:       make(map[string]map[string]store.Instance),
+		hosts:           make(map[string]*sessionHost),
+		heartbeats:      make(map[string]*heartbeat),
+		heartbeatTimers: make(map[string]*time.Timer),
 	}
 }
 
 type InMem struct {
-	services      map[string]store.Service
-	groupSpecs    map[string]map[string]store.ContainerRule
-	instances     map[string]map[string]store.Instance
-	hosts         map[string]*store.Host
-	heartbeats    map[string]*heartbeat
-	hostTimers    map[string]*time.Timer
-	watchersLock  sync.Mutex
-	watchers      []Watcher
-	injectedError error
+	services        map[string]store.Service
+	groupSpecs      map[string]map[string]store.ContainerRule
+	instances       map[string]map[string]store.Instance
+	hosts           map[string]*sessionHost
+	heartbeats      map[string]*heartbeat
+	heartbeatTimers map[string]*time.Timer
+	watchersLock    sync.Mutex
+	watchers        []Watcher
+	injectedError   error
+}
+
+func (s *InMem) GetHeartbeat(identity string) (int, error) {
+	if record, found := s.heartbeats[identity]; found {
+		return record.updateCount, nil
+	}
+	return 0, fmt.Errorf(`Host never had heartbeats: "%s"`, identity)
+}
+
+type inmemStore struct {
+	*InMem
+	session string
+}
+
+func (inmem *InMem) Store(sessionID string) store.Store {
+	return &inmemStore{
+		InMem:   inmem,
+		session: sessionID,
+	}
+}
+
+func (s *inmemStore) RegisterHost(identity string, details *store.Host) error {
+	s.hosts[identity] = &sessionHost{Host: details, session: s.session}
+	s.fireHostChange(identity, false)
+	return nil
+}
+
+func (s *inmemStore) Heartbeat(ttl time.Duration) error {
+	identity := s.session
+	fmt.Printf("Heartbeat: %s TTL %d ms\n", identity, ttl/time.Millisecond)
+
+	if record, found := s.heartbeats[identity]; found {
+		record.updateCount++
+	} else {
+		s.heartbeats[identity] = &heartbeat{0}
+	}
+	if s.heartbeatTimers[identity] != nil {
+		s.heartbeatTimers[identity].Reset(ttl)
+	} else {
+		s.heartbeatTimers[identity] = time.AfterFunc(ttl, func() {
+			fmt.Printf("Heartbeat timer fired for %s\n", identity)
+			s.EndSession()
+		})
+	}
+	return nil
+}
+
+func (s *inmemStore) EndSession() error {
+	if timer, found := s.heartbeatTimers[s.session]; found {
+		timer.Stop()
+		delete(s.heartbeatTimers, s.session)
+	}
+
+	for hostName, host := range s.hosts {
+		if host.session == s.session {
+			delete(s.hosts, hostName)
+			s.fireHostChange(hostName, true)
+		}
+	}
+	return nil
 }
 
 type Watcher interface {
@@ -266,37 +331,10 @@ func (s *InMem) GetHosts() ([]*store.Host, error) {
 	var hosts []*store.Host = make([]*store.Host, len(s.hosts))
 	i := 0
 	for _, host := range s.hosts {
-		hosts[i] = host
+		hosts[i] = host.Host
 		i++
 	}
 	return hosts, nil
-}
-
-func (s *InMem) Heartbeat(identity string, ttl time.Duration, state *store.Host) error {
-	fmt.Printf("Heartbeat: %s TTL %d ms\n", identity, ttl/time.Millisecond)
-	s.hosts[identity] = state
-	if record, found := s.heartbeats[identity]; found {
-		record.updateCount++
-	} else {
-		s.heartbeats[identity] = &heartbeat{0}
-	}
-	if s.hostTimers[identity] != nil {
-		s.hostTimers[identity].Reset(ttl)
-	} else {
-		s.hostTimers[identity] = time.AfterFunc(ttl, func() {
-			fmt.Printf("Host timer fired for %s\n", identity)
-			s.deleteHost(identity)
-		})
-		s.fireHostChange(identity, false)
-	}
-	return nil
-}
-
-func (s *InMem) GetHeartbeat(identity string) (int, error) {
-	if record, found := s.heartbeats[identity]; found {
-		return record.updateCount, nil
-	}
-	return 0, fmt.Errorf(`Host never had heartbeats: "%s"`, identity)
 }
 
 func (s *InMem) DeregisterHost(identity string) error {
@@ -306,11 +344,7 @@ func (s *InMem) DeregisterHost(identity string) error {
 
 func (s *InMem) deleteHost(identity string) {
 	delete(s.hosts, identity)
-	if s.hostTimers[identity] != nil {
-		s.hostTimers[identity].Stop()
-		delete(s.hostTimers, identity)
-		s.fireHostChange(identity, true)
-	}
+	s.fireHostChange(identity, true)
 }
 
 func (s *InMem) WatchHosts(ctx context.Context, changes chan<- store.HostChange, errs daemon.ErrorSink) {

@@ -11,7 +11,7 @@ import (
 )
 
 func TestWatchServices(t *testing.T) {
-	st := inmem.NewInMemStore()
+	st := inmem.NewInMem().Store("test session")
 	st.AddService("foo-svc", store.Service{
 		InstancePort: 80,
 	})

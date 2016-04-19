@@ -16,7 +16,8 @@ import (
 
 // An integration test of all the agent bits
 func TestSyncInstancesComponent(t *testing.T) {
-	st := inmem.NewInMemStore()
+	back := inmem.NewInMem()
+	st := back.Store("test session")
 	mdc := newMockDockerClient()
 
 	addService := func(svc string) {
@@ -61,9 +62,9 @@ func TestSyncInstancesComponent(t *testing.T) {
 	require.Len(t, svc.Instances, 1)
 
 	// Simulate a etcd restart
-	st.InjectError(errors.New("etcd restarting"))
+	back.InjectError(errors.New("etcd restarting"))
 	time.Sleep(10 * time.Millisecond)
-	st.InjectError(nil)
+	back.InjectError(nil)
 	time.Sleep(10 * time.Millisecond)
 
 	// Add another service

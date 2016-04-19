@@ -46,7 +46,7 @@ func newBalancerAgentConfig(t *testing.T) *BalancerAgentConfig {
 	require.Nil(t, err)
 
 	return &BalancerAgentConfig{
-		store:             inmem.NewInMemStore(),
+		store:             inmem.NewInMem().Store("test session"),
 		filename:          path.Join(dir, "output"),
 		reconnectInterval: 100 * time.Millisecond,
 		generated:         make(chan struct{}),

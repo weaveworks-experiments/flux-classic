@@ -31,7 +31,7 @@ func TestTapOutput(t *testing.T) {
 }
 
 func runOpts(opts commandOpts, args []string) (store.Store, error) {
-	st := inmem.NewInMemStore()
+	st := inmem.NewInMem().Store("test fluxctl")
 	return st, runOptsWithStore(opts, st, args)
 }
 

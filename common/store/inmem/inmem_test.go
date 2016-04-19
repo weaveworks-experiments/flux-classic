@@ -14,7 +14,7 @@ type testableInMemStore struct {
 }
 
 func (tims *testableInMemStore) Reset(t *testing.T) {
-	tims.Store = NewInMemStore()
+	tims.Store = NewInMem().Store("test session")
 }
 
 func TestInMemStore(t *testing.T) {

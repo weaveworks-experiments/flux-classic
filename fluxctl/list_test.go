@@ -10,7 +10,7 @@ import (
 )
 
 func TestList(t *testing.T) {
-	st := inmem.NewInMemStore()
+	st := inmem.NewInMem().Store("test fluxctl list")
 	err := st.AddService("foo", store.Service{})
 	require.NoError(t, err)
 

@@ -33,6 +33,11 @@ type Store interface {
 
 	Ping() error
 
+	RegisterHost(identity string, details *Host) error
+	DeregisterHost(identity string) error
+	GetHosts() ([]*Host, error)
+	WatchHosts(ctx context.Context, resCh chan<- HostChange, errorSink daemon.ErrorSink)
+
 	CheckRegisteredService(serviceName string) error
 	AddService(name string, service Service) error
 	RemoveService(serviceName string) error

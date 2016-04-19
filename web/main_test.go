@@ -41,7 +41,7 @@ func allServices(t *testing.T, st store.Store) []*store.ServiceInfo {
 }
 
 func TestListServices(t *testing.T) {
-	st := inmem.NewInMemStore()
+	st := inmem.NewInMem().Store("test web main")
 	st.AddService("svc", testService)
 	st.AddInstance("svc", "inst", testInstance)
 

@@ -55,10 +55,8 @@ func (cf *AgentConfig) Prepare() (daemon.StartFunc, error) {
 	}
 
 	hb := heartbeat.HeartbeatConfig{
-		Cluster:      cf.store,
-		TTL:          time.Duration(cf.hostTTL) * time.Second,
-		HostIdentity: cf.hostIP.String(),
-		HostState:    &store.Host{IP: cf.hostIP},
+		Cluster: cf.store,
+		TTL:     time.Duration(cf.hostTTL) * time.Second,
 	}
 
 	containerUpdates := make(chan ContainerUpdate)
@@ -76,6 +74,9 @@ func (cf *AgentConfig) Prepare() (daemon.StartFunc, error) {
 		serviceUpdates:        serviceUpdates,
 		serviceUpdatesReset:   serviceUpdatesReset,
 	}
+
+	// Announce our presence
+	cf.store.RegisterHost(cf.hostIP.String(), &store.Host{IP: cf.hostIP})
 
 	return daemon.Aggregate(
 		daemon.Reset(containerUpdatesReset,

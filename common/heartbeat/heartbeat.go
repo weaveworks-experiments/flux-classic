@@ -10,15 +10,13 @@ import (
 )
 
 type HeartbeatConfig struct {
-	Cluster      store.Cluster
-	TTL          time.Duration
-	HostIdentity string
-	HostState    *store.Host
+	Cluster store.Cluster
+	TTL     time.Duration
 }
 
 func (config HeartbeatConfig) Start(errorSink daemon.ErrorSink) daemon.Component {
 	heart := Heart{
-		config: config,
+		HeartbeatConfig: config,
 	}
 	if err := heart.beat(); err != nil {
 		errorSink.Post(err)
@@ -29,19 +27,18 @@ func (config HeartbeatConfig) Start(errorSink daemon.ErrorSink) daemon.Component
 }
 
 type Heart struct {
-	config HeartbeatConfig
+	HeartbeatConfig
 	ticker *time.Ticker
 	cancel chan struct{}
 }
 
 func (heart *Heart) beat() error {
-	return heart.config.Cluster.Heartbeat(heart.config.HostIdentity,
-		heart.config.TTL, heart.config.HostState)
+	return heart.Cluster.Heartbeat(heart.TTL)
 }
 
 func (heart *Heart) Run(errorSink daemon.ErrorSink) {
 	heart.cancel = make(chan struct{})
-	heart.ticker = time.NewTicker(heart.config.TTL / 2)
+	heart.ticker = time.NewTicker(heart.TTL / 2)
 	for {
 		select {
 		case t := <-heart.ticker.C:

@@ -31,6 +31,15 @@ type AgentConfig struct {
 	reconnectInterval time.Duration
 }
 
+const (
+	GLOBAL = "global"
+	LOCAL  = "local"
+)
+
+func isValidNetworkMode(mode string) bool {
+	return mode == GLOBAL || mode == LOCAL
+}
+
 func (cf *AgentConfig) Populate(deps *daemon.Dependencies) {
 	deps.IntVar(&cf.hostTTL, "host-ttl", 30, "Time-to-live for host record; the daemon will try to refresh this on a schedule such that it doesn't lapse")
 	deps.StringVar(&cf.network, "network-mode", LOCAL, fmt.Sprintf(`Kind of network to assume for containers (either "%s" or "%s")`, LOCAL, GLOBAL))
@@ -39,7 +48,7 @@ func (cf *AgentConfig) Populate(deps *daemon.Dependencies) {
 }
 
 func (cf *AgentConfig) Prepare() (daemon.StartFunc, error) {
-	if !IsValidNetworkMode(cf.network) {
+	if !isValidNetworkMode(cf.network) {
 		return nil, fmt.Errorf("Unknown network mode '%s'", cf.network)
 	}
 
@@ -63,16 +72,26 @@ func (cf *AgentConfig) Prepare() (daemon.StartFunc, error) {
 	containerUpdatesReset := make(chan struct{})
 	serviceUpdates := make(chan store.ServiceUpdate)
 	serviceUpdatesReset := make(chan struct{})
+	localInstanceUpdates := make(chan LocalInstanceUpdate)
+	localInstanceUpdatesReset := make(chan struct{})
 
-	siconf := syncInstancesConfig{
+	syncInstConf := syncInstancesConfig{
 		hostIP:  cf.hostIP,
 		network: cf.network,
-		store:   cf.store,
 
-		containerUpdates:      containerUpdates,
-		containerUpdatesReset: containerUpdatesReset,
-		serviceUpdates:        serviceUpdates,
-		serviceUpdatesReset:   serviceUpdatesReset,
+		containerUpdates:          containerUpdates,
+		containerUpdatesReset:     containerUpdatesReset,
+		serviceUpdates:            serviceUpdates,
+		serviceUpdatesReset:       serviceUpdatesReset,
+		localInstanceUpdates:      localInstanceUpdates,
+		localInstanceUpdatesReset: localInstanceUpdatesReset,
+	}
+
+	setInstConf := setInstancesConfig{
+		hostIP:                    cf.hostIP,
+		store:                     cf.store,
+		localInstanceUpdates:      localInstanceUpdates,
+		localInstanceUpdatesReset: localInstanceUpdatesReset,
 	}
 
 	// Announce our presence
@@ -90,7 +109,8 @@ func (cf *AgentConfig) Prepare() (daemon.StartFunc, error) {
 					store.QueryServiceOptions{WithContainerRules: true},
 					serviceUpdates))),
 
-		daemon.Restart(cf.reconnectInterval, siconf.StartFunc()),
+		daemon.Restart(cf.reconnectInterval, syncInstConf.StartFunc()),
+		daemon.Restart(cf.reconnectInterval, setInstConf.StartFunc()),
 
 		daemon.Restart(cf.reconnectInterval, hb.Start)), nil
 }

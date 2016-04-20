@@ -14,208 +14,234 @@ import (
 	docker "github.com/fsouza/go-dockerclient"
 )
 
-type instanceSet map[string]struct{}
-
-const (
-	GLOBAL = "global"
-	LOCAL  = "local"
-)
-
-func IsValidNetworkMode(mode string) bool {
-	return mode == GLOBAL || mode == LOCAL
+type InstanceKey struct {
+	Service, Instance string
 }
 
-type service struct {
-	*store.ServiceInfo
-	localInstances instanceSet
-}
-
-func (svc *service) includes(instanceName string) bool {
-	_, ok := svc.localInstances[instanceName]
-	return ok
+type LocalInstanceUpdate struct {
+	LocalInstances map[InstanceKey]*store.Instance
+	Reset          bool
 }
 
 type syncInstancesConfig struct {
 	hostIP  net.IP
 	network string
-	store   store.Store
 
-	containerUpdates      <-chan ContainerUpdate
-	containerUpdatesReset chan<- struct{}
-	serviceUpdates        <-chan store.ServiceUpdate
-	serviceUpdatesReset   chan<- struct{}
+	containerUpdates          <-chan ContainerUpdate
+	containerUpdatesReset     chan<- struct{}
+	serviceUpdates            <-chan store.ServiceUpdate
+	serviceUpdatesReset       chan<- struct{}
+	localInstanceUpdates      chan<- LocalInstanceUpdate
+	localInstanceUpdatesReset <-chan struct{}
 }
 
 type syncInstances struct {
 	syncInstancesConfig
 	errs       daemon.ErrorSink
-	services   map[string]*service
-	containers map[string]*docker.Container
+	services   map[string]service
+	containers map[string]container
+
+	// The LocalInstanceUpdate update being currently accumulated
+	update LocalInstanceUpdate
+}
+
+type service struct {
+	*store.ServiceInfo
+
+	// map from instance names (= container ids)
+	instances map[string]*store.Instance
+}
+
+type container struct {
+	*docker.Container
+
+	// map from services names with instances for this container
+	instances map[string]struct{}
 }
 
 func (conf syncInstancesConfig) StartFunc() daemon.StartFunc {
-	return daemon.SimpleComponent(func(stop <-chan struct{}, errs daemon.ErrorSink) {
-		si := syncInstances{
-			syncInstancesConfig: conf,
-			errs:                errs,
+	return daemon.SimpleComponent(conf.start)
+}
+
+func (conf syncInstancesConfig) start(stop <-chan struct{}, errs daemon.ErrorSink) {
+	si := syncInstances{
+		syncInstancesConfig: conf,
+		errs:                errs,
+	}
+
+	si.containerUpdatesReset <- struct{}{}
+	si.serviceUpdatesReset <- struct{}{}
+
+	for {
+		// Clear the current update
+		si.update.LocalInstances = make(map[InstanceKey]*store.Instance)
+		si.update.Reset = false
+
+		select {
+		case update := <-si.containerUpdates:
+			si.processContainerUpdate(update)
+
+		case update := <-si.serviceUpdates:
+			si.processServiceUpdate(update)
+
+		case <-si.localInstanceUpdatesReset:
+			// Drop state, ask for resets from our sources
+			si.services = nil
+			si.containers = nil
+			si.containerUpdatesReset <- struct{}{}
+			si.serviceUpdatesReset <- struct{}{}
+
+		case <-stop:
+			return
 		}
 
-		si.containerUpdatesReset <- struct{}{}
-		si.serviceUpdatesReset <- struct{}{}
-
-		for {
-			select {
-			case update := <-si.containerUpdates:
-				si.processContainerUpdate(update)
-
-			case update := <-si.serviceUpdates:
-				si.processServiceUpdate(update)
-
-			case <-stop:
-				return
-			}
+		if len(si.update.LocalInstances) > 0 || si.update.Reset {
+			si.localInstanceUpdates <- si.update
+			si.update.LocalInstances = nil
 		}
-	})
+	}
 }
 
 func (si *syncInstances) processContainerUpdate(update ContainerUpdate) {
 	if update.Reset {
-		si.containers = update.Containers
-		for _, svc := range si.services {
-			si.errs.Post(si.syncInstances(svc))
-		}
-
-		return
+		si.containers = make(map[string]container)
+		si.clearInstances()
+		// Only send a reset when we have full information
+		si.update.Reset = (si.services != nil)
 	}
 
 	for id, cont := range update.Containers {
 		if cont != nil {
-			si.containers[id] = cont
-			si.errs.Post(si.addContainer(cont))
-		} else if cont := si.containers[id]; cont != nil {
-			delete(si.containers, id)
-			si.errs.Post(si.removeContainer(cont))
+			si.addContainer(cont)
+		} else {
+			si.removeContainer(id)
 		}
 	}
 }
 
-func (si *syncInstances) addContainer(container *docker.Container) error {
-	for _, service := range si.services {
-		log.Infof(`Evaluating container '%s' against service '%s'`, container.ID, service.Name)
-		if err := si.evaluate(container, service); err != nil {
-			return err
-		}
+func (si *syncInstances) addContainer(cont *docker.Container) {
+	if si.containers == nil {
+		return
 	}
-	return nil
+
+	if _, found := si.containers[cont.ID]; found {
+		return
+	}
+
+	c := container{Container: cont, instances: make(map[string]struct{})}
+	si.containers[cont.ID] = c
+
+	for svcName, svc := range si.services {
+		log.Infof(`Evaluating container '%s' against service '%s'`, cont.ID, svcName)
+		si.addInstances(svc, c)
+	}
 }
 
-func (si *syncInstances) removeContainer(container *docker.Container) error {
-	instName := instanceNameFor(container)
-	for serviceName, svc := range si.services {
-		if svc.includes(instName) {
-			err := si.store.RemoveInstance(serviceName, instName)
-			if err != nil {
-				return err
+func (si *syncInstances) removeContainer(id string) {
+	if cont, found := si.containers[id]; found {
+		delete(si.containers, id)
+
+		if si.services != nil {
+			for svcName := range cont.instances {
+				delete(si.services[svcName].instances, id)
+				si.updateInstance(svcName, id, nil)
 			}
-			log.Infof("Deregistered service '%s' instance '%.12s'", serviceName, instName)
-			delete(svc.localInstances, instName)
 		}
 	}
-	return nil
+}
+
+func (si *syncInstances) addInstances(svc service, cont container) {
+	for _, rule := range svc.ContainerRules {
+		inst := si.extractInstance(cont.Container, svc.ServiceInfo,
+			rule.ContainerRule)
+		if inst != nil {
+			svc.instances[cont.ID] = inst
+			cont.instances[svc.Name] = struct{}{}
+			si.updateInstance(svc.Name, cont.ID, inst)
+		}
+	}
+}
+
+func (si *syncInstances) updateInstance(svcName, instName string, inst *store.Instance) {
+	key := InstanceKey{Service: svcName, Instance: instName}
+	si.update.LocalInstances[key] = inst
 }
 
 func (si *syncInstances) processServiceUpdate(update store.ServiceUpdate) {
 	if update.Reset {
-		si.services = make(map[string]*service)
+		si.services = make(map[string]service)
+		si.clearInstances()
+		// Only send a reset when we have full information
+		si.update.Reset = (si.containers != nil)
 	}
 
-	for name, svcInfo := range update.Services {
+	for svcName, svcInfo := range update.Services {
 		if svcInfo != nil {
-			svc := si.redefineService(svcInfo)
-			si.errs.Post(si.syncInstances(svc))
-		} else if svc := si.containers[name]; svc != nil {
-			delete(si.services, name)
+			si.updateService(svcInfo)
+		} else {
+			si.removeService(svcName)
 		}
 	}
 }
 
-// The service has been changed; re-evaluate which containers belong,
-// and which don't. Assume we have a correct list of containers.
-func (si *syncInstances) redefineService(svcInfo *store.ServiceInfo) *service {
-	svc, found := si.services[svcInfo.Name]
-	if !found {
-		svc = &service{}
-		si.services[svcInfo.Name] = svc
+func (si *syncInstances) updateService(svcInfo *store.ServiceInfo) {
+	if si.services == nil {
+		return
 	}
-	svc.ServiceInfo = svcInfo
-	return svc
+
+	svc := service{
+		ServiceInfo: svcInfo,
+		instances:   make(map[string]*store.Instance),
+	}
+	old := si.services[svcInfo.Name]
+	si.services[svcInfo.Name] = svc
+
+	for _, cont := range si.containers {
+		si.addInstances(svc, cont)
+	}
+
+	// See if any instances should go away
+	for instName := range old.instances {
+		if svc.instances[instName] == nil {
+			si.updateInstance(svc.Name, instName, nil)
+		}
+	}
 }
 
-func (si *syncInstances) syncInstances(svc *service) error {
-	if si.containers == nil {
-		// Defer syncing instances until we learn about containers
+func (si *syncInstances) removeService(svcName string) {
+	if svc, found := si.services[svcName]; found {
+		delete(si.services, svcName)
+
+		if si.containers != nil {
+			for id := range svc.instances {
+				delete(si.containers[id].instances, svcName)
+				si.updateInstance(svcName, id, nil)
+			}
+		}
+	}
+}
+
+func (si *syncInstances) clearInstances() {
+	for _, svc := range si.services {
+		for k := range svc.instances {
+			delete(svc.instances, k)
+		}
+	}
+
+	for _, cont := range si.containers {
+		for k := range cont.instances {
+			delete(cont.instances, k)
+		}
+	}
+}
+
+func (si *syncInstances) extractInstance(container *docker.Container, svc *store.ServiceInfo, rule store.ContainerRule) *store.Instance {
+	if !rule.Includes(containerLabels{container}) {
 		return nil
 	}
 
-	svc.localInstances = make(instanceSet)
-	for _, container := range si.containers {
-		if err := si.evaluate(container, svc); err != nil {
-			return err
-		}
-	}
-
-	// remove any instances for this service that do not match
-	storeSvc, err := si.store.GetService(svc.Name, store.QueryServiceOptions{WithInstances: true})
-	if err != nil {
-		return err
-	}
-
-	for _, inst := range storeSvc.Instances {
-		if !svc.includes(inst.Name) && si.owns(inst.Instance) {
-			if err := si.store.RemoveInstance(svc.Name, inst.Name); err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
-}
-
-func (si *syncInstances) owns(inst store.Instance) bool {
-	return si.hostIP.Equal(inst.Host.IP)
-}
-
-func (si *syncInstances) evaluate(container *docker.Container, svc *service) error {
-	for _, spec := range svc.ContainerRules {
-		if instance, ok := si.extractInstance(spec.ContainerRule, svc.ServiceInfo.Service, container); ok {
-			instance.ContainerRule = spec.Name
-			instName := instanceNameFor(container)
-			err := si.store.AddInstance(svc.Name, instName, instance)
-			if err != nil {
-				return err
-			}
-			svc.localInstances[instName] = struct{}{}
-			log.Infof(`Registered %s instance '%.12s' at %s`, svc.Name, instName, instance.Address)
-			return nil
-		}
-	}
-	return nil
-}
-
-// instanceNameFor and instanceNameFromEvent encode the fact we just
-// use the container ID as the instance name.
-func instanceNameFor(c *docker.Container) string {
-	return c.ID
-}
-
-func (si *syncInstances) extractInstance(spec store.ContainerRule, svc store.Service, container *docker.Container) (store.Instance, bool) {
-	var inst store.Instance
-	if !spec.Includes(containerLabels{container}) {
-		return inst, false
-	}
-
-	inst.Address = si.getAddress(spec, svc, container)
-	if inst.Address == nil {
+	addr := si.extractAddress(container, svc)
+	if addr == nil {
 		log.Infof(`Cannot extract address for instance, from container '%s'`, container.ID)
 	}
 
@@ -223,16 +249,21 @@ func (si *syncInstances) extractInstance(spec store.ContainerRule, svc store.Ser
 		"tag":   imageTag(container.Config.Image),
 		"image": imageName(container.Config.Image),
 	}
+
 	for k, v := range container.Config.Labels {
 		labels[k] = v
 	}
+
 	for _, v := range container.Config.Env {
 		kv := strings.SplitN(v, "=", 2)
 		labels["env."+kv[0]] = kv[1]
 	}
-	inst.Labels = labels
-	inst.Host = store.Host{IP: si.hostIP}
-	return inst, true
+
+	return &store.Instance{
+		Address: addr,
+		Labels:  labels,
+		Host:    store.Host{IP: si.hostIP},
+	}
 }
 
 type containerLabels struct{ *docker.Container }
@@ -262,7 +293,7 @@ container is using the host's networking stack, so we should use the
 host IP address.
 
 */
-func (si *syncInstances) getAddress(spec store.ContainerRule, svc store.Service, container *docker.Container) *netutil.IPPort {
+func (si *syncInstances) extractAddress(container *docker.Container, svc *store.ServiceInfo) *netutil.IPPort {
 	if svc.InstancePort == 0 {
 		return nil
 	}

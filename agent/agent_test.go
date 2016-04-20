@@ -56,7 +56,7 @@ func TestSyncInstancesComponent(t *testing.T) {
 	agent := start(errs)
 
 	// Check that the instance was added appropriately
-	time.Sleep(10 * time.Millisecond)
+	time.Sleep(20 * time.Millisecond)
 	svc, err := st.GetService("svc1", store.QueryServiceOptions{WithInstances: true})
 	require.Nil(t, err)
 	require.Len(t, svc.Instances, 1)

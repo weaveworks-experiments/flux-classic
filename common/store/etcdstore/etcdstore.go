@@ -62,25 +62,30 @@ func (es *etcdStore) Ping() error {
 	return err
 }
 
-const ROOT = "/weave-flux/"
-const SERVICE_ROOT = ROOT + "service/"
-const HOST_ROOT = ROOT + "host/"
-const SESSION_ROOT = ROOT + "session/"
+const (
+	ROOT          = "/weave-flux/"
+	SERVICE_ROOT  = ROOT + "service/"
+	HOST_ROOT     = ROOT + "host/"
+	SESSION_ROOT  = ROOT + "session/"
+	INSTANCE_PATH = "instances"
+	DETAIL_PATH   = "spec"
+	RULE_PATH     = "rules"
+)
 
 func serviceRootKey(serviceName string) string {
 	return SERVICE_ROOT + serviceName
 }
 
 func serviceKey(serviceName string) string {
-	return fmt.Sprintf("%s%s/details", SERVICE_ROOT, serviceName)
+	return fmt.Sprintf("%s%s/%s", SERVICE_ROOT, serviceName, DETAIL_PATH)
 }
 
 func ruleKey(serviceName, ruleName string) string {
-	return fmt.Sprintf("%s%s/groupspec/%s", SERVICE_ROOT, serviceName, ruleName)
+	return fmt.Sprintf("%s%s/%s/%s", SERVICE_ROOT, serviceName, RULE_PATH, ruleName)
 }
 
 func instanceKey(serviceName, instanceName string) string {
-	return fmt.Sprintf("%s%s/instance/%s", SERVICE_ROOT, serviceName, instanceName)
+	return fmt.Sprintf("%s%s/%s/%s", SERVICE_ROOT, serviceName, INSTANCE_PATH, instanceName)
 }
 
 type parsedRootKey struct {
@@ -125,15 +130,15 @@ func parseKey(key string) interface{} {
 	}
 
 	switch p[1] {
-	case "details":
+	case DETAIL_PATH:
 		return parsedServiceKey{p[0]}
 
-	case "groupspec":
+	case RULE_PATH:
 		if len(p) == 3 {
 			return parsedRuleKey{p[0], p[2]}
 		}
 
-	case "instance":
+	case INSTANCE_PATH:
 		if len(p) == 3 {
 			return parsedInstanceKey{p[0], p[2]}
 		}
@@ -254,7 +259,7 @@ func indexDir(node *etcd.Node) map[string]*etcd.Node {
 func serviceInfoFromNode(name string, node *etcd.Node, opts store.QueryServiceOptions, liveSessions map[string]struct{}) (*store.ServiceInfo, error) {
 	dir := indexDir(node)
 
-	details := dir["details"]
+	details := dir[DETAIL_PATH]
 	if details == nil {
 		return nil, fmt.Errorf("missing services details in etcd node %s", node.Key)
 	}
@@ -266,7 +271,7 @@ func serviceInfoFromNode(name string, node *etcd.Node, opts store.QueryServiceOp
 	}
 
 	if opts.WithInstances {
-		for name, n := range indexDir(dir["instance"]) {
+		for name, n := range indexDir(dir[INSTANCE_PATH]) {
 			inst := unmarshalInstance(n, &err)
 			if _, found := liveSessions[inst.Session]; found {
 				svc.Instances = append(svc.Instances,
@@ -279,7 +284,7 @@ func serviceInfoFromNode(name string, node *etcd.Node, opts store.QueryServiceOp
 	}
 
 	if opts.WithContainerRules {
-		for name, n := range indexDir(dir["groupspec"]) {
+		for name, n := range indexDir(dir[RULE_PATH]) {
 			svc.ContainerRules = append(svc.ContainerRules,
 				store.ContainerRuleInfo{
 					Name:          name,

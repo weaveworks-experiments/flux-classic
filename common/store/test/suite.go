@@ -107,6 +107,7 @@ var testInst = store.Instance{
 }
 
 func testInstances(s store.Store, t *testing.T) {
+	s.Heartbeat(10 * time.Second)
 	require.Nil(t, s.AddService("svc", testService))
 	require.Nil(t, s.AddInstance("svc", "inst", testInst))
 
@@ -141,6 +142,12 @@ func testInstances(s store.Store, t *testing.T) {
 	require.Nil(t, s.RemoveInstance("svc", "inst"))
 	require.Equal(t, map[string]store.Instance{}, instances())
 	require.Equal(t, map[string]store.Instance{}, serviceInstances())
+
+	// Instances disappear with the session
+	require.Nil(t, s.AddInstance("svc", "inst", testInst))
+	require.Equal(t, map[string]store.Instance{"svc inst": testInst}, serviceInstances())
+	s.EndSession()
+	require.Equal(t, map[string]store.Instance{}, instances())
 }
 
 type watch struct {

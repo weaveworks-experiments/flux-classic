@@ -27,6 +27,7 @@ func TestEtcdRestart(t *testing.T) {
 	c, err := etcdutil.NewClient(server.URL())
 	require.Nil(t, err)
 	st := etcdstore.New(c)
+	st.Heartbeat(30 * time.Second)
 
 	mipt := newMockIPTables(t)
 	done := make(chan model.ServiceUpdate, 10)

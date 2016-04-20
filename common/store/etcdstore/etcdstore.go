@@ -22,6 +22,16 @@ type etcdStore struct {
 	session string
 }
 
+type sessionInstance struct {
+	*store.Instance
+	Session string
+}
+
+type sessionHost struct {
+	*store.Host
+	Session string
+}
+
 func NewFromEnv() (store.Store, error) {
 	c, err := etcdutil.NewClientFromEnv()
 	if err != nil {
@@ -162,16 +172,26 @@ func (es *etcdStore) deleteRecursive(key string) error {
 }
 
 func (es *etcdStore) GetService(serviceName string, opts store.QueryServiceOptions) (*store.ServiceInfo, error) {
+	live, err := es.liveSessions()
+	if err != nil {
+		return nil, err
+	}
+
 	node, _, err := es.getDirNode(serviceRootKey(serviceName), false,
 		opts.WithInstances || opts.WithContainerRules)
 	if err != nil {
 		return nil, err
 	}
 
-	return serviceInfoFromNode(serviceName, node, opts)
+	return serviceInfoFromNode(serviceName, node, opts, live)
 }
 
 func (es *etcdStore) GetAllServices(opts store.QueryServiceOptions) ([]*store.ServiceInfo, error) {
+	live, err := es.liveSessions()
+	if err != nil {
+		return nil, err
+	}
+
 	node, _, err := es.getDirNode(SERVICE_ROOT, true, true)
 	if err != nil {
 		return nil, err
@@ -184,7 +204,7 @@ func (es *etcdStore) GetAllServices(opts store.QueryServiceOptions) ([]*store.Se
 			continue
 		}
 
-		svc, err := serviceInfoFromNode(name, n, opts)
+		svc, err := serviceInfoFromNode(name, n, opts, live)
 		if err != nil {
 			return nil, err
 		}
@@ -231,7 +251,7 @@ func indexDir(node *etcd.Node) map[string]*etcd.Node {
 	return res
 }
 
-func serviceInfoFromNode(name string, node *etcd.Node, opts store.QueryServiceOptions) (*store.ServiceInfo, error) {
+func serviceInfoFromNode(name string, node *etcd.Node, opts store.QueryServiceOptions, liveSessions map[string]struct{}) (*store.ServiceInfo, error) {
 	dir := indexDir(node)
 
 	details := dir["details"]
@@ -247,11 +267,14 @@ func serviceInfoFromNode(name string, node *etcd.Node, opts store.QueryServiceOp
 
 	if opts.WithInstances {
 		for name, n := range indexDir(dir["instance"]) {
-			svc.Instances = append(svc.Instances,
-				store.InstanceInfo{
-					Name:     name,
-					Instance: unmarshalInstance(n, &err),
-				})
+			inst := unmarshalInstance(n, &err)
+			if _, found := liveSessions[inst.Session]; found {
+				svc.Instances = append(svc.Instances,
+					store.InstanceInfo{
+						Name:     name,
+						Instance: *inst.Instance,
+					})
+			}
 		}
 	}
 
@@ -292,14 +315,14 @@ func unmarshalRule(node *etcd.Node, errp *error) store.ContainerRule {
 	return gs
 }
 
-func unmarshalInstance(node *etcd.Node, errp *error) store.Instance {
-	var instance store.Instance
+func unmarshalInstance(node *etcd.Node, errp *error) *sessionInstance {
+	var instance sessionInstance
 
 	if *errp == nil {
 		*errp = json.Unmarshal([]byte(node.Value), &instance)
 	}
 
-	return instance
+	return &instance
 }
 
 func (es *etcdStore) SetContainerRule(serviceName string, ruleName string, spec store.ContainerRule) error {
@@ -310,7 +333,8 @@ func (es *etcdStore) RemoveContainerRule(serviceName string, ruleName string) er
 	return es.deleteRecursive(ruleKey(serviceName, ruleName))
 }
 
-func (es *etcdStore) AddInstance(serviceName string, instanceName string, inst store.Instance) error {
+func (es *etcdStore) AddInstance(serviceName string, instanceName string, instance store.Instance) error {
+	inst := &sessionInstance{Instance: &instance, Session: es.session}
 	return es.setJSON(instanceKey(serviceName, instanceName), inst)
 }
 
@@ -427,11 +451,6 @@ func (es *etcdStore) WatchServices(ctx context.Context, resCh chan<- store.Servi
 
 func hostKey(identity string) string {
 	return HOST_ROOT + identity
-}
-
-type sessionHost struct {
-	*store.Host
-	Session string
 }
 
 func (es *etcdStore) RegisterHost(identity string, details *store.Host) error {

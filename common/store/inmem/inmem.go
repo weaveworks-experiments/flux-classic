@@ -21,11 +21,16 @@ type sessionHost struct {
 	session string
 }
 
+type sessionInstance struct {
+	store.Instance
+	session string
+}
+
 func NewInMem() *InMem {
 	return &InMem{
 		services:        make(map[string]store.Service),
 		groupSpecs:      make(map[string]map[string]store.ContainerRule),
-		instances:       make(map[string]map[string]store.Instance),
+		instances:       make(map[string]map[string]*sessionInstance),
 		hosts:           make(map[string]*sessionHost),
 		heartbeats:      make(map[string]*heartbeat),
 		heartbeatTimers: make(map[string]*time.Timer),
@@ -35,7 +40,7 @@ func NewInMem() *InMem {
 type InMem struct {
 	services        map[string]store.Service
 	groupSpecs      map[string]map[string]store.ContainerRule
-	instances       map[string]map[string]store.Instance
+	instances       map[string]map[string]*sessionInstance
 	hosts           map[string]*sessionHost
 	heartbeats      map[string]*heartbeat
 	heartbeatTimers map[string]*time.Timer
@@ -61,6 +66,12 @@ func (inmem *InMem) Store(sessionID string) store.Store {
 		InMem:   inmem,
 		session: sessionID,
 	}
+}
+
+func (s *inmemStore) AddInstance(serviceName string, instanceName string, inst store.Instance) error {
+	s.instances[serviceName][instanceName] = &sessionInstance{Instance: inst, session: s.session}
+	s.fireServiceChange(serviceName, false, withInstanceChanges)
+	return s.injectedError
 }
 
 func (s *inmemStore) RegisterHost(identity string, details *store.Host) error {
@@ -101,6 +112,20 @@ func (s *inmemStore) EndSession() error {
 			s.fireHostChange(hostName, true)
 		}
 	}
+
+	for serviceName, _ := range s.instances {
+		changed := false
+		for instanceName, instance := range s.instances[serviceName] {
+			if instance.session == s.session {
+				delete(s.instances[serviceName], instanceName)
+				changed = true
+			}
+		}
+		if changed {
+			s.fireServiceChange(serviceName, false, withInstanceChanges)
+		}
+	}
+
 	return nil
 }
 
@@ -204,7 +229,7 @@ func (s *InMem) CheckRegisteredService(name string) error {
 func (s *InMem) AddService(name string, svc store.Service) error {
 	s.services[name] = svc
 	s.groupSpecs[name] = make(map[string]store.ContainerRule)
-	s.instances[name] = make(map[string]store.Instance)
+	s.instances[name] = make(map[string]*sessionInstance)
 
 	s.fireServiceChange(name, false, nil)
 	log.Printf("InMem: service %s updated in store", name)
@@ -246,7 +271,7 @@ func (s *InMem) makeServiceInfo(name string, svc store.Service, opts store.Query
 	if opts.WithInstances {
 		for n, i := range s.instances[info.Name] {
 			info.Instances = append(info.Instances,
-				store.InstanceInfo{Name: n, Instance: i})
+				store.InstanceInfo{Name: n, Instance: i.Instance})
 		}
 	}
 
@@ -298,12 +323,6 @@ func (s *InMem) RemoveContainerRule(serviceName string, groupName string) error 
 
 func withInstanceChanges(opts store.QueryServiceOptions) bool {
 	return opts.WithInstances
-}
-
-func (s *InMem) AddInstance(serviceName string, instanceName string, inst store.Instance) error {
-	s.instances[serviceName][instanceName] = inst
-	s.fireServiceChange(serviceName, false, withInstanceChanges)
-	return s.injectedError
 }
 
 func (s *InMem) RemoveInstance(serviceName string, instanceName string) error {

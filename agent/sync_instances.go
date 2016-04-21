@@ -366,15 +366,6 @@ func envValue(env []string, key string) string {
 	return ""
 }
 
-func (si *syncInstances) processHostChange(change store.HostChange) {
-	// TODO: if the host has been removed, mark the instances as dubious, and schedule something to delete them if that's still the case in now + T.
-	action := "arrived"
-	if change.HostDeparted {
-		action = "departed"
-	}
-	log.Infof("Host change: %s %s", change.Name, action)
-}
-
 func imageTag(image string) string {
 	colon := strings.LastIndex(image, ":")
 	if colon == -1 {

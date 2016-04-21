@@ -41,7 +41,7 @@ func isValidNetworkMode(mode string) bool {
 }
 
 func (cf *AgentConfig) Populate(deps *daemon.Dependencies) {
-	deps.IntVar(&cf.hostTTL, "host-ttl", 30, "Time-to-live for host record; the daemon will try to refresh this on a schedule such that it doesn't lapse")
+	deps.IntVar(&cf.hostTTL, "host-ttl", 30, "The daemon will give its records this time-to-live in seconds, and refresh them while it is running")
 	deps.StringVar(&cf.network, "network-mode", LOCAL, fmt.Sprintf(`Kind of network to assume for containers (either "%s" or "%s")`, LOCAL, GLOBAL))
 	deps.Dependency(etcdstore.StoreDependency(&cf.store))
 	deps.Dependency(netutil.HostIPDependency(&cf.hostIP))
@@ -98,6 +98,8 @@ func (cf *AgentConfig) Prepare() (daemon.StartFunc, error) {
 	cf.store.RegisterHost(cf.hostIP.String(), &store.Host{IP: cf.hostIP})
 
 	return daemon.Aggregate(
+		daemon.Restart(cf.reconnectInterval, hb.Start),
+
 		daemon.Reset(containerUpdatesReset,
 			daemon.Restart(cf.reconnectInterval,
 				dockerListenerStartFunc(cf.dockerClient,
@@ -110,7 +112,5 @@ func (cf *AgentConfig) Prepare() (daemon.StartFunc, error) {
 					serviceUpdates))),
 
 		daemon.Restart(cf.reconnectInterval, syncInstConf.StartFunc()),
-		daemon.Restart(cf.reconnectInterval, setInstConf.StartFunc()),
-
-		daemon.Restart(cf.reconnectInterval, hb.Start)), nil
+		daemon.Restart(cf.reconnectInterval, setInstConf.StartFunc())), nil
 }

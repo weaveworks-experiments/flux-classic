@@ -15,6 +15,9 @@ type setInstancesConfig struct {
 
 	localInstanceUpdates      <-chan LocalInstanceUpdate
 	localInstanceUpdatesReset chan<- struct{}
+
+	// For testing
+	didUpdate chan<- struct{}
 }
 
 type setInstances struct {
@@ -35,6 +38,9 @@ func (conf setInstancesConfig) StartFunc() daemon.StartFunc {
 			select {
 			case update := <-si.localInstanceUpdates:
 				si.processUpdate(update)
+				if conf.didUpdate != nil {
+					conf.didUpdate <- struct{}{}
+				}
 
 			case <-stop:
 				return

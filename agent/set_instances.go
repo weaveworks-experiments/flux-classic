@@ -13,8 +13,8 @@ type setInstancesConfig struct {
 	hostIP net.IP
 	store  store.Store
 
-	localInstanceUpdates      <-chan LocalInstanceUpdate
-	localInstanceUpdatesReset chan<- struct{}
+	instanceUpdates      <-chan InstanceUpdate
+	instanceUpdatesReset chan<- struct{}
 
 	// For testing
 	didUpdate chan<- struct{}
@@ -32,11 +32,11 @@ func (conf setInstancesConfig) StartFunc() daemon.StartFunc {
 			errs:               errs,
 		}
 
-		si.localInstanceUpdatesReset <- struct{}{}
+		si.instanceUpdatesReset <- struct{}{}
 
 		for {
 			select {
-			case update := <-si.localInstanceUpdates:
+			case update := <-si.instanceUpdates:
 				si.processUpdate(update)
 				if conf.didUpdate != nil {
 					conf.didUpdate <- struct{}{}
@@ -49,7 +49,7 @@ func (conf setInstancesConfig) StartFunc() daemon.StartFunc {
 	})
 }
 
-func (si *setInstances) processReset(update LocalInstanceUpdate) {
+func (si *setInstances) processReset(update InstanceUpdate) {
 	// We need to get all services, because we need to prune
 	// instances on all services, even ones that we no longer have
 	// instances for.
@@ -69,19 +69,19 @@ func (si *setInstances) processReset(update LocalInstanceUpdate) {
 				Service:  svc.Name,
 				Instance: inst.Name,
 			}
-			if update.LocalInstances[key] == nil {
+			if update.Instances[key] == nil {
 				si.removeInstance(key)
 			}
 		}
 	}
 }
 
-func (si *setInstances) processUpdate(update LocalInstanceUpdate) {
+func (si *setInstances) processUpdate(update InstanceUpdate) {
 	if update.Reset {
 		si.processReset(update)
 	}
 
-	for key, inst := range update.LocalInstances {
+	for key, inst := range update.Instances {
 		if inst == nil {
 			si.removeInstance(key)
 		} else {

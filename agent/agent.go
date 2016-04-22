@@ -72,26 +72,26 @@ func (cf *AgentConfig) Prepare() (daemon.StartFunc, error) {
 	containerUpdatesReset := make(chan struct{})
 	serviceUpdates := make(chan store.ServiceUpdate)
 	serviceUpdatesReset := make(chan struct{})
-	localInstanceUpdates := make(chan LocalInstanceUpdate)
-	localInstanceUpdatesReset := make(chan struct{})
+	instanceUpdates := make(chan InstanceUpdate)
+	instanceUpdatesReset := make(chan struct{})
 
 	syncInstConf := syncInstancesConfig{
 		hostIP:  cf.hostIP,
 		network: cf.network,
 
-		containerUpdates:          containerUpdates,
-		containerUpdatesReset:     containerUpdatesReset,
-		serviceUpdates:            serviceUpdates,
-		serviceUpdatesReset:       serviceUpdatesReset,
-		localInstanceUpdates:      localInstanceUpdates,
-		localInstanceUpdatesReset: localInstanceUpdatesReset,
+		containerUpdates:      containerUpdates,
+		containerUpdatesReset: containerUpdatesReset,
+		serviceUpdates:        serviceUpdates,
+		serviceUpdatesReset:   serviceUpdatesReset,
+		instanceUpdates:       instanceUpdates,
+		instanceUpdatesReset:  instanceUpdatesReset,
 	}
 
 	setInstConf := setInstancesConfig{
-		hostIP:                    cf.hostIP,
-		store:                     cf.store,
-		localInstanceUpdates:      localInstanceUpdates,
-		localInstanceUpdatesReset: localInstanceUpdatesReset,
+		hostIP:               cf.hostIP,
+		store:                cf.store,
+		instanceUpdates:      instanceUpdates,
+		instanceUpdatesReset: instanceUpdatesReset,
 	}
 
 	// Announce our presence

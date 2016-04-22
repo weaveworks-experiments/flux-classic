@@ -18,21 +18,21 @@ type InstanceKey struct {
 	Service, Instance string
 }
 
-type LocalInstanceUpdate struct {
-	LocalInstances map[InstanceKey]*store.Instance
-	Reset          bool
+type InstanceUpdate struct {
+	Instances map[InstanceKey]*store.Instance
+	Reset     bool
 }
 
 type syncInstancesConfig struct {
 	hostIP  net.IP
 	network string
 
-	containerUpdates          <-chan ContainerUpdate
-	containerUpdatesReset     chan<- struct{}
-	serviceUpdates            <-chan store.ServiceUpdate
-	serviceUpdatesReset       chan<- struct{}
-	localInstanceUpdates      chan<- LocalInstanceUpdate
-	localInstanceUpdatesReset <-chan struct{}
+	containerUpdates      <-chan ContainerUpdate
+	containerUpdatesReset chan<- struct{}
+	serviceUpdates        <-chan store.ServiceUpdate
+	serviceUpdatesReset   chan<- struct{}
+	instanceUpdates       chan<- InstanceUpdate
+	instanceUpdatesReset  <-chan struct{}
 }
 
 type syncInstances struct {
@@ -41,8 +41,8 @@ type syncInstances struct {
 	services   map[string]service
 	containers map[string]container
 
-	// The LocalInstanceUpdate update being currently accumulated
-	update LocalInstanceUpdate
+	// The InstanceUpdate update being currently accumulated
+	update InstanceUpdate
 }
 
 type service struct {
@@ -74,7 +74,7 @@ func (conf syncInstancesConfig) start(stop <-chan struct{}, errs daemon.ErrorSin
 
 	for {
 		// Clear the current update
-		si.update.LocalInstances = make(map[InstanceKey]*store.Instance)
+		si.update.Instances = make(map[InstanceKey]*store.Instance)
 		si.update.Reset = false
 
 		select {
@@ -84,7 +84,7 @@ func (conf syncInstancesConfig) start(stop <-chan struct{}, errs daemon.ErrorSin
 		case update := <-si.serviceUpdates:
 			si.processServiceUpdate(update)
 
-		case <-si.localInstanceUpdatesReset:
+		case <-si.instanceUpdatesReset:
 			// Drop state, ask for resets from our sources
 			si.services = nil
 			si.containers = nil
@@ -95,9 +95,9 @@ func (conf syncInstancesConfig) start(stop <-chan struct{}, errs daemon.ErrorSin
 			return
 		}
 
-		if len(si.update.LocalInstances) > 0 || si.update.Reset {
-			si.localInstanceUpdates <- si.update
-			si.update.LocalInstances = nil
+		if len(si.update.Instances) > 0 || si.update.Reset {
+			si.instanceUpdates <- si.update
+			si.update.Instances = nil
 		}
 	}
 }
@@ -164,7 +164,7 @@ func (si *syncInstances) addInstances(svc service, cont container) {
 
 func (si *syncInstances) updateInstance(svcName, instName string, inst *store.Instance) {
 	key := InstanceKey{Service: svcName, Instance: instName}
-	si.update.LocalInstances[key] = inst
+	si.update.Instances[key] = inst
 }
 
 func (si *syncInstances) processServiceUpdate(update store.ServiceUpdate) {

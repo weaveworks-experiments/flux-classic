@@ -16,7 +16,7 @@ type setInstancesHarness struct {
 	hostIP net.IP
 	errs   daemon.ErrorSink
 	store.Store
-	instanceUpdates      chan LocalInstanceUpdate
+	instanceUpdates      chan InstanceUpdate
 	instanceUpdatesReset chan struct{}
 	didUpdate            chan struct{}
 	setInstances         daemon.Component
@@ -27,7 +27,7 @@ func setupSetInstances(hostIP string) setInstancesHarness {
 		hostIP:               net.ParseIP(hostIP),
 		errs:                 daemon.NewErrorSink(),
 		Store:                inmem.NewInMem().Store("test session"),
-		instanceUpdates:      make(chan LocalInstanceUpdate),
+		instanceUpdates:      make(chan InstanceUpdate),
 		instanceUpdatesReset: make(chan struct{}, 10),
 		didUpdate:            make(chan struct{}),
 	}
@@ -36,9 +36,9 @@ func setupSetInstances(hostIP string) setInstancesHarness {
 		hostIP: h.hostIP,
 		store:  h.Store,
 
-		localInstanceUpdates:      h.instanceUpdates,
-		localInstanceUpdatesReset: h.instanceUpdatesReset,
-		didUpdate:                 h.didUpdate,
+		instanceUpdates:      h.instanceUpdates,
+		instanceUpdatesReset: h.instanceUpdatesReset,
+		didUpdate:            h.didUpdate,
 	}.StartFunc()(h.errs)
 
 	return h
@@ -49,9 +49,9 @@ func (h *setInstancesHarness) stop(t *testing.T) {
 	require.Empty(t, h.errs)
 }
 
-func makeInstanceUpdate(svc, instName string, inst *store.Instance) LocalInstanceUpdate {
-	return LocalInstanceUpdate{
-		LocalInstances: map[InstanceKey]*store.Instance{
+func makeInstanceUpdate(svc, instName string, inst *store.Instance) InstanceUpdate {
+	return InstanceUpdate{
+		Instances: map[InstanceKey]*store.Instance{
 			InstanceKey{Service: svc, Instance: instName}: inst,
 		},
 	}

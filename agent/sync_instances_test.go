@@ -101,7 +101,7 @@ type harness struct {
 	errs   daemon.ErrorSink
 	store.Store
 	containerUpdates   chan ContainerUpdate
-	instanceUpdates    chan LocalInstanceUpdate
+	instanceUpdates    chan InstanceUpdate
 	syncInstances      daemon.Component
 	watchingServices   daemon.Component
 	serviceUpdatesPump func()
@@ -116,7 +116,7 @@ func setup(hostIP, netmode string) harness {
 		errs:               daemon.NewErrorSink(),
 		Store:              inmem.NewInMem().Store("test session"),
 		containerUpdates:   make(chan ContainerUpdate),
-		instanceUpdates:    make(chan LocalInstanceUpdate, 10),
+		instanceUpdates:    make(chan InstanceUpdate, 10),
 		serviceUpdatesPump: makePump(&serviceUpdatesRecv),
 	}
 
@@ -128,7 +128,7 @@ func setup(hostIP, netmode string) harness {
 		containerUpdatesReset: make(chan struct{}, 100),
 		serviceUpdates:        serviceUpdatesRecv,
 		serviceUpdatesReset:   make(chan struct{}, 100),
-		localInstanceUpdates:  h.instanceUpdates,
+		instanceUpdates:       h.instanceUpdates,
 	}.StartFunc()(h.errs)
 
 	h.watchingServices = store.WatchServicesStartFunc(h.Store,
@@ -176,8 +176,8 @@ func (h *harness) addGroup(serviceName string, labels ...string) {
 		store.ContainerRule{Selector: sel})
 }
 
-func (iu LocalInstanceUpdate) get(svc, inst string) *store.Instance {
-	return iu.LocalInstances[InstanceKey{Service: svc, Instance: inst}]
+func (iu InstanceUpdate) get(svc, inst string) *store.Instance {
+	return iu.Instances[InstanceKey{Service: svc, Instance: inst}]
 }
 
 func TestSyncInstancesReconcile(t *testing.T) {
@@ -214,7 +214,7 @@ func TestSyncInstancesReconcile(t *testing.T) {
 	h.serviceUpdatesPump()
 	iu := <-h.instanceUpdates
 	require.True(t, iu.Reset)
-	require.Len(t, iu.LocalInstances, 3)
+	require.Len(t, iu.Instances, 3)
 	require.Equal(t, selectedAddress, iu.get("foo-svc", "selected").Address.IP)
 	require.Equal(t, selectedAddress, iu.get("bar-svc", "selected").Address.IP)
 	require.Equal(t, selectedAddress, iu.get("boo-svc", "selected").Address.IP)
@@ -233,7 +233,7 @@ func TestSyncInstancesEvents(t *testing.T) {
 	h.serviceUpdatesPump()
 	iu := <-h.instanceUpdates
 	require.True(t, iu.Reset)
-	require.Len(t, iu.LocalInstances, 0)
+	require.Len(t, iu.Instances, 0)
 
 	h.AddService("foo-svc", store.Service{})
 	h.serviceUpdatesPump()
@@ -241,13 +241,13 @@ func TestSyncInstancesEvents(t *testing.T) {
 	h.serviceUpdatesPump()
 	iu = <-h.instanceUpdates
 	require.False(t, iu.Reset)
-	require.Len(t, iu.LocalInstances, 1)
+	require.Len(t, iu.Instances, 1)
 
 	h.addGroup("foo-svc", "image", "not-foo-image")
 	h.serviceUpdatesPump()
 	iu = <-h.instanceUpdates
 	require.False(t, iu.Reset)
-	require.Len(t, iu.LocalInstances, 1)
+	require.Len(t, iu.Instances, 1)
 
 	h.addContainers(containerInfo{
 		ID:        "bar",
@@ -260,12 +260,12 @@ func TestSyncInstancesEvents(t *testing.T) {
 	})
 	iu = <-h.instanceUpdates
 	require.False(t, iu.Reset)
-	require.Len(t, iu.LocalInstances, 2)
+	require.Len(t, iu.Instances, 2)
 
 	h.removeContainer("baz")
 	iu = <-h.instanceUpdates
 	require.False(t, iu.Reset)
-	require.Len(t, iu.LocalInstances, 1)
+	require.Len(t, iu.Instances, 1)
 
 	h.RemoveService("foo-svc")
 	h.serviceUpdatesPump()
@@ -273,7 +273,7 @@ func TestSyncInstancesEvents(t *testing.T) {
 	require.False(t, iu.Reset)
 	require.Equal(t, map[InstanceKey]*store.Instance{
 		InstanceKey{Service: "foo-svc", Instance: "bar"}: nil,
-	}, iu.LocalInstances)
+	}, iu.Instances)
 
 	h.stop(t)
 }
@@ -297,7 +297,7 @@ func TestMappedPort(t *testing.T) {
 	h.serviceUpdatesPump()
 	iu := <-h.instanceUpdates
 	require.True(t, iu.Reset)
-	require.Len(t, iu.LocalInstances, 1)
+	require.Len(t, iu.Instances, 1)
 	require.Equal(t, &netutil.IPPort{h.hostIP, 3456}, iu.get("blorp-svc", "blorp-instance").Address)
 	h.stop(t)
 }
@@ -325,7 +325,7 @@ func TestMultihostNetworking(t *testing.T) {
 	h.serviceUpdatesPump()
 	iu := <-h.instanceUpdates
 	require.True(t, iu.Reset)
-	require.Len(t, iu.LocalInstances, 1)
+	require.Len(t, iu.Instances, 1)
 	require.Equal(t, &netutil.IPPort{instAddress, instPort}, iu.get("blorp-svc", "blorp-instance").Address)
 	h.stop(t)
 }
@@ -348,7 +348,7 @@ func TestNoAddress(t *testing.T) {
 	h.serviceUpdatesPump()
 	iu := <-h.instanceUpdates
 	require.True(t, iu.Reset)
-	require.Len(t, iu.LocalInstances, 1)
+	require.Len(t, iu.Instances, 1)
 	require.Nil(t, iu.get("important-svc", "oops-instance").Address)
 	h.stop(t)
 }
@@ -371,7 +371,7 @@ func TestHostNetworking(t *testing.T) {
 	h.serviceUpdatesPump()
 	iu := <-h.instanceUpdates
 	require.True(t, iu.Reset)
-	require.Len(t, iu.LocalInstances, 1)
+	require.Len(t, iu.Instances, 1)
 	require.Equal(t, &netutil.IPPort{h.hostIP, 8080}, iu.get("blorp-svc", "blorp-instance").Address)
 	h.stop(t)
 }

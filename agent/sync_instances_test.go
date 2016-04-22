@@ -69,21 +69,27 @@ func makeContainersMap(cs []containerInfo) map[string]*docker.Container {
 const GROUP = "deliberately not default"
 
 type harness struct {
-	hostIP           net.IP
-	errs             daemon.ErrorSink
-	serviceUpdates   chan store.ServiceUpdate
-	containerUpdates chan ContainerUpdate
-	instanceUpdates  chan InstanceUpdate
-	syncInstances    daemon.Component
+	hostIP                net.IP
+	errs                  daemon.ErrorSink
+	serviceUpdates        chan store.ServiceUpdate
+	serviceUpdatesReset   chan struct{}
+	containerUpdates      chan ContainerUpdate
+	containerUpdatesReset chan struct{}
+	instanceUpdates       chan InstanceUpdate
+	instanceUpdatesReset  chan struct{}
+	syncInstances         daemon.Component
 }
 
 func setup(hostIP, netmode string) harness {
 	h := harness{
-		hostIP:           net.ParseIP(hostIP),
-		errs:             daemon.NewErrorSink(),
-		serviceUpdates:   make(chan store.ServiceUpdate),
-		containerUpdates: make(chan ContainerUpdate),
-		instanceUpdates:  make(chan InstanceUpdate, 10),
+		hostIP:                net.ParseIP(hostIP),
+		errs:                  daemon.NewErrorSink(),
+		serviceUpdates:        make(chan store.ServiceUpdate),
+		containerUpdatesReset: make(chan struct{}, 10),
+		containerUpdates:      make(chan ContainerUpdate),
+		serviceUpdatesReset:   make(chan struct{}, 10),
+		instanceUpdates:       make(chan InstanceUpdate),
+		instanceUpdatesReset:  make(chan struct{}),
 	}
 
 	h.syncInstances = syncInstancesConfig{
@@ -91,10 +97,11 @@ func setup(hostIP, netmode string) harness {
 		hostIP:  h.hostIP,
 
 		containerUpdates:      h.containerUpdates,
-		containerUpdatesReset: make(chan struct{}, 100),
+		containerUpdatesReset: h.containerUpdatesReset,
 		serviceUpdates:        h.serviceUpdates,
-		serviceUpdatesReset:   make(chan struct{}, 100),
+		serviceUpdatesReset:   h.serviceUpdatesReset,
 		instanceUpdates:       h.instanceUpdates,
+		instanceUpdatesReset:  h.instanceUpdatesReset,
 	}.StartFunc()(h.errs)
 
 	return h
@@ -105,16 +112,10 @@ func (h *harness) stop(t *testing.T) {
 	require.Empty(t, h.errs)
 }
 
-func (h *harness) resetContainers(cs ...containerInfo) {
+func (h *harness) addContainers(reset bool, cs ...containerInfo) {
 	h.containerUpdates <- ContainerUpdate{
 		Containers: makeContainersMap(cs),
-		Reset:      true,
-	}
-}
-
-func (h *harness) addContainers(cs ...containerInfo) {
-	h.containerUpdates <- ContainerUpdate{
-		Containers: makeContainersMap(cs),
+		Reset:      reset,
 	}
 }
 
@@ -185,7 +186,7 @@ func TestSyncInstancesReconcile(t *testing.T) {
 
 	selectedAddress := net.ParseIP("192.168.45.67")
 
-	h.resetContainers(containerInfo{
+	h.addContainers(true, containerInfo{
 		ID:        "selected",
 		IPAddress: selectedAddress.String(),
 		Image:     "foo-image:bobbins",
@@ -212,7 +213,7 @@ func TestSyncInstancesEvents(t *testing.T) {
 	h := setup("10.98.90.111", LOCAL)
 
 	// no services defined
-	h.resetContainers(containerInfo{
+	h.addContainers(true, containerInfo{
 		ID:        "foo",
 		Image:     "foo-image:latest",
 		IPAddress: "192.168.0.67",
@@ -251,7 +252,7 @@ func TestSyncInstancesEvents(t *testing.T) {
 	}, iu.Instances)
 
 	// Add some matching containers
-	h.addContainers(containerInfo{
+	h.addContainers(false, containerInfo{
 		ID:        "bar",
 		IPAddress: "192.168.34.87",
 		Image:     "not-foo-image:version",
@@ -297,7 +298,7 @@ func TestMappedPort(t *testing.T) {
 			},
 		})
 
-	h.resetContainers(containerInfo{
+	h.addContainers(true, containerInfo{
 		ID:        "blorp-instance",
 		IPAddress: "10.13.14.15",
 		Image:     "blorp-image:tag",
@@ -328,7 +329,7 @@ func TestMultihostNetworking(t *testing.T) {
 			},
 		})
 
-	h.resetContainers(containerInfo{
+	h.addContainers(true, containerInfo{
 		ID:        "blorp-instance",
 		IPAddress: instAddress.String(),
 		Image:     "blorp-image:tag",
@@ -356,7 +357,7 @@ func TestNoAddress(t *testing.T) {
 			},
 		})
 
-	h.resetContainers(containerInfo{
+	h.addContainers(true, containerInfo{
 		ID:        "oops-instance",
 		IPAddress: "10.13.14.15",
 		Image:     "important-image:greatest",
@@ -382,7 +383,7 @@ func TestHostNetworking(t *testing.T) {
 			},
 		})
 
-	h.resetContainers(containerInfo{
+	h.addContainers(true, containerInfo{
 		NetworkMode: "host",
 		ID:          "blorp-instance",
 		IPAddress:   "",
@@ -393,5 +394,70 @@ func TestHostNetworking(t *testing.T) {
 	require.True(t, iu.Reset)
 	require.Len(t, iu.Instances, 1)
 	require.Equal(t, &netutil.IPPort{h.hostIP, 8080}, iu.get("blorp-svc", "blorp-instance").Address)
+	h.stop(t)
+}
+
+func TestSyncInstancesResets(t *testing.T) {
+	h := setup("10.98.90.111", LOCAL)
+
+	// reset signals should have been sent out initially
+	<-h.serviceUpdatesReset
+	<-h.containerUpdatesReset
+
+	// Send some initial non-reset events before the resets.
+	// These will get ignored until syncInstances has got the
+	// complete state.
+	sendService := func(reset bool, name string) {
+		h.serviceUpdates <- serviceUpdate(reset, store.ServiceInfo{
+			Name:    name,
+			Service: store.Service{InstancePort: 8080},
+			ContainerRules: []store.ContainerRuleInfo{
+				cri(GROUP, "image", "blorp-image"),
+			},
+		})
+	}
+	sendService(false, "blorp-svc")
+
+	sendContainer := func(reset bool, name string) {
+		h.addContainers(reset, containerInfo{
+			ID:        name,
+			IPAddress: "10.13.14.15",
+			Image:     "blorp-image:tag",
+			Ports: map[string]string{
+				"8080/tcp": "3456",
+			},
+		})
+	}
+	sendContainer(false, "foo")
+
+	// Populate things
+	sendService(true, "blorp-svc")
+	sendContainer(true, "foo")
+
+	iu := <-h.instanceUpdates
+	require.True(t, iu.Reset)
+	require.Len(t, iu.Instances, 1)
+
+	// Simulate a docker restart
+	sendContainer(true, "bar")
+
+	iu = <-h.instanceUpdates
+	require.True(t, iu.Reset)
+	require.Len(t, iu.Instances, 1)
+
+	// Simulate an etcd restart
+	sendService(true, "blorp-svc-2")
+
+	iu = <-h.instanceUpdates
+	require.True(t, iu.Reset)
+	require.Len(t, iu.Instances, 1)
+
+	// request another reset from downstream
+	require.Len(t, h.serviceUpdatesReset, 0)
+	require.Len(t, h.containerUpdatesReset, 0)
+	h.instanceUpdatesReset <- struct{}{}
+	<-h.serviceUpdatesReset
+	<-h.containerUpdatesReset
+
 	h.stop(t)
 }

@@ -269,9 +269,9 @@ func (s *InMem) makeServiceInfo(name string, svc store.Service, opts store.Query
 	}
 
 	if opts.WithInstances {
+		info.Instances = make(map[string]store.Instance)
 		for n, i := range s.instances[info.Name] {
-			info.Instances = append(info.Instances,
-				store.InstanceInfo{Name: n, Instance: i.Instance})
+			info.Instances[n] = i.Instance
 		}
 	}
 

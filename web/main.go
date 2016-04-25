@@ -119,10 +119,10 @@ type containerRuleInfo struct {
 
 func wrapServiceInfo(si store.ServiceInfo) serviceInfo {
 	var insts []instanceInfo
-	for _, ii := range si.Instances {
+	for instName, inst := range si.Instances {
 		insts = append(insts, instanceInfo{
-			Name:     ii.Name,
-			Instance: ii.Instance,
+			Name:     instName,
+			Instance: inst,
 		})
 	}
 

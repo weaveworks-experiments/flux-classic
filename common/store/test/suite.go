@@ -111,12 +111,7 @@ func testInstances(s store.Store, t *testing.T) {
 	instances := func() map[string]store.Instance {
 		svc, err := s.GetService("svc", store.QueryServiceOptions{WithInstances: true})
 		require.Nil(t, err)
-
-		insts := make(map[string]store.Instance)
-		for _, inst := range svc.Instances {
-			insts[inst.Name] = inst.Instance
-		}
-		return insts
+		return svc.Instances
 	}
 
 	require.Equal(t, map[string]store.Instance{"inst": testInst}, instances())
@@ -127,8 +122,8 @@ func testInstances(s store.Store, t *testing.T) {
 
 		insts := make(map[string]store.Instance)
 		for _, svc := range svcs {
-			for _, inst := range svc.Instances {
-				insts[svc.Name+" "+inst.Name] = inst.Instance
+			for instName, inst := range svc.Instances {
+				insts[svc.Name+" "+instName] = inst
 			}
 		}
 		return insts

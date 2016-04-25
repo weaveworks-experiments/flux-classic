@@ -86,8 +86,8 @@ func printService(out io.Writer, svc *store.ServiceInfo) error {
 		fmt.Fprintf(out, "    %s %s\n", ruleName, selectBytes)
 	}
 	fmt.Fprint(out, "  INSTANCES\n")
-	for _, inst := range svc.Instances {
-		fmt.Fprintf(out, "    %s %s\n", inst.Name, inst.Address)
+	for instName, inst := range svc.Instances {
+		fmt.Fprintf(out, "    %s %s\n", instName, inst.Address)
 	}
 	return nil
 }

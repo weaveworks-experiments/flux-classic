@@ -23,7 +23,7 @@ type etcdStore struct {
 }
 
 type sessionInstance struct {
-	*store.Instance
+	store.Instance
 	Session string
 }
 
@@ -271,14 +271,11 @@ func serviceInfoFromNode(name string, node *etcd.Node, opts store.QueryServiceOp
 	}
 
 	if opts.WithInstances {
+		svc.Instances = make(map[string]store.Instance)
 		for name, n := range indexDir(dir[INSTANCE_PATH]) {
 			inst := unmarshalInstance(n, &err)
 			if _, found := liveSessions[inst.Session]; found {
-				svc.Instances = append(svc.Instances,
-					store.InstanceInfo{
-						Name:     name,
-						Instance: *inst.Instance,
-					})
+				svc.Instances[name] = inst.Instance
 			}
 		}
 	}
@@ -317,14 +314,14 @@ func unmarshalRule(node *etcd.Node, errp *error) store.ContainerRule {
 	return gs
 }
 
-func unmarshalInstance(node *etcd.Node, errp *error) *sessionInstance {
+func unmarshalInstance(node *etcd.Node, errp *error) sessionInstance {
 	var instance sessionInstance
 
 	if *errp == nil {
 		*errp = json.Unmarshal([]byte(node.Value), &instance)
 	}
 
-	return &instance
+	return instance
 }
 
 func (es *etcdStore) SetContainerRule(serviceName string, ruleName string, spec store.ContainerRule) error {
@@ -336,8 +333,8 @@ func (es *etcdStore) RemoveContainerRule(serviceName string, ruleName string) er
 }
 
 func (es *etcdStore) AddInstance(serviceName string, instanceName string, instance store.Instance) error {
-	inst := &sessionInstance{Instance: &instance, Session: es.session}
-	return es.setJSON(instanceKey(serviceName, instanceName), inst)
+	return es.setJSON(instanceKey(serviceName, instanceName),
+		sessionInstance{Instance: instance, Session: es.session})
 }
 
 func (es *etcdStore) RemoveInstance(serviceName, instanceName string) error {

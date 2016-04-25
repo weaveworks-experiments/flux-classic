@@ -42,12 +42,13 @@ func (opts *queryOpts) makeCommand() *cobra.Command {
 type instanceForFormat struct {
 	Service string `json:"service"`
 	Name    string `json:"name"`
+	State   string `json:"state"`
 	store.Instance
 }
 
 const (
 	tableHeaders     = "SERVICE\tINSTANCE\tADDRESS\tSTATE\t\n"
-	tableRowTemplate = "{{.Service}}\t{{.Name}}\t{{.Address}}:{{.Port}}\t{{.State}}"
+	tableRowTemplate = "{{.Service}}\t{{.Name}}\t{{.Address}}\t{{.State}}"
 )
 
 func (opts *queryOpts) run(_ *cobra.Command, args []string) error {
@@ -63,10 +64,10 @@ func (opts *queryOpts) run(_ *cobra.Command, args []string) error {
 		sel[store.RuleLabel] = opts.rule
 	}
 
-	var printInstance func(svc *store.ServiceInfo, inst *store.InstanceInfo) error
+	var printInstance func(svc *store.ServiceInfo, instName string, inst store.Instance) error
 	if opts.quiet {
-		printInstance = func(_ *store.ServiceInfo, inst *store.InstanceInfo) error {
-			fmt.Fprintln(opts.getStdout(), inst.Name)
+		printInstance = func(_ *store.ServiceInfo, instName string, inst store.Instance) error {
+			fmt.Fprintln(opts.getStdout(), instName)
 			return nil
 		}
 	} else {
@@ -83,11 +84,12 @@ func (opts *queryOpts) run(_ *cobra.Command, args []string) error {
 			tmpl = template.Must(template.New("instance").Funcs(extraTemplateFuncs).Parse(opts.format))
 		}
 
-		printInstance = func(svc *store.ServiceInfo, inst *store.InstanceInfo) error {
+		printInstance = func(svc *store.ServiceInfo, instName string, inst store.Instance) error {
 			err := tmpl.Execute(out, instanceForFormat{
 				Service:  svc.Name,
-				Name:     inst.Name,
-				Instance: inst.Instance,
+				Name:     instName,
+				State:    inst.Label(store.StateLabel),
+				Instance: inst,
 			})
 			if err != nil {
 				return err
@@ -110,13 +112,12 @@ func (opts *queryOpts) run(_ *cobra.Command, args []string) error {
 	}
 
 	for _, svc := range svcs {
-		for i := range svc.Instances {
-			inst := &svc.Instances[i]
-			if !sel.Includes(inst) {
+		for instName, inst := range svc.Instances {
+			if !sel.Includes(&inst) {
 				continue
 			}
 
-			if err := printInstance(svc, inst); err != nil {
+			if err := printInstance(svc, instName, inst); err != nil {
 				return err
 			}
 		}

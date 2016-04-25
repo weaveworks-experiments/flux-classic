@@ -11,15 +11,10 @@ type QueryServiceOptions struct {
 	WithContainerRules bool
 }
 
-type InstanceInfo struct {
-	Name string `json:"name"`
-	Instance
-}
-
 type ServiceInfo struct {
 	Name string
 	Service
-	Instances      []InstanceInfo
+	Instances      map[string]Instance
 	ContainerRules map[string]ContainerRule
 }
 

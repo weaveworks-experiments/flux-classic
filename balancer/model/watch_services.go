@@ -34,10 +34,10 @@ func WatchServicesStartFunc(st store.Store, updates chan<- ServiceUpdate) daemon
 
 func translateService(svc *store.ServiceInfo) *Service {
 	insts := []Instance{}
-	for _, instance := range svc.Instances {
+	for name, instance := range svc.Instances {
 		if instance.Address != nil {
 			insts = append(insts, Instance{
-				Name:    instance.Name,
+				Name:    name,
 				Address: *instance.Address,
 			})
 		}

@@ -71,7 +71,7 @@ func TestSetInstances(t *testing.T) {
 
 	svc, _ := h.GetService("svc", store.QueryServiceOptions{WithInstances: true})
 	require.Len(t, svc.Instances, 1)
-	require.Equal(t, inst, svc.Instances[0].Instance)
+	require.Equal(t, inst, svc.Instances["inst"])
 
 	// Remove an instance
 	h.instanceUpdates <- makeInstanceUpdate("svc", "inst", nil)
@@ -110,15 +110,10 @@ func TestSetInstancesCleanup(t *testing.T) {
 	<-h.didUpdate
 
 	svc, _ := h.GetService("svc", store.QueryServiceOptions{WithInstances: true})
-	insts := make(map[string]store.Instance)
-	for _, ii := range svc.Instances {
-		insts[ii.Name] = ii.Instance
-	}
-
 	require.Equal(t, map[string]store.Instance{
 		"other-host-inst": otherHostInst,
 		"inst":            inst,
-	}, insts)
+	}, svc.Instances)
 
 	h.stop(t)
 }

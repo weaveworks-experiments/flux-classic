@@ -34,12 +34,6 @@ var testInstance = store.Instance{
 	Labels:        map[string]string{"key": "val"},
 }
 
-func allServices(t *testing.T, st store.Store) []*store.ServiceInfo {
-	services, err := st.GetAllServices(store.QueryServiceOptions{WithInstances: true})
-	require.NoError(t, err)
-	return services
-}
-
 func TestListServices(t *testing.T) {
 	st := inmem.NewInMem().Store("test web main")
 	st.AddService("svc", testService)
@@ -48,8 +42,14 @@ func TestListServices(t *testing.T) {
 	resp := doRequest(t, st, "/api/services")
 	require.Equal(t, 200, resp.Code)
 
-	var deets []*store.ServiceInfo
+	var deets []serviceInfo
 	require.Nil(t, json.Unmarshal(resp.Body.Bytes(), &deets))
-	services := allServices(t, st)
-	require.Equal(t, services, deets)
+	require.Equal(t, []serviceInfo{serviceInfo{
+		Name:    "svc",
+		Service: testService,
+		Instances: []instanceInfo{instanceInfo{
+			Name:     "inst",
+			Instance: testInstance,
+		}},
+	}}, deets)
 }

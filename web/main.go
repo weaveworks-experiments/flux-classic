@@ -73,7 +73,7 @@ func (api *api) allServices(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, "Error getting services from store: "+err.Error(), 500)
 	}
-	json.NewEncoder(w).Encode(&services)
+	json.NewEncoder(w).Encode(wrapServiceInfos(services))
 }
 
 /* Proxy for prometheus, as a stop-gap */
@@ -96,4 +96,56 @@ func (api *api) proxyStats(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(resp.StatusCode)
 	io.Copy(w, resp.Body)
+}
+
+// Wrapper types to decuople the web JSON from the store types
+
+type serviceInfo struct {
+	Name string `json:"name"`
+	store.Service
+	Instances      []instanceInfo      `json:"instances,omitempty"`
+	ContainerRules []containerRuleInfo `json:"groups,omitempty"`
+}
+
+type instanceInfo struct {
+	Name string `json:"name"`
+	store.Instance
+}
+
+type containerRuleInfo struct {
+	Name string `json:"name"`
+	store.ContainerRule
+}
+
+func wrapServiceInfo(si store.ServiceInfo) serviceInfo {
+	var insts []instanceInfo
+	for _, ii := range si.Instances {
+		insts = append(insts, instanceInfo{
+			Name:     ii.Name,
+			Instance: ii.Instance,
+		})
+	}
+
+	var rules []containerRuleInfo
+	for _, cri := range si.ContainerRules {
+		rules = append(rules, containerRuleInfo{
+			Name:          cri.Name,
+			ContainerRule: cri.ContainerRule,
+		})
+	}
+
+	return serviceInfo{
+		Name:           si.Name,
+		Service:        si.Service,
+		Instances:      insts,
+		ContainerRules: rules,
+	}
+}
+
+func wrapServiceInfos(sis []*store.ServiceInfo) []serviceInfo {
+	var res []serviceInfo
+	for _, si := range sis {
+		res = append(res, wrapServiceInfo(*si))
+	}
+	return res
 }

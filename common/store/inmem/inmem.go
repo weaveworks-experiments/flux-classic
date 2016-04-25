@@ -276,9 +276,9 @@ func (s *InMem) makeServiceInfo(name string, svc store.Service, opts store.Query
 	}
 
 	if opts.WithContainerRules {
+		info.ContainerRules = make(map[string]store.ContainerRule)
 		for n, g := range s.groupSpecs[info.Name] {
-			info.ContainerRules = append(info.ContainerRules,
-				store.ContainerRuleInfo{Name: n, ContainerRule: g})
+			info.ContainerRules[n] = g
 		}
 	}
 

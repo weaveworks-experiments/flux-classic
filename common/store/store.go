@@ -16,16 +16,11 @@ type InstanceInfo struct {
 	Instance
 }
 
-type ContainerRuleInfo struct {
-	Name string `json:"name"`
-	ContainerRule
-}
-
 type ServiceInfo struct {
-	Name string `json:"name"`
+	Name string
 	Service
-	Instances      []InstanceInfo      `json:"instances,omitempty"`
-	ContainerRules []ContainerRuleInfo `json:"groups,omitempty"`
+	Instances      []InstanceInfo
+	ContainerRules map[string]ContainerRule
 }
 
 type Store interface {

@@ -63,10 +63,9 @@ func TestServiceSelect(t *testing.T) {
 	require.NoError(t, err)
 	specs := svc.ContainerRules
 	require.Len(t, specs, 1)
-	spec := specs[0]
-	require.NotNil(t, spec)
-	require.Equal(t, DEFAULT_GROUP, spec.Name)
-	require.Equal(t, store.Selector(map[string]string{
-		"image": "repo/image",
-	}), spec.Selector)
+	require.Equal(t, store.ContainerRule{
+		Selector: map[string]string{
+			"image": "repo/image",
+		},
+	}, specs[DEFAULT_GROUP])
 }

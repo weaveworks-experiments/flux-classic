@@ -284,12 +284,9 @@ func serviceInfoFromNode(name string, node *etcd.Node, opts store.QueryServiceOp
 	}
 
 	if opts.WithContainerRules {
+		svc.ContainerRules = make(map[string]store.ContainerRule)
 		for name, n := range indexDir(dir[RULE_PATH]) {
-			svc.ContainerRules = append(svc.ContainerRules,
-				store.ContainerRuleInfo{
-					Name:          name,
-					ContainerRule: unmarshalRule(n, &err),
-				})
+			svc.ContainerRules[name] = unmarshalRule(n, &err)
 		}
 	}
 

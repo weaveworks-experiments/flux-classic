@@ -39,13 +39,9 @@ func TestSelect(t *testing.T) {
 	svc, err := st.GetService("foo-svc", store.QueryServiceOptions{WithContainerRules: true})
 	require.NoError(t, err)
 	require.Len(t, svc.ContainerRules, 1)
-	rule := svc.ContainerRules[0]
-	require.Equal(t, store.ContainerRuleInfo{
-		Name: "ok-rule",
-		ContainerRule: store.ContainerRule{
-			Selector: map[string]string{
-				"image": "foo/bar",
-			},
+	require.Equal(t, store.ContainerRule{
+		Selector: map[string]string{
+			"image": "foo/bar",
 		},
-	}, rule)
+	}, svc.ContainerRules["ok-rule"])
 }

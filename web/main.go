@@ -127,10 +127,10 @@ func wrapServiceInfo(si store.ServiceInfo) serviceInfo {
 	}
 
 	var rules []containerRuleInfo
-	for _, cri := range si.ContainerRules {
+	for name, cr := range si.ContainerRules {
 		rules = append(rules, containerRuleInfo{
-			Name:          cri.Name,
-			ContainerRule: cri.ContainerRule,
+			Name:          name,
+			ContainerRule: cr,
 		})
 	}
 

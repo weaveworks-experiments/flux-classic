@@ -39,7 +39,8 @@ func (opts *listOpts) makeCommand() *cobra.Command {
 
 type ruleInfo struct {
 	Service string `json:"service"`
-	*store.ContainerRuleInfo
+	Name    string `json:"name"`
+	store.ContainerRule
 }
 
 func (opts *listOpts) run(_ *cobra.Command, args []string) error {
@@ -59,18 +60,9 @@ func (opts *listOpts) run(_ *cobra.Command, args []string) error {
 		opts.formatRule = "  Rule: {{.Name}} {{json .Selector}}"
 	}
 
-	var printRule func(serviceName string, rule *store.ContainerRuleInfo)
+	var ruleTmpl *template.Template
 	if opts.verbose {
-		ruleTmpl := template.Must(template.New("rule").Funcs(extraTemplateFuncs).Parse(opts.formatRule))
-		printRule = func(serviceName string, rule *store.ContainerRuleInfo) {
-			var info ruleInfo
-			info.ContainerRuleInfo = rule
-			info.Service = serviceName
-			err := executeTemplate(ruleTmpl, opts.getStdout(), info)
-			if err != nil {
-				panic(err)
-			}
-		}
+		ruleTmpl = template.Must(template.New("rule").Funcs(extraTemplateFuncs).Parse(opts.formatRule))
 	}
 
 	svcs, err := opts.store.GetAllServices(store.QueryServiceOptions{WithContainerRules: opts.verbose})
@@ -83,16 +75,22 @@ func (opts *listOpts) run(_ *cobra.Command, args []string) error {
 			panic(err)
 		}
 
-		if opts.verbose {
-			rules := service.ContainerRules
+		if ruleTmpl == nil {
+			continue
+		}
+
+		for ruleName, rule := range service.ContainerRules {
+			err := executeTemplate(ruleTmpl, opts.getStdout(), ruleInfo{
+				Service:       service.Name,
+				Name:          ruleName,
+				ContainerRule: rule,
+			})
 			if err != nil {
 				panic(err)
 			}
-			for _, rule := range rules {
-				printRule(service.Name, &rule)
-			}
 		}
 	}
+
 	return nil
 }
 

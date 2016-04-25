@@ -136,10 +136,9 @@ func makeGroup(labels ...string) store.ContainerRule {
 	return store.ContainerRule{sel}
 }
 
-func cri(name string, labels ...string) store.ContainerRuleInfo {
-	return store.ContainerRuleInfo{
-		Name:          name,
-		ContainerRule: makeGroup(labels...),
+func cris(name string, labels ...string) map[string]store.ContainerRule {
+	return map[string]store.ContainerRule{
+		name: makeGroup(labels...),
 	}
 }
 
@@ -163,25 +162,19 @@ func TestSyncInstancesReconcile(t *testing.T) {
 
 	h.serviceUpdates <- serviceUpdate(true,
 		store.ServiceInfo{
-			Name:    "foo-svc",
-			Service: store.Service{InstancePort: 80},
-			ContainerRules: []store.ContainerRuleInfo{
-				cri(GROUP, "tag", "bobbins", "image", "foo-image"),
-			},
+			Name:           "foo-svc",
+			Service:        store.Service{InstancePort: 80},
+			ContainerRules: cris(GROUP, "tag", "bobbins", "image", "foo-image"),
 		},
 		store.ServiceInfo{
-			Name:    "bar-svc",
-			Service: store.Service{InstancePort: 80},
-			ContainerRules: []store.ContainerRuleInfo{
-				cri(GROUP, "flux/foo-label", "blorp"),
-			},
+			Name:           "bar-svc",
+			Service:        store.Service{InstancePort: 80},
+			ContainerRules: cris(GROUP, "flux/foo-label", "blorp"),
 		},
 		store.ServiceInfo{
-			Name:    "boo-svc",
-			Service: store.Service{InstancePort: 80},
-			ContainerRules: []store.ContainerRuleInfo{
-				cri(GROUP, "env.SERVICE_NAME", "boo"),
-			},
+			Name:           "boo-svc",
+			Service:        store.Service{InstancePort: 80},
+			ContainerRules: cris(GROUP, "env.SERVICE_NAME", "boo"),
 		})
 
 	selectedAddress := net.ParseIP("192.168.45.67")
@@ -226,11 +219,9 @@ func TestSyncInstancesEvents(t *testing.T) {
 	// Add a service with a matching rule
 	h.serviceUpdates <- serviceUpdate(false,
 		store.ServiceInfo{
-			Name:    "foo-svc",
-			Service: store.Service{InstancePort: 80},
-			ContainerRules: []store.ContainerRuleInfo{
-				cri(GROUP, "image", "foo-image"),
-			},
+			Name:           "foo-svc",
+			Service:        store.Service{InstancePort: 80},
+			ContainerRules: cris(GROUP, "image", "foo-image"),
 		})
 	iu = <-h.instanceUpdates
 	require.False(t, iu.Reset)
@@ -239,11 +230,9 @@ func TestSyncInstancesEvents(t *testing.T) {
 	// Replace with a non-matching rule
 	h.serviceUpdates <- serviceUpdate(false,
 		store.ServiceInfo{
-			Name:    "foo-svc",
-			Service: store.Service{InstancePort: 80},
-			ContainerRules: []store.ContainerRuleInfo{
-				cri(GROUP, "image", "not-foo-image"),
-			},
+			Name:           "foo-svc",
+			Service:        store.Service{InstancePort: 80},
+			ContainerRules: cris(GROUP, "image", "not-foo-image"),
 		})
 	iu = <-h.instanceUpdates
 	require.False(t, iu.Reset)
@@ -291,11 +280,9 @@ func TestMappedPort(t *testing.T) {
 
 	h.serviceUpdates <- serviceUpdate(true,
 		store.ServiceInfo{
-			Name:    "blorp-svc",
-			Service: store.Service{InstancePort: 8080},
-			ContainerRules: []store.ContainerRuleInfo{
-				cri(GROUP, "image", "blorp-image"),
-			},
+			Name:           "blorp-svc",
+			Service:        store.Service{InstancePort: 8080},
+			ContainerRules: cris(GROUP, "image", "blorp-image"),
 		})
 
 	h.addContainers(true, containerInfo{
@@ -322,11 +309,9 @@ func TestMultihostNetworking(t *testing.T) {
 
 	h.serviceUpdates <- serviceUpdate(true,
 		store.ServiceInfo{
-			Name:    "blorp-svc",
-			Service: store.Service{InstancePort: instPort},
-			ContainerRules: []store.ContainerRuleInfo{
-				cri(GROUP, "image", "blorp-image"),
-			},
+			Name:           "blorp-svc",
+			Service:        store.Service{InstancePort: instPort},
+			ContainerRules: cris(GROUP, "image", "blorp-image"),
 		})
 
 	h.addContainers(true, containerInfo{
@@ -350,11 +335,9 @@ func TestNoAddress(t *testing.T) {
 
 	h.serviceUpdates <- serviceUpdate(true,
 		store.ServiceInfo{
-			Name:    "important-svc",
-			Service: store.Service{InstancePort: 80},
-			ContainerRules: []store.ContainerRuleInfo{
-				cri(GROUP, "image", "important-image"),
-			},
+			Name:           "important-svc",
+			Service:        store.Service{InstancePort: 80},
+			ContainerRules: cris(GROUP, "image", "important-image"),
 		})
 
 	h.addContainers(true, containerInfo{
@@ -376,11 +359,9 @@ func TestHostNetworking(t *testing.T) {
 
 	h.serviceUpdates <- serviceUpdate(true,
 		store.ServiceInfo{
-			Name:    "blorp-svc",
-			Service: store.Service{InstancePort: 8080},
-			ContainerRules: []store.ContainerRuleInfo{
-				cri(GROUP, "image", "blorp-image"),
-			},
+			Name:           "blorp-svc",
+			Service:        store.Service{InstancePort: 8080},
+			ContainerRules: cris(GROUP, "image", "blorp-image"),
 		})
 
 	h.addContainers(true, containerInfo{
@@ -409,11 +390,9 @@ func TestSyncInstancesResets(t *testing.T) {
 	// complete state.
 	sendService := func(reset bool, name string) {
 		h.serviceUpdates <- serviceUpdate(reset, store.ServiceInfo{
-			Name:    name,
-			Service: store.Service{InstancePort: 8080},
-			ContainerRules: []store.ContainerRuleInfo{
-				cri(GROUP, "image", "blorp-image"),
-			},
+			Name:           name,
+			Service:        store.Service{InstancePort: 8080},
+			ContainerRules: cris(GROUP, "image", "blorp-image"),
 		})
 	}
 	sendService(false, "blorp-svc")

@@ -87,11 +87,8 @@ func testRules(s store.Store, t *testing.T) {
 	svc, err := s.GetService("svc", store.QueryServiceOptions{WithContainerRules: true})
 	require.Nil(t, err)
 
-	require.Equal(t, []store.ContainerRuleInfo{
-		store.ContainerRuleInfo{
-			Name:          "group",
-			ContainerRule: testRule,
-		},
+	require.Equal(t, map[string]store.ContainerRule{
+		"group": testRule,
 	}, svc.ContainerRules)
 
 	require.Nil(t, s.RemoveContainerRule("svc", "group"))

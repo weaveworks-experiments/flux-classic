@@ -78,12 +78,12 @@ func printService(out io.Writer, svc *store.ServiceInfo) error {
 	}
 
 	fmt.Fprint(out, "  RULES\n")
-	for _, rule := range svc.ContainerRules {
+	for ruleName, rule := range svc.ContainerRules {
 		selectBytes, err := json.Marshal(rule.Selector)
 		if err != nil {
 			return err
 		}
-		fmt.Fprintf(out, "    %s %s\n", rule.Name, selectBytes)
+		fmt.Fprintf(out, "    %s %s\n", ruleName, selectBytes)
 	}
 	fmt.Fprint(out, "  INSTANCES\n")
 	for _, inst := range svc.Instances {

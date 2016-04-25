@@ -153,7 +153,7 @@ func (si *syncInstances) removeContainer(id string) {
 func (si *syncInstances) addInstances(svc service, cont container) {
 	for _, rule := range svc.ContainerRules {
 		inst := si.extractInstance(cont.Container, svc.ServiceInfo,
-			rule.ContainerRule)
+			rule)
 		if inst != nil {
 			svc.instances[cont.ID] = inst
 			cont.instances[svc.Name] = struct{}{}

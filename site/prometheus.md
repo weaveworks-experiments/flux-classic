@@ -1,6 +1,6 @@
 ---
-layout: page
 title: Integrating with Prometheus
+menu_order: 90
 ---
 
 Flux has a two-part integration with

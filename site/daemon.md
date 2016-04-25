@@ -1,6 +1,6 @@
 ---
-layout: page
 title: The Flux daemon, fluxd
+menu_order: 60
 ---
 
 The Flux daemon (`fluxd`) runs on each host, and does two things:

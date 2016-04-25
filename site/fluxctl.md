@@ -1,6 +1,6 @@
 ---
-layout: page
 title: fluxctl command-line interface
+menu_order: 50
 ---
 
 `fluxctl` is the command-line interface to Weave Flux. It has
@@ -87,10 +87,10 @@ HTTP means you get extra, HTTP-specific metrics.)
 
 It's possible to create a service that has no address. You might do
 this if you were going to use it only to control an external load
-balancer (like [the edgebal image](edgebal)). If so, you may want to
-supply an `--instance-port` value, since you won't be implying one in
-a service address. Otherwise, instances won't be addressable (and
-therefore won't be used) until you supply a port.
+balancer (like [the edgebal image](/site/edgebal.md)). If so, you may
+want to supply an `--instance-port` value, since you won't be implying
+one in a service address. Otherwise, instances won't be addressable
+(and therefore won't be used) until you supply a port.
 
 There are also options for selecting containers to be instances, as a
 shortcut to using a subsequent `fluxctl select ...` command.

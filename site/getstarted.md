@@ -1,6 +1,6 @@
 ---
-layout: page
 title: Getting started with Flux
+menu_order: 30
 ---
 
 This is a guide to getting a minimal Flux system running. It assumes

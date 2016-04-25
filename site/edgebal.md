@@ -1,6 +1,6 @@
 ---
-layout: page
 title: Edge-balancer Docker image
+menu_order: 70
 ---
 
 A load balancer for the edge of your application.

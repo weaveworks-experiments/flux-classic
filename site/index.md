@@ -1,6 +1,6 @@
 ---
-layout: page
 title: Weave Flux documentation
+menu_order: 10
 ---
 
 Flux is a service routing layer for containers.
@@ -44,9 +44,9 @@ container schedulers.  Flux works with Weave Net and other Docker
 network plugins, but does not require them.
 
 If you are new to Flux, perhaps try the [getting started
-guide](getstarted) or read the technical [overview](overview). Otherwise,
-other guides and reference docs are linked from the contents to the
-side.
+guide](/site/getstarted.md) or read the technical
+[overview](/site/overview.md).  Otherwise, other guides and reference
+docs are linked from the contents to the side.
 
 Flux is alpha software.  There may be rough edges, and it is still
 evolving.  We are making preliminary releases in order to gather

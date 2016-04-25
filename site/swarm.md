@@ -1,6 +1,6 @@
 ---
-layout: page
 title: Using Weave Flux with Docker Swarm
+menu_order: 40
 ---
 
 This is a step-by-step guide to using Weave Flux with [Docker
@@ -82,8 +82,8 @@ $ export ETCD_ADDRESS=http://$(docker port etcd 2379)
 ```
 
 Next we start the fluxd, the Flux daemon (see the
-[Overview](overview)).  Fluxd must be run on each host, so we ask
-`docker-machine` to list the hosts and use a Swarm scheduling
+[Overview](/site/overview.md)).  Fluxd must be run on each host, so we
+ask `docker-machine` to list the hosts and use a Swarm scheduling
 constraint to run a daemon on each.
 
 ```sh
@@ -216,7 +216,7 @@ $ docker run --name=fluxweb -d -e ETCD_ADDRESS -e PROMETHEUS_ADDRESS -P \
 Now we can point a browser to the address given by `docker port
 fluxweb 7070` in order to view the UI:
 
-<img src="images/swarm-ui.jpg" alt="Flux UI" width="800" height="583"/>
+<img src="images/swarm-ui.jpg" alt="Flux UI" width="800" height="583" />
 
 Here we see information about the service, including the instances
 associated with it.  By selecting some instances, the UI will show
@@ -231,13 +231,13 @@ $ docker run --rm tutum/curl sh -c 'while true ; do curl -s http://10.128.0.1/ >
 
 Then view the request rates as a chart:
 
-<img src="images/swarm-ui-chart.jpg" alt="Flux UI" width="800" height="583"/>
+<img src="images/swarm-ui-chart.jpg" alt="Flux UI" width="800" height="583" />
 
 If we change the URL used in the curl command to one that does not
 exist, the chart shows the change in HTTP status code indicating the
 error:
 
-<img src="images/swarm-ui-chart-nosuch.jpg" alt="Flux UI" width="800" height="583"/>
+<img src="images/swarm-ui-chart-nosuch.jpg" alt="Flux UI" width="800" height="583" />
 
 ## Integrating load balancers
 

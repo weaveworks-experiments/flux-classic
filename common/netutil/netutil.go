@@ -7,8 +7,8 @@ import (
 )
 
 type IPPort struct {
-	IP   net.IP
-	Port int
+	IP   net.IP `json:"ip"`
+	Port int    `json:"port"`
 }
 
 func (ipPort IPPort) String() string {

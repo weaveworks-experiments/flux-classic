@@ -117,7 +117,7 @@ type containerRuleInfo struct {
 	store.ContainerRule
 }
 
-func wrapServiceInfo(si store.ServiceInfo) serviceInfo {
+func wrapServiceInfo(name string, si *store.ServiceInfo) serviceInfo {
 	var insts []instanceInfo
 	for instName, inst := range si.Instances {
 		insts = append(insts, instanceInfo{
@@ -135,17 +135,17 @@ func wrapServiceInfo(si store.ServiceInfo) serviceInfo {
 	}
 
 	return serviceInfo{
-		Name:           si.Name,
+		Name:           name,
 		Service:        si.Service,
 		Instances:      insts,
 		ContainerRules: rules,
 	}
 }
 
-func wrapServiceInfos(sis []*store.ServiceInfo) []serviceInfo {
+func wrapServiceInfos(svcs map[string]*store.ServiceInfo) []serviceInfo {
 	var res []serviceInfo
-	for _, si := range sis {
-		res = append(res, wrapServiceInfo(*si))
+	for name, si := range svcs {
+		res = append(res, wrapServiceInfo(name, si))
 	}
 	return res
 }

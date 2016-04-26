@@ -49,7 +49,6 @@ func testServices(s store.Store, t *testing.T) {
 	require.Nil(t, s.AddService("svc", testService))
 	svc2, err := s.GetService("svc", store.QueryServiceOptions{})
 	require.Nil(t, err)
-	require.Equal(t, "svc", svc2.Name)
 	require.Equal(t, testService, svc2.Service)
 
 	require.Nil(t, s.CheckRegisteredService("svc"))
@@ -58,8 +57,8 @@ func testServices(s store.Store, t *testing.T) {
 		svcs := make(map[string]store.Service)
 		ss, err := s.GetAllServices(store.QueryServiceOptions{})
 		require.Nil(t, err)
-		for _, svc := range ss {
-			svcs[svc.Name] = svc.Service
+		for name, svc := range ss {
+			svcs[name] = svc.Service
 		}
 		return svcs
 	}
@@ -121,9 +120,9 @@ func testInstances(s store.Store, t *testing.T) {
 		require.Nil(t, err)
 
 		insts := make(map[string]store.Instance)
-		for _, svc := range svcs {
+		for svcName, svc := range svcs {
 			for instName, inst := range svc.Instances {
-				insts[svc.Name+" "+instName] = inst
+				insts[svcName+" "+instName] = inst
 			}
 		}
 		return insts

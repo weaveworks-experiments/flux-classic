@@ -263,21 +263,18 @@ func (s *InMem) GetService(name string, opts store.QueryServiceOptions) (*store.
 }
 
 func (s *InMem) makeServiceInfo(name string, svc store.Service, opts store.QueryServiceOptions) *store.ServiceInfo {
-	info := &store.ServiceInfo{
-		Name:    name,
-		Service: svc,
-	}
+	info := &store.ServiceInfo{Service: svc}
 
 	if opts.WithInstances {
 		info.Instances = make(map[string]store.Instance)
-		for n, i := range s.instances[info.Name] {
+		for n, i := range s.instances[name] {
 			info.Instances[n] = i.Instance
 		}
 	}
 
 	if opts.WithContainerRules {
 		info.ContainerRules = make(map[string]store.ContainerRule)
-		for n, g := range s.groupSpecs[info.Name] {
+		for n, g := range s.groupSpecs[name] {
 			info.ContainerRules[n] = g
 		}
 	}
@@ -285,11 +282,11 @@ func (s *InMem) makeServiceInfo(name string, svc store.Service, opts store.Query
 	return info
 }
 
-func (s *InMem) GetAllServices(opts store.QueryServiceOptions) ([]*store.ServiceInfo, error) {
-	var svcs []*store.ServiceInfo
+func (s *InMem) GetAllServices(opts store.QueryServiceOptions) (map[string]*store.ServiceInfo, error) {
+	svcs := make(map[string]*store.ServiceInfo)
 
 	for name, svc := range s.services {
-		svcs = append(svcs, s.makeServiceInfo(name, svc, opts))
+		svcs[name] = s.makeServiceInfo(name, svc, opts)
 	}
 
 	return svcs, s.injectedError

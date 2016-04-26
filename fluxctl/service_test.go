@@ -10,7 +10,7 @@ import (
 	"github.com/weaveworks/flux/common/store"
 )
 
-func allServices(t *testing.T, st store.Store) []*store.ServiceInfo {
+func allServices(t *testing.T, st store.Store) map[string]*store.ServiceInfo {
 	services, err := st.GetAllServices(store.QueryServiceOptions{})
 	require.NoError(t, err)
 	return services
@@ -26,7 +26,7 @@ func TestMinimal(t *testing.T) {
 	require.NoError(t, err)
 	services := allServices(t, st)
 	require.Len(t, services, 1)
-	require.Equal(t, "foo", services[0].Name)
+	require.NotNil(t, services["foo"])
 }
 
 func TestParseAddress(t *testing.T) {
@@ -47,9 +47,9 @@ func TestServiceAddress(t *testing.T) {
 	require.NoError(t, err)
 	services := allServices(t, st)
 	require.Len(t, services, 1)
-	require.Equal(t, "foo", services[0].Name)
-	require.Equal(t, &netutil.IPPort{net.ParseIP("10.3.4.5"), 8000}, services[0].Address)
-	require.Equal(t, 7777, services[0].InstancePort)
+	require.NotNil(t, services["foo"])
+	require.Equal(t, &netutil.IPPort{net.ParseIP("10.3.4.5"), 8000}, services["foo"].Address)
+	require.Equal(t, 7777, services["foo"].InstancePort)
 }
 
 func TestServiceSelect(t *testing.T) {

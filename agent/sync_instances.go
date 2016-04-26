@@ -46,6 +46,7 @@ type syncInstances struct {
 }
 
 type service struct {
+	name string
 	*store.ServiceInfo
 
 	// map from instance names (= container ids)
@@ -156,8 +157,8 @@ func (si *syncInstances) addInstances(svc service, cont container) {
 			rule)
 		if inst != nil {
 			svc.instances[cont.ID] = inst
-			cont.instances[svc.Name] = struct{}{}
-			si.updateInstance(svc.Name, cont.ID, inst)
+			cont.instances[svc.name] = struct{}{}
+			si.updateInstance(svc.name, cont.ID, inst)
 		}
 	}
 }
@@ -177,24 +178,25 @@ func (si *syncInstances) processServiceUpdate(update store.ServiceUpdate) {
 
 	for svcName, svcInfo := range update.Services {
 		if svcInfo != nil {
-			si.updateService(svcInfo)
+			si.updateService(svcName, svcInfo)
 		} else {
 			si.removeService(svcName)
 		}
 	}
 }
 
-func (si *syncInstances) updateService(svcInfo *store.ServiceInfo) {
+func (si *syncInstances) updateService(svcName string, svcInfo *store.ServiceInfo) {
 	if si.services == nil {
 		return
 	}
 
 	svc := service{
+		name:        svcName,
 		ServiceInfo: svcInfo,
 		instances:   make(map[string]*store.Instance),
 	}
-	old := si.services[svcInfo.Name]
-	si.services[svcInfo.Name] = svc
+	old := si.services[svcName]
+	si.services[svcName] = svc
 
 	for _, cont := range si.containers {
 		si.addInstances(svc, cont)
@@ -203,7 +205,7 @@ func (si *syncInstances) updateService(svcInfo *store.ServiceInfo) {
 	// See if any instances should go away
 	for instName := range old.instances {
 		if svc.instances[instName] == nil {
-			si.updateInstance(svc.Name, instName, nil)
+			si.updateInstance(svcName, instName, nil)
 		}
 	}
 }

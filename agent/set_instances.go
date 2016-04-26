@@ -59,14 +59,14 @@ func (si *setInstances) processReset(update InstanceUpdate) {
 		return
 	}
 
-	for _, svc := range svcs {
+	for svcName, svc := range svcs {
 		for instName, inst := range svc.Instances {
 			if !si.hostIP.Equal(inst.Host.IP) {
 				continue
 			}
 
 			key := InstanceKey{
-				Service:  svc.Name,
+				Service:  svcName,
 				Instance: instName,
 			}
 			if update.Instances[key] == nil {

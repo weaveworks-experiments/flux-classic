@@ -38,17 +38,13 @@ func (opts *infoOpts) run(_ *cobra.Command, args []string) error {
 	}
 	fmt.Fprint(opts.getStdout(), "\nSERVICES\n")
 
-	var (
-		svcs []*store.ServiceInfo
-	)
 	qopts := store.QueryServiceOptions{
 		WithInstances:      true,
 		WithContainerRules: true,
 	}
+	svcs := make(map[string]*store.ServiceInfo)
 	if opts.service != "" {
-		var svc *store.ServiceInfo
-		svc, err = opts.store.GetService(opts.service, qopts)
-		svcs = []*store.ServiceInfo{svc}
+		svcs[opts.service], err = opts.store.GetService(opts.service, qopts)
 	} else {
 		svcs, err = opts.store.GetAllServices(qopts)
 	}
@@ -56,16 +52,16 @@ func (opts *infoOpts) run(_ *cobra.Command, args []string) error {
 		return err
 	}
 
-	for _, svc := range svcs {
-		if err := printService(opts.getStdout(), svc); err != nil {
+	for name, svc := range svcs {
+		if err := printService(opts.getStdout(), name, svc); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func printService(out io.Writer, svc *store.ServiceInfo) error {
-	fmt.Fprintln(out, svc.Name)
+func printService(out io.Writer, name string, svc *store.ServiceInfo) error {
+	fmt.Fprintln(out, name)
 
 	if svc.Address != nil {
 		fmt.Fprintf(out, "  Address: %s\n", svc.Address)

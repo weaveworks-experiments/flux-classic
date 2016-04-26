@@ -188,10 +188,10 @@ func (es *etcdStore) GetService(serviceName string, opts store.QueryServiceOptio
 		return nil, err
 	}
 
-	return serviceInfoFromNode(serviceName, node, opts, live)
+	return serviceInfoFromNode(node, opts, live)
 }
 
-func (es *etcdStore) GetAllServices(opts store.QueryServiceOptions) ([]*store.ServiceInfo, error) {
+func (es *etcdStore) GetAllServices(opts store.QueryServiceOptions) (map[string]*store.ServiceInfo, error) {
 	live, err := es.liveSessions()
 	if err != nil {
 		return nil, err
@@ -202,19 +202,19 @@ func (es *etcdStore) GetAllServices(opts store.QueryServiceOptions) ([]*store.Se
 		return nil, err
 	}
 
-	var svcs []*store.ServiceInfo
+	svcs := make(map[string]*store.ServiceInfo)
 
 	for name, n := range indexDir(node) {
 		if !n.Dir {
 			continue
 		}
 
-		svc, err := serviceInfoFromNode(name, n, opts, live)
+		svc, err := serviceInfoFromNode(n, opts, live)
 		if err != nil {
 			return nil, err
 		}
 
-		svcs = append(svcs, svc)
+		svcs[name] = svc
 	}
 
 	return svcs, nil
@@ -256,7 +256,7 @@ func indexDir(node *etcd.Node) map[string]*etcd.Node {
 	return res
 }
 
-func serviceInfoFromNode(name string, node *etcd.Node, opts store.QueryServiceOptions, liveSessions map[string]struct{}) (*store.ServiceInfo, error) {
+func serviceInfoFromNode(node *etcd.Node, opts store.QueryServiceOptions, liveSessions map[string]struct{}) (*store.ServiceInfo, error) {
 	dir := indexDir(node)
 
 	details := dir[DETAIL_PATH]
@@ -265,10 +265,7 @@ func serviceInfoFromNode(name string, node *etcd.Node, opts store.QueryServiceOp
 	}
 
 	var err error
-	svc := &store.ServiceInfo{
-		Name:    name,
-		Service: unmarshalService(details, &err),
-	}
+	svc := &store.ServiceInfo{Service: unmarshalService(details, &err)}
 
 	if opts.WithInstances {
 		svc.Instances = make(map[string]store.Instance)

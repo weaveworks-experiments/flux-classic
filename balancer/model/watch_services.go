@@ -11,7 +11,7 @@ func WatchServicesStartFunc(st store.Store, updates chan<- ServiceUpdate) daemon
 		for name, svc := range su.Services {
 			var ms *Service
 			if svc != nil {
-				if ms = translateService(svc); ms == nil {
+				if ms = translateService(name, svc); ms == nil {
 					continue
 				}
 			}
@@ -32,19 +32,19 @@ func WatchServicesStartFunc(st store.Store, updates chan<- ServiceUpdate) daemon
 		sendUpdate)
 }
 
-func translateService(svc *store.ServiceInfo) *Service {
+func translateService(name string, svc *store.ServiceInfo) *Service {
 	insts := []Instance{}
-	for name, instance := range svc.Instances {
+	for instName, instance := range svc.Instances {
 		if instance.Address != nil {
 			insts = append(insts, Instance{
-				Name:    name,
+				Name:    instName,
 				Address: *instance.Address,
 			})
 		}
 	}
 
 	return &Service{
-		Name:      svc.Name,
+		Name:      name,
 		Protocol:  svc.Protocol,
 		Address:   svc.Address,
 		Instances: insts,

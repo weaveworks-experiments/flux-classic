@@ -12,7 +12,6 @@ type QueryServiceOptions struct {
 }
 
 type ServiceInfo struct {
-	Name string
 	Service
 	Instances      map[string]Instance
 	ContainerRules map[string]ContainerRule
@@ -34,7 +33,7 @@ type Store interface {
 	RemoveAllServices() error
 
 	GetService(serviceName string, opts QueryServiceOptions) (*ServiceInfo, error)
-	GetAllServices(opts QueryServiceOptions) ([]*ServiceInfo, error)
+	GetAllServices(opts QueryServiceOptions) (map[string]*ServiceInfo, error)
 
 	SetContainerRule(serviceName string, ruleName string, spec ContainerRule) error
 	RemoveContainerRule(serviceName string, ruleName string) error

@@ -37,6 +37,11 @@ func (opts *listOpts) makeCommand() *cobra.Command {
 	return cmd
 }
 
+type serviceInfo struct {
+	Name string `json:"name"`
+	*store.ServiceInfo
+}
+
 type ruleInfo struct {
 	Service string `json:"service"`
 	Name    string `json:"name"`
@@ -69,8 +74,11 @@ func (opts *listOpts) run(_ *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("Unable to enumerate services: %s", err)
 	}
-	for _, service := range svcs {
-		err := executeTemplate(tmpl, opts.getStdout(), service)
+	for svcName, service := range svcs {
+		err := executeTemplate(tmpl, opts.getStdout(), serviceInfo{
+			Name:        svcName,
+			ServiceInfo: service,
+		})
 		if err != nil {
 			panic(err)
 		}
@@ -81,7 +89,7 @@ func (opts *listOpts) run(_ *cobra.Command, args []string) error {
 
 		for ruleName, rule := range service.ContainerRules {
 			err := executeTemplate(ruleTmpl, opts.getStdout(), ruleInfo{
-				Service:       service.Name,
+				Service:       svcName,
 				Name:          ruleName,
 				ContainerRule: rule,
 			})

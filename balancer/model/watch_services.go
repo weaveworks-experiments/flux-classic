@@ -5,18 +5,12 @@ import (
 	"github.com/weaveworks/flux/common/store"
 )
 
-func WatchServicesStartFunc(st store.Store, updates chan<- ServiceUpdate) daemon.StartFunc {
+func WatchServicesStartFunc(st store.Store, filterAddressless bool, updates chan<- ServiceUpdate) daemon.StartFunc {
 	sendUpdate := func(su store.ServiceUpdate, stop <-chan struct{}) {
 		update := make(map[string]*Service)
 		for name, svc := range su.Services {
-			var ms *Service
-			if svc != nil {
-				if ms = translateService(name, svc); ms == nil {
-					continue
-				}
-			}
-
-			update[name] = ms
+			update[name] = translateService(name, svc,
+				filterAddressless)
 		}
 
 		select {
@@ -32,7 +26,11 @@ func WatchServicesStartFunc(st store.Store, updates chan<- ServiceUpdate) daemon
 		sendUpdate)
 }
 
-func translateService(name string, svc *store.ServiceInfo) *Service {
+func translateService(name string, svc *store.ServiceInfo, filterAddressless bool) *Service {
+	if svc == nil || (filterAddressless && svc.Address == nil) {
+		return nil
+	}
+
 	insts := []Instance{}
 	for instName, instance := range svc.Instances {
 		if instance.Address != nil {

@@ -143,9 +143,7 @@ func (svc *service) updateState(update *model.Service) error {
 	// start the new forwarder before stopping the old one, to
 	// avoid a window where there is no rule for the service
 	var start func(*model.Service) (serviceState, error)
-	if !shouldForward(update) {
-		start = notForwarding
-	} else if len(update.Instances) == 0 {
+	if len(update.Instances) == 0 {
 		start = svc.startRejecting
 	} else {
 		start = forwardingConfig{
@@ -172,28 +170,6 @@ func (svc *service) updateState(update *model.Service) error {
 func (svc *service) close() {
 	svc.state.stop()
 	svc.state = nil
-}
-
-// If there's no address, don't forward. We will want more
-// sophisticated rules later, if e.g., there are different kinds of
-// forwarding.
-func shouldForward(s *model.Service) bool {
-	return s.Address != nil
-}
-
-// When a service shouldn't be forwarded
-type notforwarding struct{}
-
-func notForwarding(s *model.Service) (serviceState, error) {
-	log.Debugf("moving service %s to state 'notForwarding'", s.Name)
-	return notforwarding(struct{}{}), nil
-}
-
-func (_ notforwarding) stop() {
-}
-
-func (_ notforwarding) update(s *model.Service) (bool, error) {
-	return !shouldForward(s), nil
 }
 
 // When a service should reject packets
@@ -223,5 +199,5 @@ func (rej rejecting) stop() {
 }
 
 func (rej rejecting) update(s *model.Service) (bool, error) {
-	return shouldForward(s) && len(s.Instances) == 0, nil
+	return len(s.Instances) == 0, nil
 }

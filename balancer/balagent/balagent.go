@@ -83,7 +83,7 @@ func (cf *BalancerAgentConfig) Prepare() (daemon.StartFunc, error) {
 
 	return daemon.Aggregate(
 		daemon.Restart(cf.reconnectInterval,
-			model.WatchServicesStartFunc(cf.store, updates)),
+			model.WatchServicesStartFunc(cf.store, false, updates)),
 		daemon.SimpleComponent(updater{updates, services}.run),
 		daemon.SimpleComponent(generator{cf, services}.run)), nil
 }

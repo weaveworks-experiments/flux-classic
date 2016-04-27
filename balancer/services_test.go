@@ -97,28 +97,10 @@ func TestServices(t *testing.T) {
 	update(svc, false)
 	requireRejecting(t, &mipt)
 
-	// rejecting -> not forwarding
-	svc.Address = nil
-	update(svc, false)
-	requireNotForwarding(t, &mipt)
-
-	// not forwarding -> forwarding
-	svc.Address = &netutil.IPPort{ip, port}
+	// rejecting -> forwarding
 	svc.Instances = insts
 	update(svc, false)
 	requireForwarding(t, &mipt)
-
-	// Now back the other way
-	// forwarding -> not forwarding
-	svc.Address = nil
-	update(svc, false)
-	requireNotForwarding(t, &mipt)
-
-	// not forwarding -> rejecting
-	svc.Address = &netutil.IPPort{ip, port}
-	svc.Instances = nil
-	update(svc, false)
-	requireRejecting(t, &mipt)
 
 	// Delete it
 	updates <- model.ServiceUpdate{

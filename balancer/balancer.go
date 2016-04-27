@@ -96,7 +96,7 @@ func (cf *BalancerConfig) Prepare() (daemon.StartFunc, error) {
 	}
 
 	updates := make(chan model.ServiceUpdate)
-	startWatcher := daemon.Restart(cf.reconnectInterval, model.WatchServicesStartFunc(cf.store, updates))
+	startWatcher := daemon.Restart(cf.reconnectInterval, model.WatchServicesStartFunc(cf.store, true, updates))
 
 	startBalancer := func(errs daemon.ErrorSink) daemon.Component {
 		b := &balancer{

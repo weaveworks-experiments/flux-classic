@@ -19,6 +19,14 @@ import (
 	"github.com/weaveworks/flux/common/test/embeddedetcd"
 )
 
+type mockRuntimeStore struct {
+	store.Store
+}
+
+func (_ *mockRuntimeStore) StartFunc() daemon.StartFunc {
+	return daemon.NullStartFunc
+}
+
 func TestEtcdRestart(t *testing.T) {
 	server, err := embeddedetcd.NewSimpleEtcd()
 	require.Nil(t, err)
@@ -41,7 +49,7 @@ func TestEtcdRestart(t *testing.T) {
 			chain:  "FLUX",
 			bridge: "lo",
 		},
-		store: st,
+		store: &mockRuntimeStore{st},
 		startEventHandler: func(daemon.ErrorSink) events.Handler {
 			return eventlogger.EventLogger{}
 		},

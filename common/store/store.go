@@ -17,6 +17,11 @@ type ServiceInfo struct {
 	ContainerRules map[string]ContainerRule
 }
 
+type RuntimeStore interface {
+	Store
+	StartFunc() daemon.StartFunc
+}
+
 type Store interface {
 	Cluster
 

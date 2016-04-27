@@ -32,7 +32,7 @@ type sessionHost struct {
 	Session string
 }
 
-func NewFromEnv() (store.Store, error) {
+func NewFromEnv() (*etcdStore, error) {
 	c, err := etcdutil.NewClientFromEnv()
 	if err != nil {
 		return nil, err

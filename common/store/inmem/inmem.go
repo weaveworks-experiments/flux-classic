@@ -61,11 +61,15 @@ type inmemStore struct {
 	session string
 }
 
-func (inmem *InMem) Store(sessionID string) store.Store {
+func (inmem *InMem) Store(sessionID string) store.RuntimeStore {
 	return &inmemStore{
 		InMem:   inmem,
 		session: sessionID,
 	}
+}
+
+func (s *inmemStore) StartFunc() daemon.StartFunc {
+	return daemon.NullStartFunc
 }
 
 func (s *inmemStore) AddInstance(serviceName string, instanceName string, inst store.Instance) error {

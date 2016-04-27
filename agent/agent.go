@@ -8,7 +8,6 @@ import (
 	docker "github.com/fsouza/go-dockerclient"
 
 	"github.com/weaveworks/flux/common/daemon"
-	"github.com/weaveworks/flux/common/heartbeat"
 	"github.com/weaveworks/flux/common/netutil"
 	"github.com/weaveworks/flux/common/store"
 	"github.com/weaveworks/flux/common/store/etcdstore"
@@ -23,10 +22,9 @@ type DockerClient interface {
 }
 
 type AgentConfig struct {
-	hostTTL           int
 	hostIP            net.IP
 	network           string
-	store             store.Store
+	store             store.RuntimeStore
 	dockerClient      DockerClient
 	reconnectInterval time.Duration
 }
@@ -41,7 +39,6 @@ func isValidNetworkMode(mode string) bool {
 }
 
 func (cf *AgentConfig) Populate(deps *daemon.Dependencies) {
-	deps.IntVar(&cf.hostTTL, "host-ttl", 30, "The daemon will give its records this time-to-live in seconds, and refresh them while it is running")
 	deps.StringVar(&cf.network, "network-mode", LOCAL, fmt.Sprintf(`Kind of network to assume for containers (either "%s" or "%s")`, LOCAL, GLOBAL))
 	deps.Dependency(etcdstore.StoreDependency(&cf.store))
 	deps.Dependency(netutil.HostIPDependency(&cf.hostIP))
@@ -61,11 +58,6 @@ func (cf *AgentConfig) Prepare() (daemon.StartFunc, error) {
 
 	if cf.reconnectInterval == 0 {
 		cf.reconnectInterval = 10 * time.Second
-	}
-
-	hb := heartbeat.HeartbeatConfig{
-		Cluster: cf.store,
-		TTL:     time.Duration(cf.hostTTL) * time.Second,
 	}
 
 	containerUpdates := make(chan ContainerUpdate)
@@ -98,7 +90,7 @@ func (cf *AgentConfig) Prepare() (daemon.StartFunc, error) {
 	cf.store.RegisterHost(cf.hostIP.String(), &store.Host{IP: cf.hostIP})
 
 	return daemon.Aggregate(
-		daemon.Restart(cf.reconnectInterval, hb.Start),
+		daemon.Restart(cf.reconnectInterval, cf.store.StartFunc()),
 
 		daemon.Reset(containerUpdatesReset,
 			daemon.Restart(cf.reconnectInterval,

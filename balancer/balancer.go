@@ -39,7 +39,7 @@ type BalancerConfig struct {
 	netConfig netConfig
 	prom      prometheus.Config
 	debug     bool
-	store     store.Store
+	store     store.RuntimeStore
 	hostIP    net.IP
 
 	// Filled by Prepare

@@ -18,27 +18,14 @@ const (
 	retry_abandon_threshold = 256 // ~4min
 )
 
-type InstancePool interface {
-	ReactivateRetries(t time.Time)
-	UpdateInstances(instances []model.Instance)
-	PickActiveInstance() PooledInstance
-	PickInstance() PooledInstance
-}
-
-type PooledInstance interface {
-	Instance() *model.Instance
-	Keep()
-	Fail()
-}
-
-type poolEntry struct {
+type PooledInstance struct {
 	instance      *model.Instance
-	pool          *instancePool
+	pool          *InstancePool
 	retryInterval int
 }
 
 type retryEntry struct {
-	*poolEntry
+	*PooledInstance
 	retryTime time.Time
 }
 
@@ -46,16 +33,16 @@ type retryQueue struct {
 	retries []*retryEntry
 }
 
-type instancePool struct {
+type InstancePool struct {
 	members map[string]struct{}
-	active  []*poolEntry
+	active  []*PooledInstance
 	retry   *retryQueue
 	lock    sync.Mutex
 	rng     *rand.Rand
 }
 
-func NewInstancePool() InstancePool {
-	pool := &instancePool{
+func NewInstancePool() *InstancePool {
+	pool := &InstancePool{
 		members: make(map[string]struct{}),
 		retry:   &retryQueue{},
 		rng:     rand.New(rand.NewSource(time.Now().UnixNano())),
@@ -65,7 +52,7 @@ func NewInstancePool() InstancePool {
 }
 
 // Make any instances that are due for a retry available again
-func (p *instancePool) ReactivateRetries(t time.Time) {
+func (p *InstancePool) ReactivateRetries(t time.Time) {
 	p.lock.Lock()
 	defer p.lock.Unlock()
 	for p.retry.beforeOrAt(t) {
@@ -84,10 +71,10 @@ func (p *instancePool) ReactivateRetries(t time.Time) {
 	}
 }
 
-func (p *instancePool) UpdateInstances(instances []model.Instance) {
+func (p *InstancePool) UpdateInstances(instances []model.Instance) {
 	p.lock.Lock()
 	defer p.lock.Unlock()
-	newActive := []*poolEntry{}
+	newActive := []*PooledInstance{}
 	remainder := p.members
 	p.members = map[string]struct{}{}
 
@@ -96,7 +83,7 @@ func (p *instancePool) UpdateInstances(instances []model.Instance) {
 		if _, found := remainder[inst.Name]; found {
 			delete(remainder, inst.Name)
 		} else {
-			newActive = append(newActive, &poolEntry{
+			newActive = append(newActive, &PooledInstance{
 				pool:          p,
 				instance:      &instances[i],
 				retryInterval: retry_initial_interval,
@@ -107,8 +94,8 @@ func (p *instancePool) UpdateInstances(instances []model.Instance) {
 	p.active = append(p.active, newActive...)
 }
 
-func (p *instancePool) removeMembers(names map[string]struct{}) {
-	newActive := []*poolEntry{}
+func (p *InstancePool) removeMembers(names map[string]struct{}) {
+	newActive := []*PooledInstance{}
 	for _, entry := range p.active {
 		if _, found := names[entry.instance.Name]; !found {
 			newActive = append(newActive, entry)
@@ -128,13 +115,13 @@ func (p *instancePool) removeMembers(names map[string]struct{}) {
 
 // Pick an instance from amongst the active instances; return nil if
 // there are none.
-func (p *instancePool) PickActiveInstance() PooledInstance {
+func (p *InstancePool) PickActiveInstance() *PooledInstance {
 	p.lock.Lock()
 	defer p.lock.Unlock()
 	return p.pickActiveInstance()
 }
 
-func (p *instancePool) pickActiveInstance() PooledInstance {
+func (p *InstancePool) pickActiveInstance() *PooledInstance {
 	n := len(p.active)
 	if n > 0 {
 		return p.active[p.rng.Intn(n)]
@@ -144,7 +131,7 @@ func (p *instancePool) pickActiveInstance() PooledInstance {
 
 // Pick an instance from the pool; ideally, from amongst the active
 // instances, but failing that, from those waiting to be retried.
-func (p *instancePool) PickInstance() PooledInstance {
+func (p *InstancePool) PickInstance() *PooledInstance {
 	p.lock.Lock()
 	defer p.lock.Unlock()
 
@@ -158,17 +145,17 @@ func (p *instancePool) PickInstance() PooledInstance {
 	// Ruh-roh, no active instances. Raid the retry queue.
 	if p.retry.Len() > 0 {
 		entry := p.retry.take1()
-		p.active = []*poolEntry{entry}
+		p.active = []*PooledInstance{entry}
 		return entry
 	}
 	return nil
 }
 
-func (entry *poolEntry) Keep() {
+func (entry *PooledInstance) Keep() {
 	entry.retryInterval = retry_initial_interval
 }
 
-func (entry *poolEntry) Fail() {
+func (entry *PooledInstance) Fail() {
 	log.Infof("Scheduling instance %s for retry in %d sec", entry.instance.Name, entry.retryInterval)
 	p := entry.pool
 
@@ -184,7 +171,7 @@ func (entry *poolEntry) Fail() {
 	}
 }
 
-func (entry *poolEntry) Instance() *model.Instance {
+func (entry *PooledInstance) Instance() *model.Instance {
 	return entry.instance
 }
 
@@ -223,11 +210,11 @@ func (q *retryQueue) beforeOrAt(t time.Time) bool {
 	return !q.retries[len(q.retries)-1].retryTime.After(t)
 }
 
-func (q *retryQueue) take1() *poolEntry {
-	return heap.Pop(q).(*retryEntry).poolEntry
+func (q *retryQueue) take1() *PooledInstance {
+	return heap.Pop(q).(*retryEntry).PooledInstance
 }
 
-func (q *retryQueue) scheduleRetry(entry *poolEntry, t time.Time) {
+func (q *retryQueue) scheduleRetry(entry *PooledInstance, t time.Time) {
 	r := &retryEntry{entry, t}
 	heap.Push(q, r)
 }

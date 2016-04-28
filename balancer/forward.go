@@ -30,7 +30,7 @@ type forwarding struct {
 
 	service *model.Service
 
-	pool        pool.InstancePool
+	pool        *pool.InstancePool
 	retryTicker *time.Ticker
 
 	shim shimFunc
@@ -212,7 +212,7 @@ func (fwd *forwarding) forward(inbound *net.TCPConn) {
 		inAddr, fwd.service.Address, fwd.service.Name, max_connection_attempts)
 }
 
-func (fwd *forwarding) pickInstanceAndShim() (pool.PooledInstance, shimFunc) {
+func (fwd *forwarding) pickInstanceAndShim() (*pool.PooledInstance, shimFunc) {
 	inst := fwd.pool.PickInstance()
 	return inst, fwd.shim
 }

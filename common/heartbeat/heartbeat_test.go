@@ -18,14 +18,14 @@ func TestHeartbeat(t *testing.T) {
 	st := back.Store(sessionID)
 	ttl := time.Duration(100 * time.Millisecond)
 
-	conf := HeartbeatConfig{
+	conf := &HeartbeatConfig{
 		st,
 		ttl,
 	}
 	sink := daemon.NewErrorSink()
 
 	// starting the heartbeat puts a record in straight away
-	hb := conf.Start(sink)
+	hb := conf.StartFunc()(sink)
 
 	// thereafter, we get the record maintained
 	time.Sleep(2 * ttl)
@@ -41,6 +41,4 @@ func TestHeartbeat(t *testing.T) {
 	updateCount2, err := back.GetHeartbeat(sessionID)
 	require.Nil(t, err)
 	require.Equal(t, updateCount1, updateCount2)
-	// NB I don't check that the host record has been removed, since
-	// that's a property of the store rather than the heartbeater.
 }

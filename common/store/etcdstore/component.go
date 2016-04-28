@@ -13,18 +13,20 @@ type EtcdStore struct {
 	client etcd.Client
 	ttl    time.Duration
 	*etcdStore
-
-	// used when started
-	heartbeatConfig heartbeat.HeartbeatConfig
 }
 
 func (store *EtcdStore) StartFunc() daemon.StartFunc {
 	// the restart interval is set so that it will try at least once
 	// before records expire.
-	store.heartbeatConfig = heartbeat.HeartbeatConfig{
+	hb := &heartbeat.HeartbeatConfig{
 		Cluster: store,
 		TTL:     store.ttl,
 	}
 
-	return daemon.Restart(store.ttl/2, store.heartbeatConfig.Start)
+	return daemon.Aggregate(
+		daemon.Restart(store.ttl/2, hb.StartFunc()),
+		// the interval for the collection is somewhat arbitrary
+		daemon.Restart(store.ttl*2, daemon.Ticker(store.ttl*2, func(_ time.Time) error {
+			return store.doCollection()
+		})))
 }

@@ -84,7 +84,7 @@ func (fc forwardingConfig) start(svc *model.Service) (serviceState, error) {
 			if t.IsZero() {
 				return
 			}
-			fwd.pool.ReactivateRetries(t)
+			fwd.pool.ProcessRetries()
 		}
 	}()
 
@@ -179,28 +179,28 @@ func (fwd *forwarding) forward(inbound *net.TCPConn) {
 	inAddr := inbound.RemoteAddr().(*net.TCPAddr)
 
 	for i := 0; i < max_connection_attempts; i++ {
-		pinst, shim := fwd.pickInstanceAndShim()
+		pinst := fwd.pool.PickInstance()
 		if pinst == nil {
 			log.Errorf("ran out of instances attempting connection %s->%s (%s)",
 				inAddr, fwd.service.Address, fwd.service.Name)
 			return
 		}
 
-		inst := pinst.Instance()
+		inst := pinst.Instance
 		outbound, err := net.DialTCP("tcp", nil, inst.Address.TCPAddr())
 		if err != nil {
 			log.Error("connecting to ", inst.Address, ": ", err)
-			pinst.Fail()
+			fwd.pool.Failed(pinst)
 			continue
 		}
-		pinst.Keep()
 
+		fwd.pool.Succeeded(pinst)
 		connEvent := &events.Connection{
 			Service:  fwd.service,
-			Instance: inst,
+			Instance: &inst,
 			Inbound:  inAddr,
 		}
-		err = shim(inbound, outbound, connEvent, fwd.eventHandler)
+		err = fwd.shim(inbound, outbound, connEvent, fwd.eventHandler)
 		if err != nil {
 			log.Error("forwarding from ", inAddr, " to ",
 				inst.Address, ": ", err)
@@ -210,11 +210,6 @@ func (fwd *forwarding) forward(inbound *net.TCPConn) {
 	inbound.Close()
 	log.Errorf("abandoned connection %s->%s (%s) after reaching max of %d attempts",
 		inAddr, fwd.service.Address, fwd.service.Name, max_connection_attempts)
-}
-
-func (fwd *forwarding) pickInstanceAndShim() (*pool.PooledInstance, shimFunc) {
-	inst := fwd.pool.PickInstance()
-	return inst, fwd.shim
 }
 
 func tcpShim(inbound, outbound *net.TCPConn, connEvent *events.Connection, eh events.Handler) error {

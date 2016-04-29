@@ -12,13 +12,14 @@ import (
 )
 
 func TestPoolOfOne(t *testing.T) {
-	// if there's one instance, it always gets picked
+	// Empty pool
 	pool := NewInstancePool()
 	require.Nil(t, pool.PickInstance())
 
 	pool.UpdateInstances([]model.Instance{})
 	require.Nil(t, pool.PickInstance())
 
+	// Add an instance
 	instance := model.Instance{
 		Name:    "foo instance",
 		Address: netutil.IPPort{net.IP{192, 168, 3, 135}, 32768},
@@ -26,63 +27,94 @@ func TestPoolOfOne(t *testing.T) {
 
 	pool.UpdateInstances([]model.Instance{instance})
 	picked := pool.PickInstance()
-	require.NotNil(t, picked)
-	require.Equal(t, &instance, picked.Instance())
-	require.Equal(t, &instance, pool.PickInstance().Instance())
-	picked.Fail()
-	require.Nil(t, pool.PickActiveInstance())
-	require.Equal(t, &instance, pool.PickInstance().Instance())
+	require.Equal(t, instance, picked.Instance)
 
+	pool.Succeeded(picked)
+	picked = pool.PickInstance()
+	require.Equal(t, instance, picked.Instance)
+
+	// Even if the instance is failed, it's the only one in the
+	// pool, so it should still get picked
+	pool.Failed(picked)
+	require.Empty(t, pool.ready)
+	require.Equal(t, instance, pool.PickInstance().Instance)
+
+	// Remove instance
 	pool.UpdateInstances([]model.Instance{})
 	require.Nil(t, pool.PickInstance())
 }
 
 func TestFailAndRetryInstance(t *testing.T) {
-	// if you fail an instance, it doesn't get picked until you retry it
+	// if you fail an instance, it won't be considered ready until
+	// it is retired.
 	pool := NewInstancePool()
-	require.Nil(t, pool.PickInstance())
+	now := time.Now()
+	pool.now = func() time.Time { return now }
 
-	instances := []model.Instance{
-		model.Instance{
-			Name:    "instance one",
-			Address: netutil.IPPort{net.IP{192, 168, 3, 101}, 32768},
-		},
-		model.Instance{
-			Name:    "instance two",
-			Address: netutil.IPPort{net.IP{192, 168, 3, 135}, 32761},
-		},
+	inst1 := model.Instance{
+		Name:    "instance one",
+		Address: netutil.IPPort{net.IP{192, 168, 3, 101}, 1001},
+	}
+	inst2 := model.Instance{
+		Name:    "instance two",
+		Address: netutil.IPPort{net.IP{192, 168, 3, 102}, 1002},
+	}
+	inst3 := model.Instance{
+		Name:    "instance three",
+		Address: netutil.IPPort{net.IP{192, 168, 3, 103}, 1003},
 	}
 
-	pool.UpdateInstances(instances[:1])
-	picked := pool.PickInstance()
-	failedInstance := picked.Instance()
-	picked.Fail()
+	pool.UpdateInstances([]model.Instance{inst1})
+	picked1 := pool.PickInstance()
+	require.Equal(t, inst1, picked1.Instance)
+	pool.Failed(picked1)
 
 	// incidentally test that failed instances remain failed, when
 	// included in an update
-	pool.UpdateInstances(instances)
-	okInstance := &instances[1]
+	pool.UpdateInstances([]model.Instance{inst1, inst2})
 
-	// OK sure, this is an approximation to "doesn't get picked"
-	for i := 0; i < 100; i++ {
-		require.Equal(t, okInstance, pool.PickInstance().Instance())
+	// check that inst2 (ready) is preferred to inst1 (failed)
+	for i := 0; i < 20; i++ {
+		picked2 := pool.PickInstance()
+		require.Equal(t, inst2, picked2.Instance)
+		pool.Succeeded(picked2)
 	}
 
-	picked = pool.PickInstance() // = okInstance
-	// add failedInstance back
-	pool.ReactivateRetries(time.Now().Add(time.Duration(retry_initial_interval) * time.Second))
-	picked.Fail()
-	// now should be only failed instance in the active instances
-	okInstance, failedInstance = failedInstance, okInstance // make these names accurate again
+	// Fail inst2 and retry inst1
+	now = now.Add(retry_interval_base)
+	pool.Failed(pool.PickInstance())
+	pool.ProcessRetries()
 
-	for i := 0; i < 100; i++ {
-		require.Equal(t, okInstance, pool.PickInstance().Instance())
+	// Now inst1 should get picked
+	picked1 = pool.PickInstance()
+	require.Equal(t, inst1, picked1.Instance)
+
+	// Add a ready inst3
+	pool.UpdateInstances([]model.Instance{inst1, inst2, inst3})
+
+	// check that inst3 (ready) is preferred to inst1 (retrying)
+	// and inst2 (failed)
+	for i := 0; i < 20; i++ {
+		picked3 := pool.PickInstance()
+		require.Equal(t, inst3, picked3.Instance)
+		pool.Succeeded(picked3)
+	}
+
+	pool.Succeeded(picked1)
+	pool.UpdateInstances([]model.Instance{inst1, inst2})
+
+	// inst3 has gone, inst2 is failed, so inst1 is preferred
+	for i := 0; i < 20; i++ {
+		picked1 = pool.PickInstance()
+		require.Equal(t, inst1, picked1.Instance)
+		pool.Succeeded(picked1)
 	}
 }
 
 func TestRetryBackoff(t *testing.T) {
 	pool := NewInstancePool()
-	require.Nil(t, pool.PickInstance())
+	now := time.Now()
+	pool.now = func() time.Time { return now }
 
 	instance := model.Instance{
 		Name:    "instance one",
@@ -90,50 +122,13 @@ func TestRetryBackoff(t *testing.T) {
 	}
 
 	pool.UpdateInstances([]model.Instance{instance})
-	require.NotNil(t, pool.PickInstance())
 
-	now := time.Now()
-
-	for retry := retry_initial_interval; retry < retry_abandon_threshold; retry *= retry_backoff_factor {
-		// invariant: the instance is active here
-		pool.PickActiveInstance().Fail()
-		pool.ReactivateRetries(now.Add(1 * time.Second))
-		require.Nil(t, pool.PickActiveInstance())
-		pool.ReactivateRetries(now.Add(time.Duration(retry+1) * time.Second))
-		require.NotNil(t, pool.PickActiveInstance())
+	for i := uint(0); i < 5; i++ {
+		// invariant: the instance is ready here
+		pool.Failed(pool.PickInstance())
+		require.Empty(t, pool.ready)
+		now = now.Add((1 << i) * retry_interval_base)
+		pool.ProcessRetries()
+		require.NotEmpty(t, pool.ready)
 	}
-	// it should be abandoned this time
-	pool.PickActiveInstance().Fail()
-	pool.ReactivateRetries(now.Add(time.Duration(retry_abandon_threshold+1) * time.Second))
-	require.Nil(t, pool.PickInstance())
-}
-
-func TestRetryKeep(t *testing.T) {
-	pool := NewInstancePool()
-	require.Nil(t, pool.PickInstance())
-
-	instance := model.Instance{
-		Name:    "janky instance",
-		Address: netutil.IPPort{net.IP{192, 168, 35, 10}, 32716},
-	}
-
-	pool.UpdateInstances([]model.Instance{instance})
-	require.NotNil(t, pool.PickInstance())
-
-	now := time.Now()
-
-	retry := retry_initial_interval
-
-	pool.PickActiveInstance().Fail()
-	pool.ReactivateRetries(now.Add(time.Duration(retry+1) * time.Second))
-	pool.PickActiveInstance().Fail()
-
-	// having been reactivated once, reactivating again after the same
-	// interval shouldn't pick it up
-	pool.ReactivateRetries(now.Add(time.Duration(retry+1) * time.Second))
-	require.Nil(t, pool.PickActiveInstance())
-
-	pool.PickInstance().Keep() // should reset the retry interval and return to active service
-	pool.ReactivateRetries(now.Add(time.Duration(retry+1) * time.Second))
-	require.NotNil(t, pool.PickActiveInstance())
 }

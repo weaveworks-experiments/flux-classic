@@ -20,9 +20,14 @@ type PooledInstance struct {
 }
 
 type InstancePool struct {
-	lock sync.Mutex
-	rng  *rand.Rand
-	now  func() time.Time
+	lock  sync.Mutex
+	rng   *rand.Rand
+	now   func() time.Time
+	timer interface {
+		Reset(d time.Duration) bool
+		Stop() bool
+	}
+	stopped chan struct{}
 
 	// Instances that are ready for connections
 	ready []*PooledInstance
@@ -36,8 +41,17 @@ type retryQueue struct {
 
 func NewInstancePool() *InstancePool {
 	return &InstancePool{
-		rng: rand.New(rand.NewSource(time.Now().UnixNano())),
-		now: time.Now,
+		rng:     rand.New(rand.NewSource(time.Now().UnixNano())),
+		now:     time.Now,
+		stopped: make(chan struct{}),
+	}
+}
+
+func (p *InstancePool) Stop() {
+	close(p.stopped)
+
+	if p.timer != nil {
+		p.timer.Stop()
 	}
 }
 
@@ -83,6 +97,7 @@ func (p *InstancePool) Succeeded(inst *PooledInstance) {
 
 	if !inst.retryTime.IsZero() {
 		heap.Remove(&p.retryQueue, inst.index)
+		p.resetTimer(p.now())
 		inst.retryTime = time.Time{}
 		inst.index = len(p.ready)
 		p.ready = append(p.ready, inst)
@@ -104,6 +119,7 @@ func (p *InstancePool) fail(inst *PooledInstance) {
 	p.ready = p.ready[:len(p.ready)-1]
 	p.reschedule(inst)
 	heap.Push(&p.retryQueue, inst)
+	p.resetTimer(p.now())
 }
 
 func (p *InstancePool) reschedule(inst *PooledInstance) {
@@ -152,14 +168,43 @@ func (p *InstancePool) UpdateInstances(instances []model.Instance) {
 	p.ready = ready
 	p.retry = retry
 	heap.Init(&p.retryQueue)
+	p.resetTimer(p.now())
+}
+
+func (p *InstancePool) resetTimer(now time.Time) {
+	if len(p.retry) == 0 {
+		if p.timer != nil {
+			// Can't pause a go Timer
+			p.timer.Reset(24 * time.Hour)
+		}
+
+		return
+	}
+
+	delay := p.retry[0].retryTime.Sub(now)
+	if p.timer == nil {
+		timer := time.NewTimer(delay)
+		p.timer = timer
+		go func() {
+			for {
+				select {
+				case now := <-timer.C:
+					p.processRetries(now)
+				case <-p.stopped:
+					return
+				}
+			}
+		}()
+	} else {
+		p.timer.Reset(delay)
+	}
 }
 
 // Make any instances that are due for a retry available again
-func (p *InstancePool) ProcessRetries() {
+func (p *InstancePool) processRetries(now time.Time) {
 	p.lock.Lock()
 	defer p.lock.Unlock()
 
-	now := p.now()
 	for len(p.retry) != 0 && !now.Before(p.retry[0].retryTime) {
 		inst := p.retry[0]
 		heap.Pop(&p.retryQueue)
@@ -167,6 +212,8 @@ func (p *InstancePool) ProcessRetries() {
 		inst.index = len(p.ready)
 		p.ready = append(p.ready, inst)
 	}
+
+	p.resetTimer(now)
 }
 
 func (q *retryQueue) Len() int {

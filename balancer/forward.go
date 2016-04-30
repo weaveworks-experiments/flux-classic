@@ -5,7 +5,6 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"io"
 	"net"
-	"time"
 
 	"github.com/weaveworks/flux/balancer/events"
 	"github.com/weaveworks/flux/balancer/model"
@@ -29,11 +28,8 @@ type forwarding struct {
 	stopped  bool
 
 	service *model.Service
-
-	pool        *pool.InstancePool
-	retryTicker *time.Ticker
-
-	shim shimFunc
+	pool    *pool.InstancePool
+	shim    shimFunc
 }
 
 type shimFunc func(inbound, outbound *net.TCPConn, conn *events.Connection, eventHandler events.Handler) error
@@ -75,19 +71,8 @@ func (fc forwardingConfig) start(svc *model.Service) (serviceState, error) {
 		listener:         listener,
 		service:          svc,
 		pool:             pool.NewInstancePool(),
-		retryTicker:      time.NewTicker(1 * time.Second),
 	}
 	fwd.pool.UpdateInstances(svc.Instances)
-	go func() {
-		for {
-			t := <-fwd.retryTicker.C
-			if t.IsZero() {
-				return
-			}
-			fwd.pool.ProcessRetries()
-		}
-	}()
-
 	fwd.chooseShim()
 	go fwd.run()
 	success = true
@@ -133,6 +118,7 @@ func (fwd *forwarding) run() {
 func (fwd *forwarding) stop() {
 	fwd.stopped = true
 	fwd.listener.Close()
+	fwd.pool.Stop()
 	fwd.ipTables.deleteRule("nat", fwd.rule)
 }
 

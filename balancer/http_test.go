@@ -56,11 +56,9 @@ func wrapShim(shim shimFunc, target *net.TCPAddr, t *testing.T) *shimWrapper {
 						Protocol: "http",
 						Address:  &netutil.IPPort{net.ParseIP("127.42.0.1"), 8888},
 					},
-					Instance: &model.Instance{
-						Name:    "inst",
-						Address: netutil.IPPort{laddr.IP, laddr.Port},
-					},
-					Inbound: inbound.RemoteAddr().(*net.TCPAddr),
+					InstanceName: "inst",
+					InstanceAddr: netutil.IPPort{laddr.IP, laddr.Port},
+					Inbound:      inbound.RemoteAddr().(*net.TCPAddr),
 				}
 				require.Nil(t, shim(inbound, outbound, cevent, w))
 			}()

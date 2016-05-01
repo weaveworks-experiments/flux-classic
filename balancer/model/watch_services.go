@@ -2,6 +2,7 @@ package model
 
 import (
 	"github.com/weaveworks/flux/common/daemon"
+	"github.com/weaveworks/flux/common/netutil"
 	"github.com/weaveworks/flux/common/store"
 )
 
@@ -31,13 +32,10 @@ func translateService(name string, svc *store.ServiceInfo, filterAddressless boo
 		return nil
 	}
 
-	insts := []Instance{}
+	insts := make(map[string]netutil.IPPort)
 	for instName, instance := range svc.Instances {
 		if instance.Address != nil {
-			insts = append(insts, Instance{
-				Name:    instName,
-				Address: *instance.Address,
-			})
+			insts[instName] = *instance.Address
 		}
 	}
 

@@ -70,21 +70,15 @@ func TestServices(t *testing.T) {
 		Name:     "service",
 		Protocol: "tcp",
 		Address:  &netutil.IPPort{ip, port},
-		Instances: []model.Instance{
-			{
-				Name:    "foo",
-				Address: netutil.IPPort{net.ParseIP("127.0.0.1"), 10000},
-			},
+		Instances: map[string]netutil.IPPort{
+			"foo": netutil.IPPort{net.ParseIP("127.0.0.1"), 10000},
 		},
 	}
 	update(svc, true)
 	requireForwarding(t, &mipt)
 
-	insts := []model.Instance{
-		{
-			Name:    "foo",
-			Address: netutil.IPPort{net.ParseIP("127.0.0.1"), 10001},
-		},
+	insts := map[string]netutil.IPPort{
+		"foo": netutil.IPPort{net.ParseIP("127.0.0.1"), 10001},
 	}
 
 	// Update it

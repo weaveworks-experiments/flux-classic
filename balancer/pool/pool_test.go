@@ -7,7 +7,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/weaveworks/flux/balancer/model"
 	"github.com/weaveworks/flux/common/netutil"
 )
 
@@ -16,31 +15,27 @@ func TestPoolOfOne(t *testing.T) {
 	pool := NewInstancePool()
 	require.Nil(t, pool.PickInstance())
 
-	pool.UpdateInstances([]model.Instance{})
+	pool.UpdateInstances(nil)
 	require.Nil(t, pool.PickInstance())
 
 	// Add an instance
-	instance := model.Instance{
-		Name:    "foo instance",
-		Address: netutil.IPPort{net.IP{192, 168, 3, 135}, 32768},
-	}
-
-	pool.UpdateInstances([]model.Instance{instance})
+	addr := netutil.IPPort{net.IP{192, 168, 3, 135}, 32768}
+	pool.UpdateInstances(map[string]netutil.IPPort{"foo": addr})
 	picked := pool.PickInstance()
-	require.Equal(t, instance, picked.Instance)
+	require.Equal(t, addr, picked.Address)
 
 	pool.Succeeded(picked)
 	picked = pool.PickInstance()
-	require.Equal(t, instance, picked.Instance)
+	require.Equal(t, addr, picked.Address)
 
 	// Even if the instance is failed, it's the only one in the
 	// pool, so it should still get picked
 	pool.Failed(picked)
 	require.Empty(t, pool.ready)
-	require.Equal(t, instance, pool.PickInstance().Instance)
+	require.Equal(t, addr, pool.PickInstance().Address)
 
 	// Remove instance
-	pool.UpdateInstances([]model.Instance{})
+	pool.UpdateInstances(nil)
 	require.Nil(t, pool.PickInstance())
 
 	pool.Stop()
@@ -70,33 +65,27 @@ func TestFailAndRetryInstance(t *testing.T) {
 	pool.timer = &tm
 	pool.now = tm.now
 
-	inst1 := model.Instance{
-		Name:    "instance one",
-		Address: netutil.IPPort{net.IP{192, 168, 3, 101}, 1001},
-	}
-	inst2 := model.Instance{
-		Name:    "instance two",
-		Address: netutil.IPPort{net.IP{192, 168, 3, 102}, 1002},
-	}
-	inst3 := model.Instance{
-		Name:    "instance three",
-		Address: netutil.IPPort{net.IP{192, 168, 3, 103}, 1003},
-	}
+	inst1 := netutil.IPPort{net.IP{192, 168, 3, 101}, 1001}
+	inst2 := netutil.IPPort{net.IP{192, 168, 3, 102}, 1002}
+	inst3 := netutil.IPPort{net.IP{192, 168, 3, 103}, 1003}
 
-	pool.UpdateInstances([]model.Instance{inst1})
+	pool.UpdateInstances(map[string]netutil.IPPort{"inst1": inst1})
 	picked1 := pool.PickInstance()
-	require.Equal(t, inst1, picked1.Instance)
+	require.Equal(t, inst1, picked1.Address)
 	pool.Failed(picked1)
 	require.Equal(t, tm.Add(retry_interval_base), tm.next)
 
 	// incidentally test that failed instances remain failed, when
 	// included in an update
-	pool.UpdateInstances([]model.Instance{inst1, inst2})
+	pool.UpdateInstances(map[string]netutil.IPPort{
+		"inst1": inst1,
+		"inst2": inst2,
+	})
 
 	// check that inst2 (ready) is preferred to inst1 (failed)
 	for i := 0; i < 20; i++ {
 		picked2 := pool.PickInstance()
-		require.Equal(t, inst2, picked2.Instance)
+		require.Equal(t, inst2, picked2.Address)
 		pool.Succeeded(picked2)
 	}
 
@@ -107,26 +96,33 @@ func TestFailAndRetryInstance(t *testing.T) {
 
 	// Now inst1 should get picked
 	picked1 = pool.PickInstance()
-	require.Equal(t, inst1, picked1.Instance)
+	require.Equal(t, inst1, picked1.Address)
 
 	// Add a ready inst3
-	pool.UpdateInstances([]model.Instance{inst1, inst2, inst3})
+	pool.UpdateInstances(map[string]netutil.IPPort{
+		"inst1": inst1,
+		"inst2": inst2,
+		"inst3": inst3,
+	})
 
 	// check that inst3 (ready) is preferred to inst1 (retrying)
 	// and inst2 (failed)
 	for i := 0; i < 20; i++ {
 		picked3 := pool.PickInstance()
-		require.Equal(t, inst3, picked3.Instance)
+		require.Equal(t, inst3, picked3.Address)
 		pool.Succeeded(picked3)
 	}
 
 	pool.Succeeded(picked1)
-	pool.UpdateInstances([]model.Instance{inst1, inst2})
+	pool.UpdateInstances(map[string]netutil.IPPort{
+		"inst1": inst1,
+		"inst2": inst2,
+	})
 
 	// inst3 has gone, inst2 is failed, so inst1 is preferred
 	for i := 0; i < 20; i++ {
 		picked1 = pool.PickInstance()
-		require.Equal(t, inst1, picked1.Instance)
+		require.Equal(t, inst1, picked1.Address)
 		pool.Succeeded(picked1)
 	}
 
@@ -139,12 +135,8 @@ func TestRetryBackoff(t *testing.T) {
 	pool.timer = &tm
 	pool.now = tm.now
 
-	instance := model.Instance{
-		Name:    "instance one",
-		Address: netutil.IPPort{net.IP{192, 168, 3, 101}, 32768},
-	}
-
-	pool.UpdateInstances([]model.Instance{instance})
+	addr := netutil.IPPort{net.IP{192, 168, 3, 135}, 32768}
+	pool.UpdateInstances(map[string]netutil.IPPort{"foo": addr})
 
 	for i := uint(0); i < 5; i++ {
 		// invariant: the instance is ready here

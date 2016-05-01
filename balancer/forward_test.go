@@ -43,11 +43,8 @@ func TestForward(t *testing.T) {
 		Name:     "service",
 		Protocol: "tcp",
 		Address:  &netutil.IPPort{net.ParseIP("127.42.0.1"), 8888},
-		Instances: []model.Instance{
-			{
-				Name:    "inst",
-				Address: netutil.IPPort{laddr.IP, laddr.Port},
-			},
+		Instances: map[string]netutil.IPPort{
+			"inst": netutil.IPPort{laddr.IP, laddr.Port},
 		},
 	})
 	require.Nil(t, err)

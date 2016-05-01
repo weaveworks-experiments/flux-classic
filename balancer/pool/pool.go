@@ -6,14 +6,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/weaveworks/flux/balancer/model"
 	"github.com/weaveworks/flux/common/netutil"
 )
 
 const retry_interval_base = 1 * time.Second
 
 type PooledInstance struct {
-	Instance  model.Instance
+	Name      string
+	Address   netutil.IPPort
 	index     int
 	failures  uint
 	retryTime time.Time
@@ -128,21 +128,21 @@ func (p *InstancePool) reschedule(inst *PooledInstance) {
 	inst.retryTime = p.now().Add(delay)
 }
 
-func (p *InstancePool) UpdateInstances(instances []model.Instance) {
+func (p *InstancePool) UpdateInstances(instances map[string]netutil.IPPort) {
 	p.lock.Lock()
 	defer p.lock.Unlock()
 
 	wantInsts := make(map[string]netutil.IPPort)
-	for _, inst := range instances {
-		wantInsts[inst.Name] = inst.Address
+	for name, addr := range instances {
+		wantInsts[name] = addr
 	}
 
 	// Copy any common instances across
 	var ready, retry []*PooledInstance
 	keepInsts := func(insts []*PooledInstance) {
 		for _, inst := range insts {
-			if _, found := wantInsts[inst.Instance.Name]; found {
-				delete(wantInsts, inst.Instance.Name)
+			if _, found := wantInsts[inst.Name]; found {
+				delete(wantInsts, inst.Name)
 				if inst.retryTime.IsZero() {
 					inst.index = len(ready)
 					ready = append(ready, inst)
@@ -160,8 +160,9 @@ func (p *InstancePool) UpdateInstances(instances []model.Instance) {
 	// Add new instances
 	for name, addr := range wantInsts {
 		ready = append(ready, &PooledInstance{
-			Instance: model.Instance{Name: name, Address: addr},
-			index:    len(ready),
+			Name:    name,
+			Address: addr,
+			index:   len(ready),
 		})
 	}
 

@@ -6,7 +6,6 @@ import (
 	"net"
 	"os"
 	"path"
-	"sort"
 	"strings"
 	"testing"
 	"text/template"
@@ -14,32 +13,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/weaveworks/flux/balancer/model"
 	"github.com/weaveworks/flux/common/daemon"
 	"github.com/weaveworks/flux/common/netutil"
 	"github.com/weaveworks/flux/common/store"
 	"github.com/weaveworks/flux/common/store/inmem"
 )
-
-type instances []model.Instance
-
-func (insts instances) Len() int { return len(insts) }
-
-func (insts instances) Less(i, j int) bool {
-	return insts[i].Name < insts[j].Name
-}
-
-func (insts instances) Swap(i, j int) {
-	t := insts[i]
-	insts[i] = insts[j]
-	insts[j] = t
-}
-
-func sortInsts(a interface{}) interface{} {
-	insts := instances(a.([]model.Instance))
-	sort.Sort(insts)
-	return insts
-}
 
 func newBalancerAgentConfig(t *testing.T) *BalancerAgentConfig {
 	dir, err := ioutil.TempDir("", "balagent_test")
@@ -69,13 +47,12 @@ func TestBalancerAgent(t *testing.T) {
 	defer cleanup(cf, t)
 
 	tmpl := template.New("template")
-	tmpl.Funcs(template.FuncMap{"sortInsts": sortInsts})
 
 	var err error
 	cf.template, err = tmpl.Parse(`
 {{$HOME := .Getenv "HOME"}}
 {{if len $HOME}}{{else}}No $HOME{{end}}
-{{range .}}{{.Name}}:{{range sortInsts .Instances}} ({{.Name}}, {{.Address}}){{end}}
+{{range .}}{{.Name}}:{{range $name, $addr := .Instances}} ({{$name}}, {{$addr}}){{end}}
 {{end}}`)
 	require.Nil(t, err)
 

@@ -165,26 +165,26 @@ func (fwd *forwarding) forward(inbound *net.TCPConn) {
 	inAddr := inbound.RemoteAddr().(*net.TCPAddr)
 
 	for i := 0; i < max_connection_attempts; i++ {
-		pinst := fwd.pool.PickInstance()
-		if pinst == nil {
+		inst := fwd.pool.PickInstance()
+		if inst == nil {
 			log.Errorf("ran out of instances attempting connection %s->%s (%s)",
 				inAddr, fwd.service.Address, fwd.service.Name)
 			return
 		}
 
-		inst := pinst.Instance
 		outbound, err := net.DialTCP("tcp", nil, inst.Address.TCPAddr())
 		if err != nil {
 			log.Error("connecting to ", inst.Address, ": ", err)
-			fwd.pool.Failed(pinst)
+			fwd.pool.Failed(inst)
 			continue
 		}
 
-		fwd.pool.Succeeded(pinst)
+		fwd.pool.Succeeded(inst)
 		connEvent := &events.Connection{
-			Service:  fwd.service,
-			Instance: &inst,
-			Inbound:  inAddr,
+			Service:      fwd.service,
+			InstanceName: inst.Name,
+			InstanceAddr: inst.Address,
+			Inbound:      inAddr,
 		}
 		err = fwd.shim(inbound, outbound, connEvent, fwd.eventHandler)
 		if err != nil {

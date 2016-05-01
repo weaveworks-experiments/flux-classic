@@ -120,18 +120,17 @@ func (h *EventHandler) collectors() []prom.Collector {
 }
 
 func (h *EventHandler) Connection(ev *events.Connection) {
-	h.connections.WithLabelValues(ev.Instance.Name, ev.Inbound.IP.String(), ev.Instance.Address.IP.String(), ev.Service.Protocol).Inc()
+	h.connections.WithLabelValues(ev.InstanceName, ev.Inbound.IP.String(), ev.InstanceAddr.IP.String(), ev.Service.Protocol).Inc()
 }
 
 func (h *EventHandler) HttpExchange(ev *events.HttpExchange) {
-	instName := ev.Instance.Name
 	src := ev.Inbound.IP.String()
-	dst := ev.Instance.Address.IP.String()
+	dst := ev.InstanceAddr.IP.String()
 	method := ev.Request.Method
 	code := strconv.Itoa(ev.Response.StatusCode)
-	h.http.WithLabelValues(instName, src, dst, method, code).Inc()
-	h.httpRoundtrip.WithLabelValues(instName, src, dst, method, code).Observe(float64(ev.RoundTrip / time.Microsecond))
-	h.httpTotal.WithLabelValues(instName, src, dst, method, code).Observe(float64(ev.TotalTime / time.Microsecond))
+	h.http.WithLabelValues(ev.InstanceName, src, dst, method, code).Inc()
+	h.httpRoundtrip.WithLabelValues(ev.InstanceName, src, dst, method, code).Observe(float64(ev.RoundTrip / time.Microsecond))
+	h.httpTotal.WithLabelValues(ev.InstanceName, src, dst, method, code).Observe(float64(ev.TotalTime / time.Microsecond))
 }
 
 const TTL = 5 * time.Minute

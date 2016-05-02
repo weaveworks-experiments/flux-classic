@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/weaveworks/flux/balancer/model"
 	"github.com/weaveworks/flux/common/netutil"
 )
 
@@ -18,7 +17,8 @@ type Handler interface {
 }
 
 type Connection struct {
-	Service      *model.Service
+	ServiceName  string
+	Protocol     string
 	InstanceName string
 	InstanceAddr netutil.IPPort
 	Inbound      *net.TCPAddr

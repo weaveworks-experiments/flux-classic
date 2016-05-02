@@ -120,7 +120,7 @@ func (h *EventHandler) collectors() []prom.Collector {
 }
 
 func (h *EventHandler) Connection(ev *events.Connection) {
-	h.connections.WithLabelValues(ev.InstanceName, ev.Inbound.IP.String(), ev.InstanceAddr.IP.String(), ev.Service.Protocol).Inc()
+	h.connections.WithLabelValues(ev.InstanceName, ev.Inbound.IP.String(), ev.InstanceAddr.IP.String(), ev.Protocol).Inc()
 }
 
 func (h *EventHandler) HttpExchange(ev *events.HttpExchange) {

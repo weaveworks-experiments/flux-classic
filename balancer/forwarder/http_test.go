@@ -1,4 +1,4 @@
-package balancer
+package forwarder
 
 import (
 	"bytes"
@@ -14,7 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/weaveworks/flux/balancer/events"
-	"github.com/weaveworks/flux/balancer/model"
 	"github.com/weaveworks/flux/common/netutil"
 )
 
@@ -51,11 +50,8 @@ func wrapShim(shim shimFunc, target *net.TCPAddr, t *testing.T) *shimWrapper {
 				outbound, err := net.DialTCP("tcp", nil, target)
 				require.Nil(t, err)
 				cevent := &events.Connection{
-					Service: &model.Service{
-						Name:     "service",
-						Protocol: "http",
-						Address:  &netutil.IPPort{net.ParseIP("127.42.0.1"), 8888},
-					},
+					ServiceName:  "service",
+					Protocol:     "http",
 					InstanceName: "inst",
 					InstanceAddr: netutil.IPPort{laddr.IP, laddr.Port},
 					Inbound:      inbound.RemoteAddr().(*net.TCPAddr),

@@ -15,6 +15,14 @@ type Service struct {
 	Instances map[string]netutil.IPPort // map from name to address
 }
 
+func (svc *Service) Description() string {
+	if svc.Address == nil {
+		return svc.Name
+	} else {
+		return fmt.Sprintf("%s (%s)", svc.Name, svc.Address)
+	}
+}
+
 func (svc *Service) Summary() string {
 	var buf bytes.Buffer
 

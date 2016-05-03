@@ -11,7 +11,7 @@ import (
 func TestSelect(t *testing.T) {
 	// No such service
 	_, err := runOpts(&selectOpts{}, []string{
-		"doop-svc", "--name", "bar-rule", "--image", "whatever",
+		"doop-svc", "bar-rule", "--image", "whatever",
 	})
 	require.Error(t, err)
 
@@ -30,7 +30,7 @@ func TestSelect(t *testing.T) {
 	opts := &selectOpts{}
 	bout, berr := opts.tapOutput()
 	err = runOptsWithStore(opts, st, []string{
-		"foo-svc", "--name", "ok-rule", "--image", "foo/bar",
+		"foo-svc", "ok-rule", "--image", "foo/bar",
 	})
 	require.NoError(t, err)
 	require.Equal(t, "ok-rule\n", bout.String())
@@ -44,4 +44,11 @@ func TestSelect(t *testing.T) {
 			"image": "foo/bar",
 		},
 	}, svc.ContainerRules["ok-rule"])
+
+	err = runOptsWithStore(&deselectOpts{}, st, []string{
+		"foo-svc", "ok-rule",
+	})
+	require.NoError(t, err)
+	svc, err = st.GetService("foo-svc", store.QueryServiceOptions{WithContainerRules: true})
+	require.Len(t, svc.ContainerRules, 0)
 }

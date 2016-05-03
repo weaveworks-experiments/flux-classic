@@ -9,7 +9,7 @@ import (
 	"github.com/weaveworks/flux/common/store"
 )
 
-const DEFAULT_GROUP = string("default")
+const DEFAULT_RULE = "default"
 
 type addOpts struct {
 	baseOpts
@@ -77,7 +77,7 @@ func (opts *addOpts) run(cmd *cobra.Command, args []string) error {
 	}
 
 	if spec != nil {
-		if err = opts.store.SetContainerRule(serviceName, DEFAULT_GROUP, *spec); err != nil {
+		if err = opts.store.SetContainerRule(serviceName, DEFAULT_RULE, *spec); err != nil {
 			return fmt.Errorf("Error updating service: %s", err)
 		}
 	}

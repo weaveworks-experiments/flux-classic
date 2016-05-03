@@ -67,5 +67,5 @@ func TestServiceSelect(t *testing.T) {
 		Selector: map[string]string{
 			"image": "repo/image",
 		},
-	}, specs[DEFAULT_GROUP])
+	}, specs[DEFAULT_RULE])
 }

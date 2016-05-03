@@ -6,7 +6,6 @@ import (
 	"net"
 
 	"github.com/weaveworks/flux/balancer/events"
-	"github.com/weaveworks/flux/balancer/pool"
 	"github.com/weaveworks/flux/common/daemon"
 	"github.com/weaveworks/flux/common/netutil"
 )
@@ -25,7 +24,7 @@ type Forwarder struct {
 	Config
 
 	listener *net.TCPListener
-	pool     *pool.InstancePool
+	pool     *instancePool
 	protocol string
 	shim     shimFunc
 	stopped  bool
@@ -42,7 +41,7 @@ func (cf Config) New() (*Forwarder, error) {
 	fwd := &Forwarder{
 		Config:   cf,
 		listener: listener,
-		pool:     pool.NewInstancePool(),
+		pool:     NewInstancePool(),
 		protocol: "tcp",
 		shim:     tcpShim,
 	}

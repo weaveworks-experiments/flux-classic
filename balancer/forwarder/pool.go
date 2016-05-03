@@ -1,4 +1,4 @@
-package pool
+package forwarder
 
 import (
 	"container/heap"
@@ -11,7 +11,7 @@ import (
 
 const retry_interval_base = 1 * time.Second
 
-type PooledInstance struct {
+type pooledInstance struct {
 	Name      string
 	Address   netutil.IPPort
 	index     int
@@ -19,7 +19,7 @@ type PooledInstance struct {
 	retryTime time.Time
 }
 
-type InstancePool struct {
+type instancePool struct {
 	lock  sync.Mutex
 	rng   *rand.Rand
 	now   func() time.Time
@@ -30,24 +30,24 @@ type InstancePool struct {
 	stopped chan struct{}
 
 	// Instances that are ready for connections
-	ready []*PooledInstance
+	ready []*pooledInstance
 
 	retryQueue
 }
 
 type retryQueue struct {
-	retry []*PooledInstance
+	retry []*pooledInstance
 }
 
-func NewInstancePool() *InstancePool {
-	return &InstancePool{
+func NewInstancePool() *instancePool {
+	return &instancePool{
 		rng:     rand.New(rand.NewSource(time.Now().UnixNano())),
 		now:     time.Now,
 		stopped: make(chan struct{}),
 	}
 }
 
-func (p *InstancePool) Stop() {
+func (p *instancePool) Stop() {
 	close(p.stopped)
 
 	if p.timer != nil {
@@ -57,7 +57,7 @@ func (p *InstancePool) Stop() {
 
 // Pick an instance from the pool; ideally, from amongst the active
 // instances, but failing that, from those waiting to be retried.
-func (p *InstancePool) PickInstance() *PooledInstance {
+func (p *instancePool) PickInstance() *pooledInstance {
 	p.lock.Lock()
 	defer p.lock.Unlock()
 
@@ -89,7 +89,7 @@ func (p *InstancePool) PickInstance() *PooledInstance {
 	return nil
 }
 
-func (p *InstancePool) Succeeded(inst *PooledInstance) {
+func (p *instancePool) Succeeded(inst *pooledInstance) {
 	p.lock.Lock()
 	defer p.lock.Unlock()
 
@@ -104,7 +104,7 @@ func (p *InstancePool) Succeeded(inst *PooledInstance) {
 	}
 }
 
-func (p *InstancePool) Failed(inst *PooledInstance) {
+func (p *instancePool) Failed(inst *pooledInstance) {
 	p.lock.Lock()
 	defer p.lock.Unlock()
 
@@ -113,7 +113,7 @@ func (p *InstancePool) Failed(inst *PooledInstance) {
 	}
 }
 
-func (p *InstancePool) fail(inst *PooledInstance) {
+func (p *instancePool) fail(inst *pooledInstance) {
 	// inst must already be ready, i.e. inst.retryTime.isZero()
 	p.ready[inst.index] = p.ready[len(p.ready)-1]
 	p.ready = p.ready[:len(p.ready)-1]
@@ -122,13 +122,13 @@ func (p *InstancePool) fail(inst *PooledInstance) {
 	p.resetTimer(p.now())
 }
 
-func (p *InstancePool) reschedule(inst *PooledInstance) {
+func (p *instancePool) reschedule(inst *pooledInstance) {
 	delay := (1 << inst.failures) * retry_interval_base
 	inst.failures++
 	inst.retryTime = p.now().Add(delay)
 }
 
-func (p *InstancePool) UpdateInstances(instances map[string]netutil.IPPort) {
+func (p *instancePool) UpdateInstances(instances map[string]netutil.IPPort) {
 	p.lock.Lock()
 	defer p.lock.Unlock()
 
@@ -138,8 +138,8 @@ func (p *InstancePool) UpdateInstances(instances map[string]netutil.IPPort) {
 	}
 
 	// Copy any common instances across
-	var ready, retry []*PooledInstance
-	keepInsts := func(insts []*PooledInstance) {
+	var ready, retry []*pooledInstance
+	keepInsts := func(insts []*pooledInstance) {
 		for _, inst := range insts {
 			if _, found := wantInsts[inst.Name]; found {
 				delete(wantInsts, inst.Name)
@@ -159,7 +159,7 @@ func (p *InstancePool) UpdateInstances(instances map[string]netutil.IPPort) {
 
 	// Add new instances
 	for name, addr := range wantInsts {
-		ready = append(ready, &PooledInstance{
+		ready = append(ready, &pooledInstance{
 			Name:    name,
 			Address: addr,
 			index:   len(ready),
@@ -172,7 +172,7 @@ func (p *InstancePool) UpdateInstances(instances map[string]netutil.IPPort) {
 	p.resetTimer(p.now())
 }
 
-func (p *InstancePool) resetTimer(now time.Time) {
+func (p *instancePool) resetTimer(now time.Time) {
 	if len(p.retry) == 0 {
 		if p.timer != nil {
 			// Can't pause a go Timer
@@ -202,7 +202,7 @@ func (p *InstancePool) resetTimer(now time.Time) {
 }
 
 // Make any instances that are due for a retry available again
-func (p *InstancePool) processRetries(now time.Time) {
+func (p *instancePool) processRetries(now time.Time) {
 	p.lock.Lock()
 	defer p.lock.Unlock()
 
@@ -233,7 +233,7 @@ func (q *retryQueue) Swap(i, j int) {
 }
 
 func (q *retryQueue) Push(x interface{}) {
-	inst := x.(*PooledInstance)
+	inst := x.(*pooledInstance)
 	inst.index = len(q.retry)
 	q.retry = append(q.retry, inst)
 }

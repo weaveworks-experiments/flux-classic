@@ -12,7 +12,8 @@ import (
 type selectOpts struct {
 	baseOpts
 	spec
-	name string
+	name         string
+	instancePort int
 }
 
 const RANDOM_NAME_SIZE_BYTES = 160 / 8
@@ -32,6 +33,7 @@ func (opts *selectOpts) makeCommand() *cobra.Command {
 	}
 	opts.addSpecVars(cmd)
 	cmd.Flags().StringVar(&opts.name, "name", "", "give the selection a friendly name (otherwise it will get a random name)")
+	cmd.Flags().IntVar(&opts.instancePort, "instance-port", 0, "use this instance port instead of the default for the service")
 	return cmd
 }
 
@@ -57,6 +59,10 @@ func (opts *selectOpts) run(_ *cobra.Command, args []string) error {
 	}
 	if spec == nil {
 		return fmt.Errorf("Nothing will be selected by empty rule")
+	}
+
+	if opts.instancePort != 0 {
+		spec.InstancePort = opts.instancePort
 	}
 
 	if err = opts.store.SetContainerRule(serviceName, ruleName, *spec); err != nil {

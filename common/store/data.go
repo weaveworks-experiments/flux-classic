@@ -24,7 +24,8 @@ type HostChange struct {
 // Specifies how containers should be selected as instances, and the
 // attributes of the resulting instances.
 type ContainerRule struct {
-	Selector Selector `json:"selector,omitempty"`
+	Selector     Selector `json:"selector,omitempty"`
+	InstancePort int      `json:"instancePort,omitempty"`
 }
 
 type Service struct {

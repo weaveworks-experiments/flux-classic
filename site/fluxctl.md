@@ -148,6 +148,7 @@ Flags:
       --image string    select only containers with this image
       --labels string   select only containers with these labels, given as comma-delimited key=value pairs
       --name string     give the selection a friendly name (otherwise it will get a random name)
+      --instance-port number     use this instance port instead of the default for the service
       --tag string      select only containers with this tag
 ```
 

@@ -153,8 +153,7 @@ func (si *syncInstances) removeContainer(id string) {
 
 func (si *syncInstances) addInstances(svc service, cont container) {
 	for _, rule := range svc.ContainerRules {
-		inst := si.extractInstance(cont.Container, svc.ServiceInfo,
-			rule)
+		inst := si.extractInstance(cont.Container, svc.ServiceInfo, &rule)
 		if inst != nil {
 			svc.instances[cont.ID] = inst
 			cont.instances[svc.name] = struct{}{}
@@ -237,12 +236,12 @@ func (si *syncInstances) clearInstances() {
 	}
 }
 
-func (si *syncInstances) extractInstance(container *docker.Container, svc *store.ServiceInfo, rule store.ContainerRule) *store.Instance {
+func (si *syncInstances) extractInstance(container *docker.Container, svc *store.ServiceInfo, rule *store.ContainerRule) *store.Instance {
 	if !rule.Includes(containerLabels{container}) {
 		return nil
 	}
 
-	addr := si.extractAddress(container, svc)
+	addr := si.extractAddress(container, svc, rule)
 	if addr == nil {
 		log.Infof(`Cannot extract address for instance, from container '%s'`, container.ID)
 	}
@@ -284,29 +283,38 @@ func (container containerLabels) Label(label string) string {
 }
 
 /*
+
 Extract an address from a container, according to what we've been told
-about the service.
+about the service, and how the container was selected.
 
 There are two special cases:
- - if the service has no instance port, we have no chance of getting an
-address, so just let the container be considered unaddressable;
+
+ - if neither the service nor the rule has an instance port set, we
+have no chance of getting an address, so just let the container be
+considered unaddressable;
+
  - if the container has been run with `--net=host`; this means the
 container is using the host's networking stack, so we should use the
 host IP address.
 
 */
-func (si *syncInstances) extractAddress(container *docker.Container, svc *store.ServiceInfo) *netutil.IPPort {
-	if svc.InstancePort == 0 {
+func (si *syncInstances) extractAddress(container *docker.Container, svc *store.ServiceInfo, rule *store.ContainerRule) *netutil.IPPort {
+	port := rule.InstancePort
+	if port == 0 {
+		port = svc.InstancePort
+	}
+	if port == 0 {
 		return nil
 	}
+
 	if container.HostConfig.NetworkMode == "host" {
-		return &netutil.IPPort{si.hostIP, svc.InstancePort}
+		return &netutil.IPPort{si.hostIP, port}
 	}
 	switch si.network {
 	case LOCAL:
-		return si.mappedPortAddress(container, svc.InstancePort)
+		return si.mappedPortAddress(container, port)
 	case GLOBAL:
-		return si.fixedPortAddress(container, svc.InstancePort)
+		return si.fixedPortAddress(container, port)
 	}
 	return nil
 }

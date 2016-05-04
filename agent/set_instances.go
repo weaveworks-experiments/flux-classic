@@ -32,7 +32,10 @@ func (conf setInstancesConfig) StartFunc() daemon.StartFunc {
 			errs:               errs,
 		}
 
-		si.instanceUpdatesReset <- struct{}{}
+		select {
+		case si.instanceUpdatesReset <- struct{}{}:
+		default:
+		}
 
 		for {
 			select {

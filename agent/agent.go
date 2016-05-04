@@ -61,11 +61,11 @@ func (cf *AgentConfig) Prepare() (daemon.StartFunc, error) {
 	}
 
 	containerUpdates := make(chan ContainerUpdate)
-	containerUpdatesReset := make(chan struct{})
+	containerUpdatesReset := make(chan struct{}, 1)
 	serviceUpdates := make(chan store.ServiceUpdate)
-	serviceUpdatesReset := make(chan struct{})
+	serviceUpdatesReset := make(chan struct{}, 1)
 	instanceUpdates := make(chan InstanceUpdate)
-	instanceUpdatesReset := make(chan struct{})
+	instanceUpdatesReset := make(chan struct{}, 1)
 
 	syncInstConf := syncInstancesConfig{
 		hostIP:  cf.hostIP,

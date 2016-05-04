@@ -70,8 +70,7 @@ func (conf syncInstancesConfig) start(stop <-chan struct{}, errs daemon.ErrorSin
 		errs:                errs,
 	}
 
-	si.containerUpdatesReset <- struct{}{}
-	si.serviceUpdatesReset <- struct{}{}
+	si.requestReset()
 
 	for {
 		// Clear the current update
@@ -89,8 +88,7 @@ func (conf syncInstancesConfig) start(stop <-chan struct{}, errs daemon.ErrorSin
 			// Drop state, ask for resets from our sources
 			si.services = nil
 			si.containers = nil
-			si.containerUpdatesReset <- struct{}{}
-			si.serviceUpdatesReset <- struct{}{}
+			si.requestReset()
 
 		case <-stop:
 			return
@@ -117,6 +115,17 @@ func (si *syncInstances) processContainerUpdate(update ContainerUpdate) {
 		} else {
 			si.removeContainer(id)
 		}
+	}
+}
+
+func (si *syncInstances) requestReset() {
+	select {
+	case si.containerUpdatesReset <- struct{}{}:
+	default:
+	}
+	select {
+	case si.serviceUpdatesReset <- struct{}{}:
+	default:
 	}
 }
 

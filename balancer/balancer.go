@@ -96,7 +96,7 @@ func (cf *BalancerConfig) Prepare() (daemon.StartFunc, error) {
 	}
 
 	updates := make(chan model.ServiceUpdate)
-	startWatcher := daemon.Restart(cf.reconnectInterval, model.WatchServicesStartFunc(cf.store, true, updates))
+	updatesReset := make(chan struct{}, 1)
 
 	startBalancer := func(errs daemon.ErrorSink) daemon.Component {
 		b := &balancer{
@@ -106,11 +106,22 @@ func (cf *BalancerConfig) Prepare() (daemon.StartFunc, error) {
 			eventHandler: cf.startEventHandler(errs),
 		}
 
+		select {
+		case updatesReset <- struct{}{}:
+		default:
+		}
+
 		errs.Post(b.start())
 		return b
 	}
 
-	return daemon.Aggregate(startWatcher, startBalancer), nil
+	return daemon.Aggregate(
+		daemon.Reset(updatesReset,
+			daemon.Restart(cf.reconnectInterval,
+				model.WatchServicesStartFunc(cf.store, true,
+					updates))),
+
+		daemon.Restart(cf.reconnectInterval, startBalancer)), nil
 }
 
 type balancer struct {

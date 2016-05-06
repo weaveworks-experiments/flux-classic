@@ -64,7 +64,7 @@ export default class Service extends React.Component {
     const groupSelect = this.renderGroupSelect();
     const isGrouped = grouping !== NO_GROUPING;
     const instanceGroups = isGrouped ? this.getInstanceGroups(instances, grouping) : [];
-    const socket = address ? `${address.IP}:${address.Port}` : '';
+    const socket = address ? `${address.ip}:${address.port}` : '';
 
     return (
       <div className="service">

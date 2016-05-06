@@ -37,6 +37,11 @@ func (component *tickerComponent) Stop() {
 }
 
 func (component *tickerComponent) run(interval time.Duration, errs ErrorSink) {
+	if err := component.tickFunc(time.Now()); err != nil {
+		errs.Post(err)
+		return
+	}
+
 	component.cancel = make(chan struct{})
 	component.ticker = time.NewTicker(interval)
 	for {

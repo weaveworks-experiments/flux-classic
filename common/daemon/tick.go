@@ -4,55 +4,23 @@ import (
 	"time"
 )
 
-/*
+// A StartFunc constructor that runs a procedure periodically.
 
-A StartFunc constructor that runs a procedure periodically.
+func Ticker(interval time.Duration, tick func(errs ErrorSink)) StartFunc {
+	return SimpleComponent(func(stop <-chan struct{}, errs ErrorSink) {
+		tick(errs)
 
-*/
-func Ticker(interval time.Duration, tick func(time.Time) error) StartFunc {
-	return func(errorSink ErrorSink) Component {
-		c := &tickerComponent{
-			tickFunc: tick,
-		}
-		go c.run(interval, errorSink)
-		return c
-	}
-}
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
 
-// ----------
+		for {
+			select {
+			case <-ticker.C:
+				tick(errs)
 
-type tickerComponent struct {
-	cancel   chan struct{}
-	ticker   *time.Ticker
-	tickFunc func(time.Time) error
-}
-
-func (component *tickerComponent) Stop() {
-	if component.ticker != nil {
-		component.ticker.Stop()
-	}
-	if component.cancel != nil {
-		component.cancel <- struct{}{}
-	}
-}
-
-func (component *tickerComponent) run(interval time.Duration, errs ErrorSink) {
-	if err := component.tickFunc(time.Now()); err != nil {
-		errs.Post(err)
-		return
-	}
-
-	component.cancel = make(chan struct{})
-	component.ticker = time.NewTicker(interval)
-	for {
-		select {
-		case t := <-component.ticker.C:
-			if err := component.tickFunc(t); err != nil {
-				errs.Post(err)
+			case <-stop:
 				return
 			}
-		case <-component.cancel:
-			return
 		}
-	}
+	})
 }

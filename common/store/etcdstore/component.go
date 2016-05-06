@@ -26,7 +26,7 @@ func (store *EtcdStore) StartFunc() daemon.StartFunc {
 	return daemon.Aggregate(
 		daemon.Restart(store.ttl/2, hb.StartFunc()),
 		// the interval for the collection is somewhat arbitrary
-		daemon.Restart(store.ttl*2, daemon.Ticker(store.ttl*2, func(_ time.Time) error {
-			return store.doCollection()
+		daemon.Restart(store.ttl*2, daemon.Ticker(store.ttl*2, func(errs daemon.ErrorSink) {
+			errs.Post(store.doCollection())
 		})))
 }

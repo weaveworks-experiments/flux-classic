@@ -40,12 +40,11 @@ func (cf *dependencyConfig) Populate(deps *daemon.Dependencies) {
 	deps.Dependency(etcdutil.ClientDependency(&cf.client))
 }
 
-func (cf *dependencyConfig) MakeValue() (interface{}, error) {
-
+func (cf *dependencyConfig) MakeValue() (interface{}, daemon.StartFunc, error) {
 	store := &EtcdStore{
 		ttl:       time.Duration(cf.ttl) * time.Second,
 		client:    cf.client,
 		etcdStore: newEtcdStore(cf.client),
 	}
-	return store, nil
+	return store, nil, nil
 }

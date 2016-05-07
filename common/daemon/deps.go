@@ -36,7 +36,7 @@ type DependencyKey interface {
 
 type DependencyConfig interface {
 	Populate(*Dependencies)
-	MakeValue() (interface{}, error)
+	MakeValue() (interface{}, StartFunc, error)
 }
 
 type depSlots struct {
@@ -87,13 +87,19 @@ func configsToStartFuncs(configs []Config) ([]StartFunc, error) {
 		return nil, fmt.Errorf("excess command line arguments")
 	}
 
+	var res []StartFunc
+
 	// Make dependency values, and assign them to slots
 	for i := len(deps.keysOrder) - 1; i >= 0; i-- {
 		slots := deps.slots[deps.keysOrder[i]]
 
-		val, err := slots.config.MakeValue()
+		val, startFunc, err := slots.config.MakeValue()
 		if err != nil {
 			return nil, err
+		}
+
+		if startFunc != nil {
+			res = append(res, startFunc)
 		}
 
 		for _, d := range slots.slots {
@@ -101,14 +107,13 @@ func configsToStartFuncs(configs []Config) ([]StartFunc, error) {
 		}
 	}
 
-	var res []StartFunc
 	for _, c := range configs {
-		sf, err := c.Prepare()
+		startFunc, err := c.Prepare()
 		if err != nil {
 			return nil, err
 		}
 
-		res = append(res, sf)
+		res = append(res, startFunc)
 	}
 
 	return res, nil

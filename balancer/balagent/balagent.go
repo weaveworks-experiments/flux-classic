@@ -44,13 +44,13 @@ func (cf *templateFileConfig) Populate(deps *daemon.Dependencies) {
 		"name of template file with which to generate the output file")
 }
 
-func (cf *templateFileConfig) MakeValue() (interface{}, error) {
+func (cf *templateFileConfig) MakeValue() (interface{}, daemon.StartFunc, error) {
 	tmpl, err := template.ParseFiles(cf.templateFile)
 	if err != nil {
-		return nil, fmt.Errorf(`unable to parse file "%s": %s`, cf.templateFile, err)
+		return nil, nil, fmt.Errorf(`unable to parse file "%s": %s`, cf.templateFile, err)
 	}
 
-	return tmpl, nil
+	return tmpl, nil, nil
 }
 
 type BalancerAgentConfig struct {

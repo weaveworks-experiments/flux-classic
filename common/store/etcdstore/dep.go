@@ -5,16 +5,17 @@ import (
 
 	"github.com/weaveworks/flux/common/daemon"
 	"github.com/weaveworks/flux/common/etcdutil"
+	"github.com/weaveworks/flux/common/heartbeat"
 	"github.com/weaveworks/flux/common/store"
 )
 
 type dependencySlot struct {
-	slot *store.RuntimeStore
+	slot *store.Store
 }
 
 type dependencyKey struct{}
 
-func StoreDependency(slot *store.RuntimeStore) daemon.DependencySlot {
+func StoreDependency(slot *store.Store) daemon.DependencySlot {
 	return dependencySlot{slot}
 }
 
@@ -23,7 +24,7 @@ func (dependencySlot) Key() daemon.DependencyKey {
 }
 
 func (s dependencySlot) Assign(value interface{}) {
-	*s.slot = value.(store.RuntimeStore)
+	*s.slot = value.(store.Store)
 }
 
 type dependencyConfig struct {
@@ -41,10 +42,23 @@ func (cf *dependencyConfig) Populate(deps *daemon.Dependencies) {
 }
 
 func (cf *dependencyConfig) MakeValue() (interface{}, daemon.StartFunc, error) {
-	store := &EtcdStore{
-		ttl:       time.Duration(cf.ttl) * time.Second,
-		client:    cf.client,
-		etcdStore: newEtcdStore(cf.client),
+	st := newEtcdStore(cf.client)
+	return st, cf.startFunc(st), nil
+}
+
+func (cf *dependencyConfig) startFunc(st *etcdStore) daemon.StartFunc {
+	// the restart interval is set so that it will try at least once
+	// before records expire.
+	ttl := time.Duration(cf.ttl) * time.Second
+	hb := &heartbeat.HeartbeatConfig{
+		Cluster: st,
+		TTL:     ttl,
 	}
-	return store, nil, nil
+
+	return daemon.Aggregate(
+		daemon.Restart(ttl/2, hb.StartFunc()),
+		// the interval for the collection is somewhat arbitrary
+		daemon.Restart(ttl*2, daemon.Ticker(ttl*2, func(errs daemon.ErrorSink) {
+			errs.Post(st.doCollection())
+		})))
 }

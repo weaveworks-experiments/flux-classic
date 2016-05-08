@@ -57,7 +57,7 @@ type BalancerAgentConfig struct {
 	filename          string
 	reloadCmd         string
 	template          *template.Template
-	store             store.RuntimeStore
+	store             store.Store
 	reconnectInterval time.Duration
 
 	// for tests:

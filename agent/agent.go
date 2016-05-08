@@ -24,7 +24,7 @@ type DockerClient interface {
 type AgentConfig struct {
 	hostIP            net.IP
 	network           string
-	store             store.RuntimeStore
+	store             store.Store
 	dockerClient      DockerClient
 	reconnectInterval time.Duration
 }
@@ -90,8 +90,6 @@ func (cf *AgentConfig) Prepare() (daemon.StartFunc, error) {
 	cf.store.RegisterHost(cf.hostIP.String(), &store.Host{IP: cf.hostIP})
 
 	return daemon.Aggregate(
-		daemon.Restart(cf.reconnectInterval, cf.store.StartFunc()),
-
 		daemon.Reset(containerUpdatesReset,
 			daemon.Restart(cf.reconnectInterval,
 				dockerListenerStartFunc(cf.dockerClient,

@@ -12,12 +12,8 @@ import (
 
 type Dependencies struct {
 	*flag.FlagSet
-	slots map[DependencyKey]depSlots
-
-	// The dependency graph between DependencyConfigs is implicit.
-	// So we have to record the order in which they were created,
-	// in order to call MakeValue on them in the reverse order.
-	keysOrder []DependencyKey
+	deps    map[DependencyKey]*dependency
+	current *dependency
 }
 
 type Config interface {
@@ -39,22 +35,80 @@ type DependencyConfig interface {
 	MakeValue() (interface{}, StartFunc, error)
 }
 
-type depSlots struct {
+type dependency struct {
 	config DependencyConfig
-	slots  []DependencySlot
+	// the slots to which the value of this dependency gets assigned
+	slots []depSlot
+}
+
+type depSlot struct {
+	slot  DependencySlot
+	owner *dependency
 }
 
 func (deps *Dependencies) Dependency(slot DependencySlot) {
 	key := slot.Key()
-	slots, found := deps.slots[key]
+	dep, found := deps.deps[key]
 	if !found {
-		deps.keysOrder = append(deps.keysOrder, key)
-		slots.config = key.MakeConfig()
-		slots.config.Populate(deps)
+		dep = &dependency{config: key.MakeConfig()}
+		deps.deps[key] = dep
+
+		old := deps.current
+		deps.current = dep
+		dep.config.Populate(deps)
+		deps.current = old
 	}
 
-	slots.slots = append(slots.slots, slot)
-	deps.slots[key] = slots
+	dep.slots = append(dep.slots, depSlot{slot, deps.current})
+}
+
+// Do a topological sort of depenencies, to give the order in which we
+// should MakeValue them.
+func (deps *Dependencies) sort() []*dependency {
+	// The number of unprocessed dependencies of each dep
+	counts := make(map[*dependency]int)
+	for _, dep := range deps.deps {
+		counts[dep] = counts[dep] + 0 // + 0 to pacify "go vet"
+		for _, slot := range dep.slots {
+			if slot.owner != nil {
+				counts[slot.owner] += 1
+			}
+		}
+	}
+
+	// "ready" dependencies: those with zero counts
+	var ready []*dependency
+	for dep, count := range counts {
+		if count == 0 {
+			ready = append(ready, dep)
+		}
+	}
+
+	if len(counts) != 0 && len(ready) == 0 {
+		panic("Circular dependencies")
+	}
+
+	var res []*dependency
+	for len(ready) != 0 {
+		// pop the last ready dep
+		dep := ready[len(ready)-1]
+		ready = ready[:len(ready)-1]
+
+		// process it, decrementing counts and identifying
+		// newly ready deps
+		res = append(res, dep)
+		for _, slot := range dep.slots {
+			if slot.owner != nil {
+				count := counts[slot.owner] - 1
+				counts[slot.owner] = count
+				if count == 0 {
+					ready = append(ready, slot.owner)
+				}
+			}
+		}
+	}
+
+	return res
 }
 
 func Main(configs ...Config) {
@@ -72,7 +126,7 @@ func Main(configs ...Config) {
 func configsToStartFuncs(configs []Config) ([]StartFunc, error) {
 	deps := &Dependencies{
 		FlagSet: flag.NewFlagSet(os.Args[0], flag.ContinueOnError),
-		slots:   make(map[DependencyKey]depSlots),
+		deps:    make(map[DependencyKey]*dependency),
 	}
 
 	for _, c := range configs {
@@ -87,23 +141,20 @@ func configsToStartFuncs(configs []Config) ([]StartFunc, error) {
 		return nil, fmt.Errorf("excess command line arguments")
 	}
 
-	var res []StartFunc
-
-	// Make dependency values, and assign them to slots
-	for i := len(deps.keysOrder) - 1; i >= 0; i-- {
-		slots := deps.slots[deps.keysOrder[i]]
-
-		val, startFunc, err := slots.config.MakeValue()
+	// Fill slots
+	var startFuncs []StartFunc
+	for _, dep := range deps.sort() {
+		val, startFunc, err := dep.config.MakeValue()
 		if err != nil {
 			return nil, err
 		}
 
 		if startFunc != nil {
-			res = append(res, startFunc)
+			startFuncs = append(startFuncs, startFunc)
 		}
 
-		for _, d := range slots.slots {
-			d.Assign(val)
+		for _, s := range dep.slots {
+			s.slot.Assign(val)
 		}
 	}
 
@@ -113,8 +164,8 @@ func configsToStartFuncs(configs []Config) ([]StartFunc, error) {
 			return nil, err
 		}
 
-		res = append(res, startFunc)
+		startFuncs = append(startFuncs, startFunc)
 	}
 
-	return res, nil
+	return startFuncs, nil
 }

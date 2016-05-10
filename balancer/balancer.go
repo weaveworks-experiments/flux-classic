@@ -1,8 +1,6 @@
 package balancer
 
 import (
-	"fmt"
-	"net"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
@@ -11,8 +9,6 @@ import (
 	"github.com/weaveworks/flux/balancer/model"
 	"github.com/weaveworks/flux/balancer/prometheus"
 	"github.com/weaveworks/flux/common/daemon"
-	"github.com/weaveworks/flux/common/etcdutil"
-	"github.com/weaveworks/flux/common/netutil"
 	"github.com/weaveworks/flux/common/store"
 	"github.com/weaveworks/flux/common/store/etcdstore"
 )
@@ -33,14 +29,12 @@ type BalancerConfig struct {
 	IPTablesCmd       IPTablesCmd
 	done              chan<- model.ServiceUpdate
 	reconnectInterval time.Duration
-	startEventHandler func(daemon.ErrorSink) events.Handler
 
 	// From flags/dependencies
-	netConfig netConfig
-	prom      prometheus.Config
-	debug     bool
-	store     store.Store
-	hostIP    net.IP
+	netConfig    netConfig
+	debug        bool
+	store        store.Store
+	eventHandler events.Handler
 
 	// Filled by Prepare
 	updates <-chan model.ServiceUpdate
@@ -54,17 +48,10 @@ func (cf *BalancerConfig) Populate(deps *daemon.Dependencies) {
 		"bridge", "docker0", "bridge device")
 	deps.StringVar(&cf.netConfig.chain,
 		"chain", "FLUX", "iptables chain name")
-	deps.StringVar(&cf.prom.ListenAddr,
-		"listen-prometheus", ":9000",
-		"listen for connections from Prometheus on this IP address and port; e.g., :9000")
-	deps.StringVar(&cf.prom.AdvertiseAddr,
-		"advertise-prometheus", "",
-		"IP address and port to advertise to Prometheus; e.g. 192.168.42.221:9000")
 	deps.BoolVar(&cf.debug, "debug", false, "output debugging logs")
 
-	deps.Dependency(etcdutil.ClientDependency(&cf.prom.EtcdClient))
 	deps.Dependency(etcdstore.StoreDependency(&cf.store))
-	deps.Dependency(netutil.HostIPDependency(&cf.hostIP))
+	deps.Dependency(prometheus.EventHandlerDependency(&cf.eventHandler))
 }
 
 func (cf *BalancerConfig) Prepare() (daemon.StartFunc, error) {
@@ -72,24 +59,6 @@ func (cf *BalancerConfig) Prepare() (daemon.StartFunc, error) {
 		log.SetLevel(log.DebugLevel)
 	}
 	log.Debug("Debug logging on")
-
-	if cf.startEventHandler == nil {
-		// Default the prom AdvertiseAddr based on the host IP
-		if cf.prom.AdvertiseAddr == "" {
-			_, port, err := net.SplitHostPort(cf.prom.ListenAddr)
-			if err != nil {
-				return nil, err
-			}
-
-			cf.prom.AdvertiseAddr = fmt.Sprintf("%s:%s", cf.hostIP, port)
-		}
-
-		var err error
-		cf.startEventHandler, err = cf.prom.Prepare()
-		if err != nil {
-			return nil, err
-		}
-	}
 
 	if cf.reconnectInterval == 0 {
 		cf.reconnectInterval = 10 * time.Second
@@ -100,10 +69,9 @@ func (cf *BalancerConfig) Prepare() (daemon.StartFunc, error) {
 
 	startBalancer := func(errs daemon.ErrorSink) daemon.Component {
 		b := &balancer{
-			cf:           cf,
-			errs:         errs,
-			updates:      updates,
-			eventHandler: cf.startEventHandler(errs),
+			cf:      cf,
+			errs:    errs,
+			updates: updates,
 		}
 
 		select {
@@ -125,12 +93,11 @@ func (cf *BalancerConfig) Prepare() (daemon.StartFunc, error) {
 }
 
 type balancer struct {
-	cf           *BalancerConfig
-	errs         daemon.ErrorSink
-	updates      <-chan model.ServiceUpdate
-	eventHandler events.Handler
-	ipTables     *ipTables
-	services     *services
+	cf       *BalancerConfig
+	errs     daemon.ErrorSink
+	updates  <-chan model.ServiceUpdate
+	ipTables *ipTables
+	services *services
 }
 
 func (b *balancer) start() error {
@@ -142,7 +109,7 @@ func (b *balancer) start() error {
 	b.services = servicesConfig{
 		netConfig:    b.cf.netConfig,
 		updates:      b.updates,
-		eventHandler: b.eventHandler,
+		eventHandler: b.cf.eventHandler,
 		ipTables:     b.ipTables,
 		errorSink:    b.errs,
 		done:         b.cf.done,
@@ -157,5 +124,4 @@ func (b *balancer) Stop() {
 	}
 
 	b.ipTables.stop()
-	b.eventHandler.Stop()
 }

@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/weaveworks/flux/balancer/eventlogger"
-	"github.com/weaveworks/flux/balancer/events"
 	"github.com/weaveworks/flux/balancer/model"
 	"github.com/weaveworks/flux/common/daemon"
 	"github.com/weaveworks/flux/common/etcdutil"
@@ -41,10 +40,8 @@ func TestEtcdRestart(t *testing.T) {
 			chain:  "FLUX",
 			bridge: "lo",
 		},
-		store: st,
-		startEventHandler: func(daemon.ErrorSink) events.Handler {
-			return eventlogger.EventLogger{}
-		},
+		store:        st,
+		eventHandler: eventlogger.EventLogger{},
 	}
 	start, err := cf.Prepare()
 	require.Nil(t, err)

@@ -11,9 +11,6 @@ import (
 type Handler interface {
 	Connection(*Connection)
 	HttpExchange(*HttpExchange)
-
-	// Release any resources
-	Stop()
 }
 
 type Connection struct {

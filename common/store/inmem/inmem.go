@@ -45,6 +45,7 @@ func NewInMem() *InMem {
 }
 
 type InMem struct {
+	config           interface{}
 	services         map[string]store.Service
 	groupSpecs       map[string]map[string]store.ContainerRule
 	instances        map[string]map[string]sessionInstance
@@ -79,6 +80,17 @@ func (inmem *InMem) Store(sessionID string) store.Store {
 func (s *inmemStore) RegisterHost(identity string, details *store.Host) error {
 	s.hosts[identity] = &sessionHost{Host: details, session: s.session}
 	s.fireHostChange(identity, false)
+	return nil
+}
+
+func (s *InMem) EnsureConfig(config interface{}) error {
+	if s.config != nil {
+		if config != s.config {
+			return fmt.Errorf("%+v != %+v", config, s.config)
+		}
+	} else {
+		s.config = config
+	}
 	return nil
 }
 

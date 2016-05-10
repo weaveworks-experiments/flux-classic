@@ -54,6 +54,17 @@ func TestSyncInstancesComponent(t *testing.T) {
 	errs := daemon.NewErrorSink()
 	agent := start(errs)
 
+	// Check that a second agent with different config cannot start
+	badConf := AgentConfig{
+		hostIP:            net.ParseIP("192.168.11.100"),
+		network:           GLOBAL,
+		store:             st,
+		dockerClient:      mdc,
+		reconnectInterval: time.Millisecond,
+	}
+	_, err = badConf.Prepare()
+	require.Error(t, err)
+
 	// Check that the instance was added appropriately
 	time.Sleep(20 * time.Millisecond)
 	svc, err := st.GetService("svc1", store.QueryServiceOptions{WithInstances: true})

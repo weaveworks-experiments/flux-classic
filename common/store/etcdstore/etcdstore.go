@@ -5,6 +5,7 @@ import (
 	"encoding/base32"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -76,6 +77,7 @@ func (es *etcdStore) Ping() error {
 
 const (
 	ROOT                  = "/weave-flux/"
+	CONFIG_PATH           = ROOT + "config"
 	SERVICE_ROOT          = ROOT + "service/"
 	HOST_ROOT             = ROOT + "host/"
 	SESSION_ROOT          = ROOT + "session/"
@@ -84,6 +86,32 @@ const (
 	RULE_PATH             = "rules"
 	INGRESS_INSTANCE_PATH = "ingress-instances"
 )
+
+func (es *etcdStore) EnsureConfig(config interface{}) error {
+	jsonConf, err := json.Marshal(config)
+	if err != nil {
+		return err
+	}
+
+	_, err = es.Create(es.ctx, CONFIG_PATH, string(jsonConf))
+	if err == nil {
+		return nil
+	}
+
+	res, err := es.Get(es.ctx, CONFIG_PATH, nil)
+	if err != nil {
+		return err
+	}
+
+	existingConfig := reflect.New(reflect.TypeOf(config))
+	if err = json.Unmarshal([]byte(res.Node.Value), existingConfig.Interface()); err != nil {
+		return err
+	}
+	if !reflect.DeepEqual(reflect.Indirect(existingConfig).Interface(), config) {
+		return fmt.Errorf("%+v != %+v", reflect.Indirect(existingConfig).Interface(), reflect.TypeOf(config))
+	}
+	return nil
+}
 
 func serviceRootKey(serviceName string) string {
 	return SERVICE_ROOT + serviceName

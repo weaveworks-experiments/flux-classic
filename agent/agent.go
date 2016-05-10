@@ -42,6 +42,11 @@ func isValidNetworkMode(mode string) bool {
 	return mode == GLOBAL || mode == LOCAL
 }
 
+// Values we need to agree among the cluster members
+type clusterConfig struct {
+	NetworkMode string
+}
+
 func (cf *AgentConfig) Populate(deps *daemon.Dependencies) {
 	deps.StringVar(&cf.network, "network-mode", LOCAL, fmt.Sprintf(`Kind of network to assume for containers (either "%s" or "%s")`, LOCAL, GLOBAL))
 	deps.Dependency(etcdstore.StoreDependency(&cf.store))
@@ -99,6 +104,14 @@ func (cf *AgentConfig) Prepare() (daemon.StartFunc, error) {
 		store:                cf.store,
 		instanceUpdates:      instanceUpdatesRead,
 		instanceUpdatesReset: cf.InstanceUpdatesReset,
+	}
+
+	// Check that our config is compatible with the cluster
+	config := clusterConfig{
+		NetworkMode: cf.network,
+	}
+	if err := cf.store.EnsureConfig(config); err != nil {
+		return nil, err
 	}
 
 	return daemon.Aggregate(

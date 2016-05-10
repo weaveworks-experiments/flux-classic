@@ -24,6 +24,8 @@ func RunStoreTestSuite(ts TestableStore, t *testing.T) {
 	ts.Reset(t)
 	testPing(ts, t)
 	ts.Reset(t)
+	testClusterConfig(ts, t)
+	ts.Reset(t)
 	testServices(ts, t)
 	ts.Reset(t)
 	testRules(ts, t)
@@ -41,6 +43,17 @@ func RunStoreTestSuite(ts TestableStore, t *testing.T) {
 
 func testPing(s store.Store, t *testing.T) {
 	require.Nil(t, s.Ping())
+}
+
+type conf struct {
+	Number int
+}
+
+func testClusterConfig(s store.Store, t *testing.T) {
+	config := conf{27}
+	require.NoError(t, s.EnsureConfig(config))
+	require.Error(t, s.EnsureConfig(conf{26}))
+	require.NoError(t, s.EnsureConfig(conf{27}))
 }
 
 var testService = store.Service{

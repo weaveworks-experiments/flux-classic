@@ -33,7 +33,7 @@ type BalancerConfig struct {
 	// From flags/dependencies
 	netConfig    netConfig
 	debug        bool
-	store        store.Store
+	store        store.StoreComponent
 	eventHandler events.Handler
 
 	// Filled by Prepare

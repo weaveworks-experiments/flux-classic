@@ -17,11 +17,11 @@ type HeartbeatConfig struct {
 func (config HeartbeatConfig) StartFunc() daemon.StartFunc {
 	first := sync.Once{}
 	return daemon.Ticker(config.TTL/2, func(errs daemon.ErrorSink) {
+		errs.Post(config.Cluster.Heartbeat(config.TTL))
 		first.Do(func() {
 			if config.Started != nil {
 				close(config.Started)
 			}
 		})
-		errs.Post(config.Cluster.Heartbeat(config.TTL))
 	})
 }

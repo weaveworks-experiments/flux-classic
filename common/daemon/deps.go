@@ -68,7 +68,6 @@ func (deps *Dependencies) sort() []*dependency {
 	// The number of unprocessed dependencies of each dep
 	counts := make(map[*dependency]int)
 	for _, dep := range deps.deps {
-		counts[dep] = counts[dep] + 0 // + 0 to pacify "go vet"
 		for _, slot := range dep.slots {
 			if slot.owner != nil {
 				counts[slot.owner] += 1
@@ -78,14 +77,10 @@ func (deps *Dependencies) sort() []*dependency {
 
 	// "ready" dependencies: those with zero counts
 	var ready []*dependency
-	for dep, count := range counts {
-		if count == 0 {
+	for _, dep := range deps.deps {
+		if counts[dep] == 0 {
 			ready = append(ready, dep)
 		}
-	}
-
-	if len(counts) != 0 && len(ready) == 0 {
-		panic("Circular dependencies")
 	}
 
 	var res []*dependency
@@ -105,6 +100,12 @@ func (deps *Dependencies) sort() []*dependency {
 					ready = append(ready, slot.owner)
 				}
 			}
+		}
+	}
+
+	for _, count := range counts {
+		if count != 0 {
+			panic("Circular dependencies")
 		}
 	}
 

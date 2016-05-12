@@ -317,7 +317,8 @@ func (si *syncInstances) extractAddress(container *docker.Container, svc *store.
 	}
 
 	if container.HostConfig.NetworkMode == "host" {
-		return &netutil.IPPort{si.hostIP, port}
+		addr := netutil.NewIPPort(si.hostIP, port)
+		return &addr
 	}
 	switch si.network {
 	case LOCAL:
@@ -354,7 +355,8 @@ func (si *syncInstances) mappedPortAddress(container *docker.Container, port int
 				return nil
 			}
 
-			return &netutil.IPPort{si.hostIP, mappedToPort}
+			addr := netutil.NewIPPort(si.hostIP, mappedToPort)
+			return &addr
 		}
 	}
 
@@ -372,7 +374,8 @@ func (si *syncInstances) fixedPortAddress(container *docker.Container, port int)
 		return nil
 	}
 
-	return &netutil.IPPort{ip, port}
+	addr := netutil.NewIPPort(ip, port)
+	return &addr
 }
 
 func envValue(env []string, key string) string {

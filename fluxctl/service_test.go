@@ -1,7 +1,6 @@
 package main
 
 import (
-	"net"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -36,7 +35,7 @@ func TestParseAddress(t *testing.T) {
 	svc, err = parseAddress("192.168.45.76:8000")
 	require.NoError(t, err)
 	require.Equal(t, store.Service{
-		Address:  &netutil.IPPort{net.ParseIP("192.168.45.76"), 8000},
+		Address:  netutil.ParseIPPortPtr("192.168.45.76:8000"),
 		Protocol: "",
 	}, svc)
 }
@@ -48,7 +47,7 @@ func TestServiceAddress(t *testing.T) {
 	services := allServices(t, st)
 	require.Len(t, services, 1)
 	require.NotNil(t, services["foo"])
-	require.Equal(t, &netutil.IPPort{net.ParseIP("10.3.4.5"), 8000}, services["foo"].Address)
+	require.Equal(t, netutil.ParseIPPortPtr("10.3.4.5:8000"), services["foo"].Address)
 	require.Equal(t, 7777, services["foo"].InstancePort)
 }
 

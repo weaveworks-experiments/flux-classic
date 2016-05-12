@@ -32,7 +32,7 @@ func TestForwarder(t *testing.T) {
 
 	fwd.SetProtocol("tcp")
 	fwd.SetInstances(map[string]netutil.IPPort{
-		"inst": netutil.IPPort{laddr.IP, laddr.Port},
+		"inst": netutil.NewIPPort(laddr.IP, laddr.Port),
 	})
 
 	rng := rand.New(rand.NewSource(time.Now().UnixNano()))

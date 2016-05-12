@@ -156,12 +156,12 @@ func (h *eventHandler) collectors() []prom.Collector {
 }
 
 func (h *eventHandler) Connection(ev *events.Connection) {
-	h.connections.WithLabelValues(ev.InstanceName, ev.Inbound.IP.String(), ev.InstanceAddr.IP.String(), ev.Protocol).Inc()
+	h.connections.WithLabelValues(ev.InstanceName, ev.Inbound.IP.String(), ev.InstanceAddr.IP().String(), ev.Protocol).Inc()
 }
 
 func (h *eventHandler) HttpExchange(ev *events.HttpExchange) {
 	src := ev.Inbound.IP.String()
-	dst := ev.InstanceAddr.IP.String()
+	dst := ev.InstanceAddr.IP().String()
 	method := ev.Request.Method
 	code := strconv.Itoa(ev.Response.StatusCode)
 	h.http.WithLabelValues(ev.InstanceName, src, dst, method, code).Inc()

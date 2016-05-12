@@ -41,7 +41,7 @@ func testPing(s store.Store, t *testing.T) {
 }
 
 var testService = store.Service{
-	Address:  &netutil.IPPort{net.ParseIP("1.2.3.4"), 1234},
+	Address:  netutil.ParseIPPortPtr("1.2.3.4:1234"),
 	Protocol: "tcp",
 }
 
@@ -98,7 +98,7 @@ func testRules(s store.Store, t *testing.T) {
 
 var testInst = store.Instance{
 	ContainerRule: "group",
-	Address:       &netutil.IPPort{net.ParseIP("1.2.3.4"), 12345},
+	Address:       netutil.ParseIPPortPtr("1.2.3.4:12345"),
 	Labels:        map[string]string{"key": "val"},
 }
 

@@ -193,9 +193,9 @@ func TestSyncInstancesReconcile(t *testing.T) {
 	iu := <-h.instanceUpdates
 	require.True(t, iu.Reset)
 	require.Len(t, iu.Instances, 3)
-	require.Equal(t, selectedAddress, iu.get("foo-svc", "selected").Address.IP)
-	require.Equal(t, selectedAddress, iu.get("bar-svc", "selected").Address.IP)
-	require.Equal(t, selectedAddress, iu.get("boo-svc", "selected").Address.IP)
+	require.Equal(t, selectedAddress, iu.get("foo-svc", "selected").Address.IP())
+	require.Equal(t, selectedAddress, iu.get("bar-svc", "selected").Address.IP())
+	require.Equal(t, selectedAddress, iu.get("boo-svc", "selected").Address.IP())
 	h.stop(t)
 }
 
@@ -285,7 +285,7 @@ func testMappedPort(t *testing.T, svc store.ServiceInfo, usedPort int) {
 	iu := <-h.instanceUpdates
 	require.True(t, iu.Reset)
 	require.Len(t, iu.Instances, 1)
-	require.Equal(t, &netutil.IPPort{h.hostIP, 3456}, iu.get("blorp-svc", "blorp-instance").Address)
+	require.Equal(t, netutil.NewIPPort(h.hostIP, 3456), *iu.get("blorp-svc", "blorp-instance").Address)
 	h.stop(t)
 }
 
@@ -326,7 +326,7 @@ func TestMultihostNetworking(t *testing.T) {
 	iu := <-h.instanceUpdates
 	require.True(t, iu.Reset)
 	require.Len(t, iu.Instances, 1)
-	require.Equal(t, &netutil.IPPort{instAddress, instPort}, iu.get("blorp-svc", "blorp-instance").Address)
+	require.Equal(t, netutil.NewIPPort(instAddress, instPort), *iu.get("blorp-svc", "blorp-instance").Address)
 	h.stop(t)
 }
 
@@ -370,7 +370,7 @@ func TestHostNetworking(t *testing.T) {
 	iu := <-h.instanceUpdates
 	require.True(t, iu.Reset)
 	require.Len(t, iu.Instances, 1)
-	require.Equal(t, &netutil.IPPort{h.hostIP, 8080}, iu.get("blorp-svc", "blorp-instance").Address)
+	require.Equal(t, netutil.NewIPPort(h.hostIP, 8080), *iu.get("blorp-svc", "blorp-instance").Address)
 	h.stop(t)
 }
 

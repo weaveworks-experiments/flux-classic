@@ -3,7 +3,6 @@ package balagent
 import (
 	"fmt"
 	"io/ioutil"
-	"net"
 	"os"
 	"path"
 	"strings"
@@ -59,7 +58,7 @@ func TestBalancerAgent(t *testing.T) {
 	// Add an initial service with no instances:
 	require.Nil(t, cf.store.AddService("service1", store.Service{
 		Protocol: "http",
-		Address:  &netutil.IPPort{net.ParseIP("1.2.3.4"), 80},
+		Address:  netutil.ParseIPPortPtr("1.2.3.4:80"),
 	}))
 
 	comp, errs := cf.start(t)
@@ -68,13 +67,13 @@ func TestBalancerAgent(t *testing.T) {
 
 	// Add an instance to the service:
 	require.Nil(t, cf.store.AddInstance("service1", "inst1",
-		store.Instance{Address: &netutil.IPPort{net.ParseIP("5.6.7.8"), 1}}))
+		store.Instance{Address: netutil.ParseIPPortPtr("5.6.7.8:1")}))
 	<-cf.generated
 	requireFile(t, cf.filename, "service1: (inst1, 5.6.7.8:1)")
 
 	// And another instance:
 	require.Nil(t, cf.store.AddInstance("service1", "inst2",
-		store.Instance{Address: &netutil.IPPort{net.ParseIP("9.10.11.12"), 2}}))
+		store.Instance{Address: netutil.ParseIPPortPtr("9.10.11.12:2")}))
 	<-cf.generated
 	requireFile(t, cf.filename, "service1: (inst1, 5.6.7.8:1) (inst2, 9.10.11.12:2)")
 
@@ -118,7 +117,7 @@ func TestBadTemplate(t *testing.T) {
 	// Add an initial service with no instances:
 	require.Nil(t, cf.store.AddService("service1", store.Service{
 		Protocol: "http",
-		Address:  &netutil.IPPort{net.ParseIP("1.2.3.4"), 80},
+		Address:  netutil.ParseIPPortPtr("1.2.3.4:80"),
 	}))
 
 	comp, errs := cf.start(t)
@@ -137,7 +136,7 @@ func TestReloadCmd(t *testing.T) {
 
 	require.Nil(t, cf.store.AddService("service1", store.Service{
 		Protocol: "http",
-		Address:  &netutil.IPPort{net.ParseIP("1.2.3.4"), 90},
+		Address:  netutil.ParseIPPortPtr("1.2.3.4:90"),
 	}))
 
 	tmp := cf.filename + "-copy"

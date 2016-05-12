@@ -1,7 +1,6 @@
 package forwarder
 
 import (
-	"net"
 	"testing"
 	"time"
 
@@ -19,7 +18,7 @@ func TestPoolOfOne(t *testing.T) {
 	require.Nil(t, pool.PickInstance())
 
 	// Add an instance
-	addr := netutil.IPPort{net.IP{192, 168, 3, 135}, 32768}
+	addr, _ := netutil.ParseIPPort("192.168.3.135:32768")
 	pool.UpdateInstances(map[string]netutil.IPPort{"foo": addr})
 	picked := pool.PickInstance()
 	require.Equal(t, addr, picked.Address)
@@ -65,9 +64,9 @@ func TestFailAndRetryInstance(t *testing.T) {
 	pool.timer = &tm
 	pool.now = tm.now
 
-	inst1 := netutil.IPPort{net.IP{192, 168, 3, 101}, 1001}
-	inst2 := netutil.IPPort{net.IP{192, 168, 3, 102}, 1002}
-	inst3 := netutil.IPPort{net.IP{192, 168, 3, 103}, 1003}
+	inst1, _ := netutil.ParseIPPort("192.168.3.101:1001")
+	inst2, _ := netutil.ParseIPPort("192.168.3.102:1002")
+	inst3, _ := netutil.ParseIPPort("192.168.3.103:1003")
 
 	pool.UpdateInstances(map[string]netutil.IPPort{"inst1": inst1})
 	picked1 := pool.PickInstance()
@@ -135,7 +134,7 @@ func TestRetryBackoff(t *testing.T) {
 	pool.timer = &tm
 	pool.now = tm.now
 
-	addr := netutil.IPPort{net.IP{192, 168, 3, 135}, 32768}
+	addr, _ := netutil.ParseIPPort("192.168.3.135:32768")
 	pool.UpdateInstances(map[string]netutil.IPPort{"foo": addr})
 
 	for i := uint(0); i < 5; i++ {

@@ -177,8 +177,8 @@ func (svc *service) startRejecting(s *model.Service) (serviceState, error) {
 	log.Info("rejecting service: ", s.Summary())
 	rule := []interface{}{
 		"-p", "tcp",
-		"-d", s.Address.IP,
-		"--dport", s.Address.Port,
+		"-d", s.Address.IP(),
+		"--dport", s.Address.Port(),
 		"-j", "REJECT",
 	}
 
@@ -232,8 +232,8 @@ func (svc *service) startForwarding(s *model.Service) (serviceState, error) {
 
 	rule := []interface{}{
 		"-p", "tcp",
-		"-d", s.Address.IP,
-		"--dport", s.Address.Port,
+		"-d", s.Address.IP(),
+		"--dport", s.Address.Port(),
 		"-j", "DNAT",
 		"--to-destination", fwd.Addr(),
 	}

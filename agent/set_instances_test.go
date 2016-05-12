@@ -64,7 +64,7 @@ func TestSetInstances(t *testing.T) {
 	// Add an instance
 	inst := store.Instance{
 		Host:    store.Host{h.hostIP},
-		Address: &netutil.IPPort{net.ParseIP("1.2.3.4"), 8080},
+		Address: netutil.ParseIPPortPtr("1.2.3.4:8080"),
 	}
 	h.instanceUpdates <- makeInstanceUpdate("svc", "inst", &inst)
 	<-h.didUpdate
@@ -102,7 +102,7 @@ func TestSetInstancesCleanup(t *testing.T) {
 
 	inst := store.Instance{
 		Host:    store.Host{h.hostIP},
-		Address: &netutil.IPPort{net.ParseIP("1.2.3.4"), 8080},
+		Address: netutil.ParseIPPortPtr("1.2.3.4:8080"),
 	}
 	upd := makeInstanceUpdate("svc", "inst", &inst)
 	upd.Reset = true

@@ -6,64 +6,89 @@ import (
 	"strconv"
 )
 
+// IPPort is opaque, to allow a representation that works as a map key
 type IPPort struct {
-	IP   net.IP `json:"ip"`
-	Port int    `json:"port"`
+	ip   string
+	port int
+}
+
+func NewIPPort(ip net.IP, port int) IPPort {
+	return IPPort{string(ip), port}
+}
+
+func (ipPort IPPort) IP() net.IP {
+	if len(ipPort.ip) == 0 {
+		return nil
+	} else {
+		return net.IP(ipPort.ip)
+	}
+}
+
+func (ipPort IPPort) Port() int {
+	return ipPort.port
 }
 
 func (ipPort IPPort) String() string {
 	var ipStr string
-	if len(ipPort.IP) != 0 {
-		ipStr = ipPort.IP.String()
+	if len(ipPort.ip) != 0 {
+		ip := net.IP(ipPort.ip)
+		if !ip.IsUnspecified() {
+			ipStr = ip.String()
+		}
 	}
 
-	return net.JoinHostPort(ipStr, strconv.Itoa(ipPort.Port))
+	return net.JoinHostPort(ipStr, strconv.Itoa(ipPort.port))
 }
 
 func (ipPort *IPPort) TCPAddr() *net.TCPAddr {
 	if ipPort == nil {
 		return nil
 	} else {
-		return &net.TCPAddr{IP: ipPort.IP, Port: ipPort.Port}
+		return &net.TCPAddr{IP: ipPort.IP(), Port: ipPort.Port()}
 	}
 }
 
 func (a IPPort) Equal(b IPPort) bool {
-	return a.Port == b.Port && a.IP.Equal(b.IP)
+	return a == b
 }
 
 // Check that a string can be parsed as "ipaddress:port", and return
-// the AddrPort made from those parts if so.
-func ParseIPPort(addrPort, network string, emptyAddrOk bool) (IPPort, error) {
-	ip, port, err := SplitIPAddressPort(addrPort, network, emptyAddrOk)
-	return IPPort{ip, port}, err
-}
-
-// Check that an "ipaddress:port" string looks reasonable, and split it
-// into an IP address and port, resolving the port.  network is a go net
-// pkg network type identifier.
-func SplitIPAddressPort(addrPort string, network string, emptyAddrOk bool) (net.IP, int, error) {
+// the IPPort made from those parts if so.
+func ParseIPPort(addrPort string) (IPPort, error) {
 	var ip net.IP
 	addr, port, err := net.SplitHostPort(addrPort)
 	if err != nil {
-		return nil, 0, err
+		return IPPort{}, err
 	}
 
-	if addr == "" {
-		if !emptyAddrOk {
-			return nil, 0, fmt.Errorf("expected IP address in '%s'",
-				addrPort)
+	if addr != "" {
+		if ip = net.ParseIP(addr); ip == nil {
+			return IPPort{}, fmt.Errorf("bad IP address in '%s'", addrPort)
 		}
-	} else if ip = net.ParseIP(addr); ip == nil {
-		return nil, 0, fmt.Errorf("bad IP address in '%s'", addrPort)
 	}
 
-	portNum, err := net.LookupPort(network, port)
+	portNum, err := net.LookupPort("", port)
 	if err != nil {
-		return nil, 0, err
+		return IPPort{}, err
 	}
 
-	return ip, portNum, nil
+	return NewIPPort(ip, portNum), err
+}
+
+// For use in testing
+func ParseIPPortPtr(addrPort string) *IPPort {
+	addr, _ := ParseIPPort(addrPort)
+	return &addr
+}
+
+func (ipPort IPPort) MarshalText() ([]byte, error) {
+	return ([]byte)(ipPort.String()), nil
+}
+
+func (ipPort *IPPort) UnmarshalText(text []byte) error {
+	var err error
+	*ipPort, err = ParseIPPort(string(text))
+	return err
 }
 
 // Check that a "host:port" string looks reasonable, and split it

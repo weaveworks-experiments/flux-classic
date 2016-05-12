@@ -22,6 +22,10 @@ type DockerClient interface {
 }
 
 type AgentConfig struct {
+	// May be pre-set
+	InstanceUpdates      chan<- InstanceUpdate
+	InstanceUpdatesReset chan struct{}
+
 	hostIP            net.IP
 	network           string
 	store             store.Store
@@ -60,12 +64,23 @@ func (cf *AgentConfig) Prepare() (daemon.StartFunc, error) {
 		cf.reconnectInterval = 10 * time.Second
 	}
 
+	if cf.InstanceUpdatesReset == nil {
+		cf.InstanceUpdatesReset = make(chan struct{}, 1)
+	}
+
 	containerUpdates := make(chan ContainerUpdate)
 	containerUpdatesReset := make(chan struct{}, 1)
 	serviceUpdates := make(chan store.ServiceUpdate)
 	serviceUpdatesReset := make(chan struct{}, 1)
+
 	instanceUpdates := make(chan InstanceUpdate)
-	instanceUpdatesReset := make(chan struct{}, 1)
+	instanceUpdatesRead := instanceUpdates
+	instanceUpdatesTee := daemon.NullStartFunc
+	if cf.InstanceUpdates != nil {
+		instanceUpdatesRead = make(chan InstanceUpdate)
+		instanceUpdatesTee = Tee(instanceUpdates, cf.InstanceUpdates,
+			instanceUpdatesRead)
+	}
 
 	syncInstConf := syncInstancesConfig{
 		hostIP:  cf.hostIP,
@@ -76,14 +91,14 @@ func (cf *AgentConfig) Prepare() (daemon.StartFunc, error) {
 		serviceUpdates:        serviceUpdates,
 		serviceUpdatesReset:   serviceUpdatesReset,
 		instanceUpdates:       instanceUpdates,
-		instanceUpdatesReset:  instanceUpdatesReset,
+		instanceUpdatesReset:  cf.InstanceUpdatesReset,
 	}
 
 	setInstConf := setInstancesConfig{
 		hostIP:               cf.hostIP,
 		store:                cf.store,
-		instanceUpdates:      instanceUpdates,
-		instanceUpdatesReset: instanceUpdatesReset,
+		instanceUpdates:      instanceUpdatesRead,
+		instanceUpdatesReset: cf.InstanceUpdatesReset,
 	}
 
 	return daemon.Aggregate(
@@ -99,5 +114,6 @@ func (cf *AgentConfig) Prepare() (daemon.StartFunc, error) {
 					serviceUpdates))),
 
 		daemon.Restart(cf.reconnectInterval, syncInstConf.StartFunc()),
-		daemon.Restart(cf.reconnectInterval, setInstConf.StartFunc())), nil
+		daemon.Restart(cf.reconnectInterval, setInstConf.StartFunc()),
+		instanceUpdatesTee), nil
 }

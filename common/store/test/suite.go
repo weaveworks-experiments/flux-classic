@@ -320,7 +320,8 @@ func testHostWatch(ts TestableStore, t *testing.T) {
 		require.Nil(t, ts.Heartbeat(5*time.Second))
 		require.Nil(t, ts.RegisterHost(hostID, &store.Host{IP: net.ParseIP("192.168.3.89")}))
 		require.Nil(t, ts.DeregisterHost(hostID))
-	}, store.HostChange{hostID, false}, store.HostChange{hostID, true})
+	}, store.HostChange{Name: hostID, HostDeparted: false},
+		store.HostChange{Name: hostID, HostDeparted: true})
 	ts.Reset(t)
 
 	hosts, err := ts.GetHosts()

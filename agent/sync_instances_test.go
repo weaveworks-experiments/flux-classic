@@ -134,7 +134,7 @@ func makeRule(port int, labels ...string) store.ContainerRule {
 	for i := 0; i < len(labels); i += 2 {
 		sel[labels[i]] = labels[i+1]
 	}
-	return store.ContainerRule{sel, port}
+	return store.ContainerRule{Selector: sel, InstancePort: port}
 }
 
 func namedRule(name string, port int, labels ...string) map[string]store.ContainerRule {

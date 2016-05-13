@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"sort"
 	"strings"
 	"testing"
 	"text/template"
@@ -17,6 +18,36 @@ import (
 	"github.com/weaveworks/flux/common/store"
 	"github.com/weaveworks/flux/common/store/inmem"
 )
+
+type ingressInstance struct {
+	Address netutil.IPPort
+	store.IngressInstance
+}
+
+type ingressInstances []ingressInstance
+
+func (iis ingressInstances) Len() int { return len(iis) }
+
+func (iis ingressInstances) Less(i, j int) bool {
+	return iis[i].Address.LessThan(iis[j].Address)
+}
+
+func (iis ingressInstances) Swap(i, j int) {
+	t := iis[i]
+	iis[i] = iis[j]
+	iis[j] = t
+}
+
+func sortIngressInstances(iis map[netutil.IPPort]store.IngressInstance) ingressInstances {
+	var a ingressInstances
+	for addr, ii := range iis {
+		a = append(a,
+			ingressInstance{Address: addr, IngressInstance: ii})
+	}
+
+	sort.Sort(a)
+	return a
+}
 
 func newBalancerAgentConfig(t *testing.T) *BalancerAgentConfig {
 	dir, err := ioutil.TempDir("", "balagent_test")
@@ -46,12 +77,13 @@ func TestBalancerAgent(t *testing.T) {
 	defer cleanup(cf, t)
 
 	tmpl := template.New("template")
+	tmpl.Funcs(template.FuncMap{"sortIngressInstances": sortIngressInstances})
 
 	var err error
 	cf.template, err = tmpl.Parse(`
 {{$HOME := .Getenv "HOME"}}
 {{if len $HOME}}{{else}}No $HOME{{end}}
-{{range $svcname, $svc := .}}{{$svcname}}:{{range $addr, $inst := $svc.IngressInstances}} ({{$addr}}, {{$inst.Weight}}){{end}}
+{{range $svcname, $svc := .}}{{$svcname}}:{{range sortIngressInstances $svc.IngressInstances}} ({{.Address}}, {{.Weight}}){{end}}
 {{end}}`)
 	require.Nil(t, err)
 

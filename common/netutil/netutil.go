@@ -52,6 +52,17 @@ func (a IPPort) Equal(b IPPort) bool {
 	return a == b
 }
 
+func (a IPPort) LessThan(b IPPort) bool {
+	switch {
+	case a.ip < b.ip:
+		return true
+	case a.ip == b.ip:
+		return a.port < b.port
+	default:
+		return false
+	}
+}
+
 // Check that a string can be parsed as "ipaddress:port", and return
 // the IPPort made from those parts if so.
 func ParseIPPort(addrPort string) (IPPort, error) {

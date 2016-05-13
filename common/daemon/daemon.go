@@ -13,7 +13,7 @@ func run(start StartFunc) {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
 	sigs := make(chan os.Signal, 2)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 
 	errorSink := NewErrorSink()
 
@@ -21,6 +21,7 @@ func run(start StartFunc) {
 	exitCode := 0
 	var exitSignal os.Signal
 
+again:
 	select {
 	case err := <-errorSink:
 		if err != flag.ErrHelp {
@@ -28,6 +29,12 @@ func run(start StartFunc) {
 			exitCode = 1
 		}
 	case exitSignal = <-sigs:
+		if exitSignal == syscall.SIGQUIT {
+			var buf [8192]byte
+			length := runtime.Stack(buf[:], true)
+			fmt.Fprint(os.Stderr, string(buf[:length]))
+			goto again
+		}
 	}
 
 	if d != nil {

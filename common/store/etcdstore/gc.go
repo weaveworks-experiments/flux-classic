@@ -11,22 +11,22 @@ type SessionValue struct {
 }
 
 func (es *etcdStore) doCollection() error {
-	live, err := es.liveSessions()
-	if err != nil {
-		return err
-	}
-
 	hostRoot, _, err := es.getDirNode(HOST_ROOT, true, true)
 	if err != nil {
 		return err
 	}
 
-	if err = es.cullSessionValues(hostRoot, live); err != nil {
+	serviceRoot, _, err := es.getDirNode(SERVICE_ROOT, true, true)
+	if err != nil {
 		return err
 	}
 
-	serviceRoot, _, err := es.getDirNode(SERVICE_ROOT, true, true)
+	live, err := es.liveSessions()
 	if err != nil {
+		return err
+	}
+
+	if err = es.cullSessionValues(hostRoot, live); err != nil {
 		return err
 	}
 

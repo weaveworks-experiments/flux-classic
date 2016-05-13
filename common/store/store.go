@@ -4,17 +4,13 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/weaveworks/flux/common/daemon"
+	"github.com/weaveworks/flux/common/netutil"
 )
 
 type QueryServiceOptions struct {
-	WithInstances      bool
-	WithContainerRules bool
-}
-
-type ServiceInfo struct {
-	Service
-	Instances      map[string]Instance
-	ContainerRules map[string]ContainerRule
+	WithInstances        bool
+	WithContainerRules   bool
+	WithIngressInstances bool
 }
 
 type Store interface {
@@ -40,6 +36,9 @@ type Store interface {
 
 	AddInstance(serviceName, instanceName string, details Instance) error
 	RemoveInstance(serviceName, instanceName string) error
+
+	AddIngressInstance(serviceName string, addr netutil.IPPort, details IngressInstance) error
+	RemoveIngressInstance(serviceName string, addr netutil.IPPort) error
 
 	WatchServices(ctx context.Context, resCh chan<- ServiceChange, errorSink daemon.ErrorSink, opts QueryServiceOptions)
 }

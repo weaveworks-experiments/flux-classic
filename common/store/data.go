@@ -34,6 +34,13 @@ type Service struct {
 	Protocol     string          `json:"protocol,omitempty"`
 }
 
+type ServiceInfo struct {
+	Service
+	Instances        map[string]Instance
+	ContainerRules   map[string]ContainerRule
+	IngressInstances map[netutil.IPPort]IngressInstance
+}
+
 const (
 	HostLabel  = "host"
 	StateLabel = "state"
@@ -45,6 +52,10 @@ type Instance struct {
 	ContainerRule string            `json:"containerRule"`
 	Address       *netutil.IPPort   `json:"address,omitempty"`
 	Labels        map[string]string `json:"labels"`
+}
+
+type IngressInstance struct {
+	Weight int `json:"weight"`
 }
 
 type Labeled interface {

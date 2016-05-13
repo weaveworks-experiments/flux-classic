@@ -47,22 +47,22 @@ func TestSessionValues(t *testing.T) {
 	require.Nil(t, es.RegisterHost("test host", &store.Host{IP: net.ParseIP("10.11.23.45")}))
 	hostRoot, _, err := es.getDirNode(HOST_ROOT, true, true)
 	require.Nil(t, err)
-	require.Len(t, indexDir(hostRoot), 1)
+	require.Len(t, hostRoot.Nodes, 1)
 
 	require.Nil(t, es.AddService("test service", store.Service{}))
 	require.Nil(t, es.AddInstance("test service", "test instance", store.Instance{}))
 	service, _, err := es.getDirNode(serviceRootKey("test service"), true, true)
 	require.Nil(t, err)
-	require.Len(t, instanceDir(service), 1)
+	require.Len(t, indexDir(service)[INSTANCE_PATH].Nodes, 1)
 
 	require.Nil(t, es.EndSession())
 	require.Nil(t, es.doCollection())
 
 	hostRoot, _, err = es.getDirNode(HOST_ROOT, true, true)
 	require.Nil(t, err)
-	require.Len(t, indexDir(hostRoot), 0)
+	require.Empty(t, hostRoot.Nodes)
 
 	service, _, err = es.getDirNode(serviceRootKey("test service"), true, true)
 	require.Nil(t, err)
-	require.Len(t, instanceDir(service), 0)
+	require.Empty(t, indexDir(service)[INSTANCE_PATH].Nodes)
 }

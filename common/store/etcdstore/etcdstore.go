@@ -14,6 +14,7 @@ import (
 
 	"github.com/weaveworks/flux/common/daemon"
 	"github.com/weaveworks/flux/common/etcdutil"
+	"github.com/weaveworks/flux/common/netutil"
 	"github.com/weaveworks/flux/common/store"
 )
 
@@ -27,6 +28,11 @@ type etcdStore struct {
 
 type sessionInstance struct {
 	store.Instance
+	Session string
+}
+
+type sessionIngressInstance struct {
+	store.IngressInstance
 	Session string
 }
 
@@ -69,13 +75,14 @@ func (es *etcdStore) Ping() error {
 }
 
 const (
-	ROOT          = "/weave-flux/"
-	SERVICE_ROOT  = ROOT + "service/"
-	HOST_ROOT     = ROOT + "host/"
-	SESSION_ROOT  = ROOT + "session/"
-	INSTANCE_PATH = "instances"
-	DETAIL_PATH   = "spec"
-	RULE_PATH     = "rules"
+	ROOT                  = "/weave-flux/"
+	SERVICE_ROOT          = ROOT + "service/"
+	HOST_ROOT             = ROOT + "host/"
+	SESSION_ROOT          = ROOT + "session/"
+	INSTANCE_PATH         = "instances"
+	DETAIL_PATH           = "spec"
+	RULE_PATH             = "rules"
+	INGRESS_INSTANCE_PATH = "ingress-instances"
 )
 
 func serviceRootKey(serviceName string) string {
@@ -92,6 +99,10 @@ func ruleKey(serviceName, ruleName string) string {
 
 func instanceKey(serviceName, instanceName string) string {
 	return fmt.Sprintf("%s%s/%s/%s", SERVICE_ROOT, serviceName, INSTANCE_PATH, instanceName)
+}
+
+func ingressInstanceKey(serviceName string, addr netutil.IPPort) string {
+	return fmt.Sprintf("%s%s/%s/%s", SERVICE_ROOT, serviceName, INGRESS_INSTANCE_PATH, addr)
 }
 
 type parsedRootKey struct {
@@ -123,6 +134,15 @@ func (k parsedInstanceKey) relevantTo(opts store.QueryServiceOptions) (bool, str
 	return opts.WithInstances, k.serviceName
 }
 
+type parsedIngressInstanceKey struct {
+	serviceName         string
+	ingressInstanceName string
+}
+
+func (k parsedIngressInstanceKey) relevantTo(opts store.QueryServiceOptions) (bool, string) {
+	return opts.WithIngressInstances, k.serviceName
+}
+
 // Parse a path to find its type
 
 func parseKey(key string) interface{} {
@@ -147,6 +167,11 @@ func parseKey(key string) interface{} {
 	case INSTANCE_PATH:
 		if len(p) == 3 {
 			return parsedInstanceKey{p[0], p[2]}
+		}
+
+	case INGRESS_INSTANCE_PATH:
+		if len(p) == 3 {
+			return parsedIngressInstanceKey{p[0], p[2]}
 		}
 	}
 
@@ -189,7 +214,8 @@ func (es *etcdStore) GetService(serviceName string, opts store.QueryServiceOptio
 	}
 
 	node, _, err := es.getDirNode(serviceRootKey(serviceName), false,
-		opts.WithInstances || opts.WithContainerRules)
+		opts.WithInstances || opts.WithContainerRules ||
+			opts.WithIngressInstances)
 	if err != nil {
 		return nil, err
 	}
@@ -209,7 +235,6 @@ func (es *etcdStore) GetAllServices(opts store.QueryServiceOptions) (map[string]
 	}
 
 	svcs := make(map[string]*store.ServiceInfo)
-
 	for name, n := range indexDir(node) {
 		if !n.Dir {
 			continue
@@ -231,7 +256,7 @@ func (es *etcdStore) getDirNode(key string, missingOk bool, recursive bool) (*et
 		&etcd.GetOptions{Recursive: recursive})
 	if err != nil {
 		if cerr, ok := err.(etcd.Error); ok && cerr.Code == etcd.ErrorCodeKeyNotFound && missingOk {
-			return nil, cerr.Index, nil
+			return &etcd.Node{}, cerr.Index, nil
 		}
 
 		return nil, 0, err
@@ -270,13 +295,19 @@ func serviceInfoFromNode(node *etcd.Node, opts store.QueryServiceOptions, liveSe
 		return nil, fmt.Errorf("missing services details in etcd node %s", node.Key)
 	}
 
-	var err error
-	svc := &store.ServiceInfo{Service: unmarshalService(details, &err)}
+	svc := &store.ServiceInfo{}
+	if err := json.Unmarshal([]byte(details.Value), &svc.Service); err != nil {
+		return nil, err
+	}
 
 	if opts.WithInstances {
 		svc.Instances = make(map[string]store.Instance)
 		for name, n := range indexDir(dir[INSTANCE_PATH]) {
-			inst := unmarshalInstance(n, &err)
+			var inst sessionInstance
+			if err := json.Unmarshal([]byte(n.Value), &inst); err != nil {
+				return nil, err
+			}
+
 			if _, found := liveSessions[inst.Session]; found {
 				svc.Instances[name] = inst.Instance
 			}
@@ -286,45 +317,35 @@ func serviceInfoFromNode(node *etcd.Node, opts store.QueryServiceOptions, liveSe
 	if opts.WithContainerRules {
 		svc.ContainerRules = make(map[string]store.ContainerRule)
 		for name, n := range indexDir(dir[RULE_PATH]) {
-			svc.ContainerRules[name] = unmarshalRule(n, &err)
+			var gs store.ContainerRule
+			if err := json.Unmarshal([]byte(n.Value), &gs); err != nil {
+				return nil, err
+			}
+
+			svc.ContainerRules[name] = gs
 		}
 	}
 
-	if err != nil {
-		return nil, err
+	if opts.WithIngressInstances {
+		svc.IngressInstances = make(map[netutil.IPPort]store.IngressInstance)
+		for addrStr, n := range indexDir(dir[INGRESS_INSTANCE_PATH]) {
+			addr, err := netutil.ParseIPPort(addrStr)
+			if err != nil {
+				return nil, err
+			}
+
+			var inst sessionIngressInstance
+			if err := json.Unmarshal([]byte(n.Value), &inst); err != nil {
+				return nil, err
+			}
+
+			if _, found := liveSessions[inst.Session]; found {
+				svc.IngressInstances[addr] = inst.IngressInstance
+			}
+		}
 	}
 
 	return svc, nil
-}
-
-func unmarshalService(node *etcd.Node, errp *error) store.Service {
-	var svc store.Service
-
-	if *errp == nil {
-		*errp = json.Unmarshal([]byte(node.Value), &svc)
-	}
-
-	return svc
-}
-
-func unmarshalRule(node *etcd.Node, errp *error) store.ContainerRule {
-	var gs store.ContainerRule
-
-	if *errp == nil {
-		*errp = json.Unmarshal([]byte(node.Value), &gs)
-	}
-
-	return gs
-}
-
-func unmarshalInstance(node *etcd.Node, errp *error) sessionInstance {
-	var instance sessionInstance
-
-	if *errp == nil {
-		*errp = json.Unmarshal([]byte(node.Value), &instance)
-	}
-
-	return instance
 }
 
 func (es *etcdStore) SetContainerRule(serviceName string, ruleName string, spec store.ContainerRule) error {
@@ -343,6 +364,19 @@ func (es *etcdStore) AddInstance(serviceName string, instanceName string, instan
 
 func (es *etcdStore) RemoveInstance(serviceName, instanceName string) error {
 	return es.deleteRecursive(instanceKey(serviceName, instanceName))
+}
+
+func (es *etcdStore) AddIngressInstance(serviceName string, addr netutil.IPPort, details store.IngressInstance) error {
+	<-es.sessionReady
+	return es.setJSON(ingressInstanceKey(serviceName, addr),
+		sessionIngressInstance{
+			IngressInstance: details,
+			Session:         es.session,
+		})
+}
+
+func (es *etcdStore) RemoveIngressInstance(serviceName string, addr netutil.IPPort) error {
+	return es.deleteRecursive(ingressInstanceKey(serviceName, addr))
 }
 
 func (es *etcdStore) setJSON(key string, val interface{}) error {
@@ -481,7 +515,7 @@ func (es *etcdStore) GetHosts() ([]*store.Host, error) {
 
 	var hosts []*store.Host
 
-	for _, n := range indexDir(node) {
+	for _, n := range node.Nodes {
 		host, err := hostFromNode(n)
 		if err != nil {
 			return nil, err

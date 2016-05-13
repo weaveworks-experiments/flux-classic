@@ -9,6 +9,7 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/weaveworks/flux/common/daemon"
+	"github.com/weaveworks/flux/common/netutil"
 	"github.com/weaveworks/flux/common/store"
 )
 
@@ -26,27 +27,34 @@ type sessionInstance struct {
 	session string
 }
 
+type sessionIngressInstance struct {
+	store.IngressInstance
+	session string
+}
+
 func NewInMem() *InMem {
 	return &InMem{
-		services:        make(map[string]store.Service),
-		groupSpecs:      make(map[string]map[string]store.ContainerRule),
-		instances:       make(map[string]map[string]*sessionInstance),
-		hosts:           make(map[string]*sessionHost),
-		heartbeats:      make(map[string]*heartbeat),
-		heartbeatTimers: make(map[string]*time.Timer),
+		services:         make(map[string]store.Service),
+		groupSpecs:       make(map[string]map[string]store.ContainerRule),
+		instances:        make(map[string]map[string]sessionInstance),
+		ingressInstances: make(map[string]map[netutil.IPPort]sessionIngressInstance),
+		hosts:            make(map[string]*sessionHost),
+		heartbeats:       make(map[string]*heartbeat),
+		heartbeatTimers:  make(map[string]*time.Timer),
 	}
 }
 
 type InMem struct {
-	services        map[string]store.Service
-	groupSpecs      map[string]map[string]store.ContainerRule
-	instances       map[string]map[string]*sessionInstance
-	hosts           map[string]*sessionHost
-	heartbeats      map[string]*heartbeat
-	heartbeatTimers map[string]*time.Timer
-	watchersLock    sync.Mutex
-	watchers        []Watcher
-	injectedError   error
+	services         map[string]store.Service
+	groupSpecs       map[string]map[string]store.ContainerRule
+	instances        map[string]map[string]sessionInstance
+	ingressInstances map[string]map[netutil.IPPort]sessionIngressInstance
+	hosts            map[string]*sessionHost
+	heartbeats       map[string]*heartbeat
+	heartbeatTimers  map[string]*time.Timer
+	watchersLock     sync.Mutex
+	watchers         []Watcher
+	injectedError    error
 }
 
 func (s *InMem) GetHeartbeat(identity string) (int, error) {
@@ -66,12 +74,6 @@ func (inmem *InMem) Store(sessionID string) store.Store {
 		InMem:   inmem,
 		session: sessionID,
 	}
-}
-
-func (s *inmemStore) AddInstance(serviceName string, instanceName string, inst store.Instance) error {
-	s.instances[serviceName][instanceName] = &sessionInstance{Instance: inst, session: s.session}
-	s.fireServiceChange(serviceName, false, withInstanceChanges)
-	return s.injectedError
 }
 
 func (s *inmemStore) RegisterHost(identity string, details *store.Host) error {
@@ -113,16 +115,29 @@ func (s *inmemStore) EndSession() error {
 		}
 	}
 
-	for serviceName, _ := range s.instances {
+	for serviceName, insts := range s.instances {
 		changed := false
-		for instanceName, instance := range s.instances[serviceName] {
+		for instanceName, instance := range insts {
 			if instance.session == s.session {
-				delete(s.instances[serviceName], instanceName)
+				delete(insts, instanceName)
 				changed = true
 			}
 		}
 		if changed {
 			s.fireServiceChange(serviceName, false, withInstanceChanges)
+		}
+	}
+
+	for serviceName, insts := range s.ingressInstances {
+		changed := false
+		for addr, inst := range insts {
+			if inst.session == s.session {
+				delete(insts, addr)
+				changed = true
+			}
+		}
+		if changed {
+			s.fireServiceChange(serviceName, false, withIngressInstanceChanges)
 		}
 	}
 
@@ -229,7 +244,8 @@ func (s *InMem) CheckRegisteredService(name string) error {
 func (s *InMem) AddService(name string, svc store.Service) error {
 	s.services[name] = svc
 	s.groupSpecs[name] = make(map[string]store.ContainerRule)
-	s.instances[name] = make(map[string]*sessionInstance)
+	s.instances[name] = make(map[string]sessionInstance)
+	s.ingressInstances[name] = make(map[netutil.IPPort]sessionIngressInstance)
 
 	s.fireServiceChange(name, false, nil)
 	log.Printf("InMem: service %s updated in store", name)
@@ -240,6 +256,7 @@ func (s *InMem) RemoveService(name string) error {
 	delete(s.services, name)
 	delete(s.groupSpecs, name)
 	delete(s.instances, name)
+	delete(s.ingressInstances, name)
 
 	s.fireServiceChange(name, true, nil)
 	log.Printf("InMem: service %s removed from store", name)
@@ -279,6 +296,13 @@ func (s *InMem) makeServiceInfo(name string, svc store.Service, opts store.Query
 		}
 	}
 
+	if opts.WithIngressInstances {
+		info.IngressInstances = make(map[netutil.IPPort]store.IngressInstance)
+		for a, i := range s.ingressInstances[name] {
+			info.IngressInstances[a] = i.IngressInstance
+		}
+	}
+
 	return info
 }
 
@@ -292,8 +316,25 @@ func (s *InMem) GetAllServices(opts store.QueryServiceOptions) (map[string]*stor
 	return svcs, s.injectedError
 }
 
-func withRuleChanges(opts store.QueryServiceOptions) bool {
-	return opts.WithContainerRules
+func (s *inmemStore) AddInstance(serviceName string, instanceName string, inst store.Instance) error {
+	s.instances[serviceName][instanceName] = sessionInstance{Instance: inst, session: s.session}
+	s.fireServiceChange(serviceName, false, withInstanceChanges)
+	return s.injectedError
+}
+
+func (s *InMem) RemoveInstance(serviceName string, instanceName string) error {
+	if _, found := s.instances[serviceName][instanceName]; !found {
+		return fmt.Errorf("service '%s' has no instance '%s'",
+			serviceName, instanceName)
+	}
+
+	delete(s.instances[serviceName], instanceName)
+	s.fireServiceChange(serviceName, false, withInstanceChanges)
+	return s.injectedError
+}
+
+func withInstanceChanges(opts store.QueryServiceOptions) bool {
+	return opts.WithInstances
 }
 
 func (s *InMem) SetContainerRule(serviceName string, groupName string, spec store.ContainerRule) error {
@@ -318,19 +359,29 @@ func (s *InMem) RemoveContainerRule(serviceName string, groupName string) error 
 	return s.injectedError
 }
 
-func withInstanceChanges(opts store.QueryServiceOptions) bool {
-	return opts.WithInstances
+func withRuleChanges(opts store.QueryServiceOptions) bool {
+	return opts.WithContainerRules
 }
 
-func (s *InMem) RemoveInstance(serviceName string, instanceName string) error {
-	if _, found := s.instances[serviceName][instanceName]; !found {
-		return fmt.Errorf("service '%s' has no instance '%s'",
-			serviceName, instanceName)
+func (s *inmemStore) AddIngressInstance(serviceName string, addr netutil.IPPort, details store.IngressInstance) error {
+	s.ingressInstances[serviceName][addr] = sessionIngressInstance{IngressInstance: details, session: s.session}
+	s.fireServiceChange(serviceName, false, withIngressInstanceChanges)
+	return s.injectedError
+}
+
+func (s *InMem) RemoveIngressInstance(serviceName string, addr netutil.IPPort) error {
+	if _, found := s.ingressInstances[serviceName][addr]; !found {
+		return fmt.Errorf("service '%s' has no ingress instance '%s'",
+			serviceName, addr)
 	}
 
-	delete(s.instances[serviceName], instanceName)
-	s.fireServiceChange(serviceName, false, withInstanceChanges)
+	delete(s.ingressInstances[serviceName], addr)
+	s.fireServiceChange(serviceName, false, withIngressInstanceChanges)
 	return s.injectedError
+}
+
+func withIngressInstanceChanges(opts store.QueryServiceOptions) bool {
+	return opts.WithIngressInstances
 }
 
 func (s *InMem) WatchServices(ctx context.Context, res chan<- store.ServiceChange, errs daemon.ErrorSink, opts store.QueryServiceOptions) {

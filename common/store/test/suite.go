@@ -1,6 +1,7 @@
 package test
 
 import (
+	"fmt"
 	"net"
 	"testing"
 	"time"
@@ -28,6 +29,8 @@ func RunStoreTestSuite(ts TestableStore, t *testing.T) {
 	testRules(ts, t)
 	ts.Reset(t)
 	testInstances(ts, t)
+	ts.Reset(t)
+	testIngressInstances(ts, t)
 	ts.Reset(t)
 	testWatchServices(ts, t)
 	ts.Reset(t)
@@ -136,9 +139,65 @@ func testInstances(s store.Store, t *testing.T) {
 
 	// Instances disappear with the session
 	require.Nil(t, s.AddInstance("svc", "inst", testInst))
-	require.Equal(t, map[string]store.Instance{"svc inst": testInst}, serviceInstances())
+	require.Equal(t, map[string]store.Instance{"inst": testInst}, instances())
 	s.EndSession()
 	require.Equal(t, map[string]store.Instance{}, instances())
+}
+
+var testIngressInstanceAddr = *netutil.ParseIPPortPtr("1.2.3.4:1234")
+var testIngressInstance = store.IngressInstance{Weight: 42}
+
+func testIngressInstances(s store.Store, t *testing.T) {
+	s.Heartbeat(10 * time.Second)
+
+	require.Nil(t, s.AddService("svc", testService))
+	require.Nil(t, s.AddIngressInstance("svc", testIngressInstanceAddr,
+		testIngressInstance))
+
+	ingressInstances := func() map[netutil.IPPort]store.IngressInstance {
+		svc, err := s.GetService("svc",
+			store.QueryServiceOptions{WithIngressInstances: true})
+		require.Nil(t, err)
+		return svc.IngressInstances
+	}
+
+	require.Equal(t, map[netutil.IPPort]store.IngressInstance{
+		testIngressInstanceAddr: testIngressInstance,
+	}, ingressInstances())
+
+	serviceIngressInstances := func() map[string]store.IngressInstance {
+		svcs, err := s.GetAllServices(
+			store.QueryServiceOptions{WithIngressInstances: true})
+		require.Nil(t, err)
+
+		insts := make(map[string]store.IngressInstance)
+		for svcName, svc := range svcs {
+			for addr, ii := range svc.IngressInstances {
+				insts[fmt.Sprintf("%s %s", svcName, addr)] = ii
+			}
+		}
+		return insts
+	}
+
+	require.Equal(t, map[string]store.IngressInstance{
+		"svc 1.2.3.4:1234": testIngressInstance,
+	}, serviceIngressInstances())
+
+	require.Nil(t, s.RemoveIngressInstance("svc", testIngressInstanceAddr))
+	require.Equal(t, map[netutil.IPPort]store.IngressInstance{},
+		ingressInstances())
+	require.Equal(t, map[string]store.IngressInstance{},
+		serviceIngressInstances())
+
+	// They disappear with the session
+	require.Nil(t, s.AddIngressInstance("svc", testIngressInstanceAddr,
+		testIngressInstance))
+	require.Equal(t, map[netutil.IPPort]store.IngressInstance{
+		testIngressInstanceAddr: testIngressInstance,
+	}, ingressInstances())
+	s.EndSession()
+	require.Equal(t, map[netutil.IPPort]store.IngressInstance{},
+		ingressInstances())
 }
 
 type watch struct {
@@ -247,6 +306,26 @@ func testWatchServices(s store.Store, t *testing.T) {
 			require.Nil(t, s.RemoveContainerRule("svc", "group"))
 		}, store.ServiceChange{Name: "svc", ServiceDeleted: false},
 		store.ServiceChange{Name: "svc", ServiceDeleted: false})
+
+	// WithIngressInstances false, so change should not cause an
+	// event
+	require.Nil(t, s.AddService("svc", testService))
+	check(store.QueryServiceOptions{}, func(w *serviceWatch) {
+		require.Nil(t, s.AddIngressInstance("svc",
+			testIngressInstanceAddr, testIngressInstance))
+	})
+
+	// WithIngressInstances true, so change should cause an event
+	require.Nil(t, s.AddService("svc", testService))
+	check(store.QueryServiceOptions{WithIngressInstances: true},
+		func(w *serviceWatch) {
+			require.Nil(t, s.AddIngressInstance("svc",
+				testIngressInstanceAddr, testIngressInstance))
+			require.Nil(t, s.RemoveIngressInstance("svc",
+				testIngressInstanceAddr))
+		}, store.ServiceChange{Name: "svc", ServiceDeleted: false},
+		store.ServiceChange{Name: "svc", ServiceDeleted: false})
+
 }
 
 func testHosts(ts TestableStore, t *testing.T) {

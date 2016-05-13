@@ -18,7 +18,10 @@ func TestHeartbeat(t *testing.T) {
 	st := back.Store(sessionID)
 	ttl := time.Duration(100 * time.Millisecond)
 
-	conf := &HeartbeatConfig{st, ttl, nil}
+	conf := &HeartbeatConfig{
+		st,
+		ttl,
+	}
 	sink := daemon.NewErrorSink()
 
 	// starting the heartbeat puts a record in straight away

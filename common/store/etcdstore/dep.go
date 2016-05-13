@@ -9,23 +9,13 @@ import (
 	"github.com/weaveworks/flux/common/store"
 )
 
-// Combines the store with a channel used to synchronise on the store starting
-type storeComponent struct {
-	store.Store
-	started <-chan struct{}
-}
-
-func (st *storeComponent) WaitUntilStarted() {
-	<-st.started
-}
-
 type dependencySlot struct {
-	slot *store.StoreComponent
+	slot *store.Store
 }
 
 type dependencyKey struct{}
 
-func StoreDependency(slot *store.StoreComponent) daemon.DependencySlot {
+func StoreDependency(slot *store.Store) daemon.DependencySlot {
 	return dependencySlot{slot}
 }
 
@@ -34,7 +24,7 @@ func (dependencySlot) Key() daemon.DependencyKey {
 }
 
 func (s dependencySlot) Assign(value interface{}) {
-	*s.slot = value.(store.StoreComponent)
+	*s.slot = value.(store.Store)
 }
 
 type dependencyConfig struct {
@@ -52,19 +42,17 @@ func (cf *dependencyConfig) Populate(deps *daemon.Dependencies) {
 }
 
 func (cf *dependencyConfig) MakeValue() (interface{}, daemon.StartFunc, error) {
-	started := make(chan struct{})
 	st := newEtcdStore(cf.client)
-	return &storeComponent{st, started}, cf.startFunc(st, started), nil
+	return st, cf.startFunc(st), nil
 }
 
-func (cf *dependencyConfig) startFunc(st *etcdStore, started chan<- struct{}) daemon.StartFunc {
+func (cf *dependencyConfig) startFunc(st *etcdStore) daemon.StartFunc {
 	// the restart interval is set so that it will try at least once
 	// before records expire.
 	ttl := time.Duration(cf.ttl) * time.Second
 	hb := &heartbeat.HeartbeatConfig{
 		Cluster: st,
 		TTL:     ttl,
-		Started: started,
 	}
 
 	return daemon.Aggregate(

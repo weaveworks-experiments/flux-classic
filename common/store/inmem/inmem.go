@@ -38,7 +38,6 @@ func NewInMem() *InMem {
 }
 
 type InMem struct {
-	store.StoreComponentDefault
 	services        map[string]store.Service
 	groupSpecs      map[string]map[string]store.ContainerRule
 	instances       map[string]map[string]*sessionInstance
@@ -62,7 +61,7 @@ type inmemStore struct {
 	session string
 }
 
-func (inmem *InMem) Store(sessionID string) store.StoreComponent {
+func (inmem *InMem) Store(sessionID string) store.Store {
 	return &inmemStore{
 		InMem:   inmem,
 		session: sessionID,

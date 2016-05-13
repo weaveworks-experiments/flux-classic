@@ -27,6 +27,10 @@ type setInstances struct {
 
 func (conf setInstancesConfig) StartFunc() daemon.StartFunc {
 	return daemon.SimpleComponent(func(stop <-chan struct{}, errs daemon.ErrorSink) {
+		// Announce our presence
+		conf.store.RegisterHost(conf.hostIP.String(),
+			&store.Host{IP: conf.hostIP})
+
 		si := setInstances{
 			setInstancesConfig: conf,
 			errs:               errs,

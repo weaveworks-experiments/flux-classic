@@ -43,18 +43,3 @@ type Store interface {
 
 	WatchServices(ctx context.Context, resCh chan<- ServiceChange, errorSink daemon.ErrorSink, opts QueryServiceOptions)
 }
-
-// A store that is used as a component
-type StoreComponent interface {
-	Store
-	// block the current goroutine until the store is started
-	WaitUntilStarted()
-}
-
-// Inline this to get trvial implementations of the StoreComponent methods
-type StoreComponentDefault struct {
-}
-
-func (_ StoreComponentDefault) WaitUntilStarted() {
-	return
-}

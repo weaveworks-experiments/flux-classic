@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	etcd "github.com/coreos/etcd/client"
@@ -18,8 +19,10 @@ import (
 
 type etcdStore struct {
 	etcdutil.Client
-	ctx     context.Context
-	session string
+	ctx          context.Context
+	session      string
+	sessionReady chan struct{}
+	initSession  sync.Once
 }
 
 type sessionInstance struct {
@@ -46,8 +49,11 @@ func New(c etcdutil.Client) store.Store {
 }
 
 func newEtcdStore(c etcdutil.Client) *etcdStore {
-	session := makeSessionID()
-	return &etcdStore{Client: c, ctx: context.Background(), session: session}
+	return &etcdStore{
+		Client:       c,
+		ctx:          context.Background(),
+		sessionReady: make(chan struct{}),
+	}
 }
 
 func makeSessionID() string {
@@ -330,6 +336,7 @@ func (es *etcdStore) RemoveContainerRule(serviceName string, ruleName string) er
 }
 
 func (es *etcdStore) AddInstance(serviceName string, instanceName string, instance store.Instance) error {
+	<-es.sessionReady
 	return es.setJSON(instanceKey(serviceName, instanceName),
 		sessionInstance{Instance: instance, Session: es.session})
 }
@@ -450,11 +457,11 @@ func hostKey(identity string) string {
 }
 
 func (es *etcdStore) RegisterHost(identity string, details *store.Host) error {
-	sh := sessionHost{
+	<-es.sessionReady
+	return es.setJSON(hostKey(identity), sessionHost{
 		Host:    details,
 		Session: es.session,
-	}
-	return es.setJSON(hostKey(identity), sh)
+	})
 }
 
 func (es *etcdStore) DeregisterHost(identity string) error {
@@ -553,6 +560,10 @@ func sessionKey(id string) string {
 }
 
 func (es *etcdStore) Heartbeat(ttl time.Duration) error {
+	es.initSession.Do(func() {
+		es.session = makeSessionID()
+		close(es.sessionReady)
+	})
 	_, err := es.Set(es.ctx, sessionKey(es.session), es.session, &etcd.SetOptions{TTL: ttl})
 	return err
 }

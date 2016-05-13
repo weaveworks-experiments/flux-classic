@@ -18,11 +18,6 @@ import (
 	"github.com/weaveworks/flux/common/test/embeddedetcd"
 )
 
-type mockStoreComponent struct {
-	store.StoreComponentDefault
-	store.Store
-}
-
 func TestEtcdRestart(t *testing.T) {
 	server, err := embeddedetcd.NewSimpleEtcd()
 	require.Nil(t, err)
@@ -45,7 +40,7 @@ func TestEtcdRestart(t *testing.T) {
 			chain:  "FLUX",
 			bridge: "lo",
 		},
-		store:        &mockStoreComponent{Store: st},
+		store:        st,
 		eventHandler: eventlogger.EventLogger{},
 	}
 	start, err := cf.Prepare()

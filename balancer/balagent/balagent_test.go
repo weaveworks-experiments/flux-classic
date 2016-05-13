@@ -51,7 +51,7 @@ func TestBalancerAgent(t *testing.T) {
 	cf.template, err = tmpl.Parse(`
 {{$HOME := .Getenv "HOME"}}
 {{if len $HOME}}{{else}}No $HOME{{end}}
-{{range .}}{{.Name}}:{{range $name, $addr := .Instances}} ({{$name}}, {{$addr}}){{end}}
+{{range $svcname, $svc := .}}{{$svcname}}:{{range $addr, $inst := $svc.IngressInstances}} ({{$addr}}, {{$inst.Weight}}){{end}}
 {{end}}`)
 	require.Nil(t, err)
 
@@ -66,23 +66,25 @@ func TestBalancerAgent(t *testing.T) {
 	requireFile(t, cf.filename, "service1:")
 
 	// Add an instance to the service:
-	require.Nil(t, cf.store.AddInstance("service1", "inst1",
-		store.Instance{Address: netutil.ParseIPPortPtr("5.6.7.8:1")}))
+	require.Nil(t, cf.store.AddIngressInstance("service1",
+		*netutil.ParseIPPortPtr("5.6.7.8:1"),
+		store.IngressInstance{Weight: 42}))
 	<-cf.generated
-	requireFile(t, cf.filename, "service1: (inst1, 5.6.7.8:1)")
+	requireFile(t, cf.filename, "service1: (5.6.7.8:1, 42)")
 
 	// And another instance:
-	require.Nil(t, cf.store.AddInstance("service1", "inst2",
-		store.Instance{Address: netutil.ParseIPPortPtr("9.10.11.12:2")}))
+	require.Nil(t, cf.store.AddIngressInstance("service1",
+		*netutil.ParseIPPortPtr("9.10.11.12:2"),
+		store.IngressInstance{Weight: 7}))
 	<-cf.generated
-	requireFile(t, cf.filename, "service1: (inst1, 5.6.7.8:1) (inst2, 9.10.11.12:2)")
+	requireFile(t, cf.filename, "service1: (5.6.7.8:1, 42) (9.10.11.12:2, 7)")
 
 	// Add another service:
 	require.Nil(t, cf.store.AddService("service2", store.Service{
 		Protocol: "http",
 	}))
 	<-cf.generated
-	requireFile(t, cf.filename, `service1: (inst1, 5.6.7.8:1) (inst2, 9.10.11.12:2)
+	requireFile(t, cf.filename, `service1: (5.6.7.8:1, 42) (9.10.11.12:2, 7)
 service2:`)
 
 	// Delete first service:

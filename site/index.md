@@ -1,23 +1,25 @@
 ---
-title: Weave Flux documentation
+title: About Weave Flux
 menu_order: 10
 ---
 
-Flux is a service routing layer for containers.
+Weave Flux is a service routing layer for containers.
 
-Once upon a time, most web applications had a simple architecture: a
+At one time, most web applications had a simple architecture: a
 load balancer relayed requests to a single uniform tier of application
-servers, which connected to a database.  Assembling the pieces of such
+servers that connected to a database.  Assembling the pieces of such
 an architecture and troubleshooting any problems was relatively
 straightforward.
+
+###Taming Microservices Complexity
 
 These days, many projects are using microservices instead.  But the
 benefits of microservices come at the cost of a more complicated
 architecture.  Flux aims to help tame this complexity.
 
 *When there's a problem, it can be hard to identify which
-microservice is at fault*. Flux can show you information about the
-requests between microservices, to help isolate problems.
+microservice is at fault*. Flux shows you information about the
+requests between microservices, to help you isolate problems.
 
 *Flux provides lightweight client-side proxying, to load balance
 requests between microservices*.  This avoids the additional latency or
@@ -39,11 +41,11 @@ With Flux's service routing layer, you can:
   supported)
 
 Flux is not a platform, and does not require changes to your
-application code. It can work with other Docker-based tooling, such as
+application code. It works with other Docker-based tooling, such as
 container schedulers.  Flux works with Weave Net and other Docker
 network plugins, but does not require them.
 
-If you are new to Flux, perhaps try the [getting started
+If you are new to Flux, try the [getting started
 guide](/site/getstarted.md) or read the technical
 [overview](/site/overview.md).  Otherwise, other guides and reference
 docs are linked from the contents to the side.

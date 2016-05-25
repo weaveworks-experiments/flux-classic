@@ -1,5 +1,5 @@
 ---
-title: Web dashboard
+title: Web Dashboard
 menu_order: 80
 ---
 
@@ -27,5 +27,7 @@ docker run -d -e ETCD_ADDRESS -e PROMETHEUS_ADDRESS -p 7070:7070 \
     --name=fluxweb weaveworks/flux-web
 ```
 
-See ["Integrating with Prometheus"](/site/prometheus.md) for how to
-set Prometheus up.
+
+**See Also**
+
+ * [Integrating with Prometheus](/site/prometheus.md)

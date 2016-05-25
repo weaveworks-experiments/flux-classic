@@ -100,7 +100,7 @@ df705d7e3a3c8b7a1c4e95b9e6c2d005f9bae2088155ac637f0d88802318b014
 
 You have now deployed Flux!
 
-## A simple service example
+## A Simple Service Example
 
 In this section, we'll define a service consisting of some Apache
 httpd containers, and then send requests to the service with curl.  In
@@ -239,7 +239,7 @@ error:
 
 <img src="images/swarm-ui-chart-nosuch.jpg" alt="Flux UI" width="800" height="583" />
 
-## Integrating load balancers
+## Integrating Load Balancers
 
 Here, we will deploy a load balancer to make our service accessible
 outside our application.

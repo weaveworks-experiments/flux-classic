@@ -6,13 +6,13 @@ menu_order: 90
 Flux has a two-part integration with
 [Prometheus](https://github.com/prometheus/prometheus): firstly, the
 Flux daemon `fluxd` exposes metrics that Prometheus can scrape; and
-secondly, the web dashboard will query those metrics to populate its
+secondly, the web dashboard queries those metrics to populate its
 charts and gauges.
 
 ## Exposing stats to Prometheus from fluxd
 
-Prometheus needs some way discover all of the hosts running fluxd, so
-that it can probe them for metrics.  The docker image
+Prometheus needs a way to discover all of the hosts running fluxd, so
+that it can probe them for metrics.  The Docker image
 `weaveworks/flux-prometheus-etcd` provides a Prometheus server that is
 customized to automatically discover `fluxd` instances via etcd.  You
 don't need to supply any options to `fluxd` to enable the integration

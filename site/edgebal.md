@@ -1,5 +1,5 @@
 ---
-title: Edge-balancer Docker image
+title: Edge-balancer Docker Image
 menu_order: 70
 ---
 

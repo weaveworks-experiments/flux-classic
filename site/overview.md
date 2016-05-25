@@ -8,7 +8,7 @@ This page describes the main concepts needed to use Flux.
 ## Key concepts
 
 Weave Flux lets you define _services_.  A service has an IP address
-and port.  These service addresses are _floating addresses_; they
+and port.  These service addresses are _floating addresses_ and they
 don't correspond to any host.  When clients attempt to connect to one,
 the Flux daemon transparently forwards the connection to a service
 _instance_.  Connections are load balanced over the available
@@ -43,3 +43,11 @@ to provide runtime metrics for services.
 
 [etcd-site]: https://github.com/coreos/etcd
 [prometheus-site]: https://github.com/prometheus/prometheus
+
+
+**See Also**
+
+ * [ The Flux daemon, fluxd](/site/daemon.md)
+ * [Edge-balancer Docker Image](/site/edgebal.md)
+ * [fluxctl command-line interface](/site/fluxctl.md)
+ * [Integrating with Prometheus](/site/prometheus.md)

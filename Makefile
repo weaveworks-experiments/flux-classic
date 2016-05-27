@@ -5,7 +5,7 @@ REVISION:="$(shell git rev-parse --short=12 HEAD)"
 VERSION:="head"
 GOFLAGS:=-ldflags "-X $(BASEPKG)/common/version.version=$(VERSION) -X $(BASEPKG)/common/version.revision=$(REVISION)"
 
-BUILD_IMAGES=build webbuild site
+BUILD_IMAGES=build webbuild
 IMAGES:=fluxd web fluxctl edgebal prometheus-etcd
 GODIRS:=$(COMPONENTS) common
 

@@ -1,6 +1,6 @@
 ---
-layout: page
-title: Web dashboard
+title: Web Dashboard
+menu_order: 80
 ---
 
 Flux provides a view of your services' configuration and performance
@@ -27,5 +27,7 @@ docker run -d -e ETCD_ADDRESS -e PROMETHEUS_ADDRESS -p 7070:7070 \
     --name=fluxweb weaveworks/flux-web
 ```
 
-See ["Integrating with Prometheus"](prometheus) for how to set
-Prometheus up.
+
+**See Also**
+
+ * [Integrating with Prometheus](/site/prometheus.md)

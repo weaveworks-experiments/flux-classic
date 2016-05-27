@@ -1,36 +1,34 @@
 ---
-layout: page
-title: Getting started with Flux
+title: Getting Started with Flux
+menu_order: 30
 ---
 
-This is a guide to getting a minimal Flux system running. It assumes
-only that you have a host running Docker -- to get to that point, you
-can [install Docker][docker-install], or use
+This guide will assist you in getting a minimal Flux system running. It assumes
+that you have a host running Docker -- to get to that point, you
+can [install Docker][docker-install], or you can use
 [docker-machine][docker-machine] to create a VM on which to run it.
 
-I'll take some shortcuts here, in particular by using prepared images
-for some of the prerequisites. This is just so we can proceed quickly
+There will be a few shortcuts taken here, in particular, you will use prepared images
+for some of the prerequisites. This is just so you can proceed quickly
 to "kicking the tires".
 
 ## Prerequisites
 
-First we'll set up a couple of environment variables for things we'll
-use repeatedly. We need a host IP address for whatever is running
-Flux, and an address for things to find `etcd` on. The host IP needs
+First set up the environment variables. You need a host IP address for whatever is running
+Flux, and also an address for things to find `etcd` on. The host IP needs
 to be accessible from inside Docker containers, so `localhost` (or
-`127.0.0.1`) won't do; the IP address assigned to your host on the
-local network will do the trick, or if you're using Docker on a VM,
-the address assigned to that VM.
+`127.0.0.1`) won't do, so use the IP address assigned to your host on the
+local network, or if you're using Docker on a VM use the address assigned to that VM.
 
 ```sh
-# I got this by looking at the output of ifconfig
+# look at the output of ifconfig
 $ export HOST_IP=192.168.3.165
 # If using docker-machine, use something like
 # export HOST_IP=$(docker-machine ip flux)
 ```
 
-OK, now let's run the two bits of infrastructure we need: etcd and
-Prometheus. We'll run them in containers, of course.
+Now you're ready to run the two bits of necessary infrastructure: etcd and
+Prometheus. We'll run them in containers.
 
 ```sh
 $ docker run --name=etcd -d -p $HOST_IP:2379:2379 quay.io/coreos/etcd \
@@ -39,15 +37,16 @@ $ docker run --name=etcd -d -p $HOST_IP:2379:2379 quay.io/coreos/etcd \
 # ...
 $ export ETCD_ADDRESS=http://$HOST_IP:2379
 
-# And run our pre-baked image of Prometheus
+# And now run the pre-baked image of Prometheus
+
 $ docker run --name=prometheus -d -e ETCD_ADDRESS -p $HOST_IP::9090 \
        weaveworks/flux-prometheus-etcd
 # ...
 $ export PROMETHEUS_ADDRESS=http://$(docker port prometheus 9090)
 ```
 
-Now we have both etcd and prometheus, and (in the environment entries)
-what we need to tell Flux so it can reach them.
+Now that both etcd and prometheus are running, and (in the environment entries), 
+you need to tell Flux so that it can reach them.
 
 ## Starting fluxd
 
@@ -60,9 +59,9 @@ what we need to tell Flux so it can reach them.
   host to service instances.
 
 It's necessary to pass a few options to `docker run` to give `fluxd`
-the privileges it needs.  If you were deploying flux as part of a
-production system, you would incorporate these options in your
-deployment scripts, but we show them in full here:
+the privileges it needs.  If deploying flux as part of a
+production system, you can incorporate these options into your
+deployment scripts, but they are instead shown in full here:
 
 ```sh
 $ docker run --name=fluxd -d -e ETCD_ADDRESS \
@@ -92,15 +91,15 @@ CONTAINER ID        IMAGE                             COMMAND                  C
 
 ## Trying it out
 
-Now we'll actually use Flux! Once it's running, you control Flux with
-`fluxctl`. This is available as a Docker image. We'll drive it using
-an alias, to avoid typing the `docker run ...` bit again and again:
+Now you can actually use Flux! Once it's running, you control Flux with
+`fluxctl`. This is available as a Docker image. Run it by using
+an alias, which will avoid typing the `docker run ...` bit again and again:
 
 ```sh
 $ alias fluxctl="docker run --rm -e ETCD_ADDRESS weaveworks/fluxctl"
 ```
 
-To try it out, see what `fluxctl info` gives us:
+To try it out, see what `fluxctl info` outputs:
 
 ```sh
 $ fluxctl info
@@ -110,12 +109,12 @@ HOSTS
 SERVICES
 ```
 
-Not much there -- but since we haven't done anything yet, no errors is
-all we should expect. You can try `fluxctl info` at each stage that
+Not much there -- but since you haven't done anything yet, no errors is
+all that should you expect. You can try `fluxctl info` at each stage that
 follows, to see how it reports the state of the system.
 
-We'll start by creating a service `hello`, which will represent some
-hello-world containers we'll run presently.
+Start by creating a service `hello`, which will represent some
+hello-world containers.
 
 ```sh
 $ fluxctl service hello --address 10.128.0.1:80 --protocol=http
@@ -125,11 +124,11 @@ $ fluxctl select hello default --image weaveworks/hello-world
 The first command defines the service, gives it an address, and tells
 Flux that it should treat traffic to the service as HTTP (the default
 is just TCP). The second command adds a rule called `default`, that
-will select containers using the image `weaveworks/hello-world` to be
+selects containers using the image `weaveworks/hello-world` to be
 instances of the service; i.e., to handle requests to the service
 address.
 
-Let's start some of those containers.
+Next start some of these containers by running:
 
 ```sh
 $ docker run -d -P weaveworks/hello-world
@@ -140,7 +139,7 @@ $ docker run -d -P weaveworks/hello-world
 # ...
 ```
 
-Now we can see if Flux has noticed them:
+Now check if Flux has noticed them:
 
 ```sh
 $ fluxctl info
@@ -159,7 +158,7 @@ hello
     8ddfcaaf64fdf10b47440bba61d0560371828ba49d0cde06d7f8969a77ae9e09 192.168.3.165:32770 live
 ```
 
-Neat. Let's check if we can get an actual web page up.
+Let's check if you can get an actual web page up.
 
 ```sh
 $ docker run --rm tutum/curl sh -c 'while true; do curl -s http://10.128.0.1/; done'
@@ -169,8 +168,8 @@ $ docker run --rm tutum/curl sh -c 'while true; do curl -s http://10.128.0.1/; d
 
 How about seeing it in a browser? Well, at the moment Flux is only
 exposing the service on the service address, and that's only available
-locally on the hosts Flux is running on (a bit like 127.0.0.1). If we
-want to expose the service on an externally-accessible address, we can
+locally on the hosts Flux is running on (a bit like 127.0.0.1). If you
+want to expose the service on an externally-accessible address,
 run an edge balancer -- so called because it runs on the edge of your
 application, making it available to clients from outside.
 
@@ -184,12 +183,12 @@ Now you should be able to see the service by pointing a browser at
 
 ![Hello World in a browser](images/hello-world.png)
 
-## Starting the web UI
+## Starting the Web UI
 
-Flux had a web console for seeing the services with ther instances,
+Flux had a web console for seeing the services with their instances,
 and tracking their metrics.
 
-To run it, we need the etcd address and the Prometheus address from
+To run it, use both the etcd address and the Prometheus addresses from
 before.
 
 ```sh
@@ -197,7 +196,7 @@ $ docker run --name=fluxweb -d -e ETCD_ADDRESS -e PROMETHEUS_ADDRESS -P \
     weaveworks/flux-web
 ```
 
-The `-P` means Docker will choose the port on which to expose the web
+The `-P` means Docker chooses the port on which to expose the web
 UI; you can see what address to open using `docker port fluxweb
 7070`, or just use `-p 7070:7070` in the above to fix it to `7070`.
 

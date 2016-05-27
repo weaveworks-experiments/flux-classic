@@ -1,6 +1,6 @@
 ---
-layout: page
-title: The Flux daemon, fluxd
+title: The Flux Daemon, fluxd
+menu_order: 60
 ---
 
 The Flux daemon (`fluxd`) runs on each host, and does two things:
@@ -11,12 +11,12 @@ The Flux daemon (`fluxd`) runs on each host, and does two things:
 
 `fluxd` is available as the Docker image `weaveworks/fluxd`.
 
-## Operating the daemon
+## Operating the Daemon
 
 The daemon needs to know how to extract an address from a container,
 so that other daemons can reach the container when proxying
-connections. Minimally, it needs to be told the IP address of the host
-it's running on. The host IP address must be reachable from other
+connections. Minimally, it needs to be told the IP address of the host on
+which it's running. The host IP address must be reachable from other
 hosts. This is supplied in the `HOST_IP` environment entry, or the
 `--host-ip` argument.
 
@@ -32,7 +32,7 @@ Docker's Unix domain socket (usually `/var/run/docker.sock`) using
 The daemon needs to run using the host's network stack, and with the
 `NET_ADMIN` capability (or simply privileged).
 
-### Example of running fluxd
+### Example of Running fluxd
 
 Assuming `ETCD_ADDRESS` and `HOST_IP` are in the environment already,
 a Docker command to start the daemon looks like this:
@@ -47,7 +47,7 @@ docker run -d --name "fluxd" --cap-add=NET_ADMIN --net=host \
 The script `bin/run-flux` is essentially a wrapper for this
 invocation.
 
-### More on container addresses
+### More on Container Addresses
 
 By default, the daemon will assume you are publishing ports, and
 extract an address from each container by using the host port that
@@ -58,16 +58,16 @@ connect to each other across hosts without port mapping, you can tell
 the daemon this with a `--network-mode=global` argument
 (`--network-mode=local` is the default).
 
-In this case, the daemon will look in the container's network settings
-to find an IP address, and use the port given in the _service_'s
+In this case, the daemon looks in the container's network settings
+to find an IP address, and uses the port given in the _service_'s
 address.
 
 A special case is if you run a container in the host's networking
-namespace (using `--net=host`). The daemon will use the host IP
+namespace (using `--net=host`). The daemon uses the host IP
 address it was given along with the service port, disregarding the
 network mode.
 
-### Exposing metrics to Prometheus
+### Exposing Metrics to Prometheus
 
 The daemon exposes a handful of metrics for the connections it
 proxies.
@@ -79,7 +79,7 @@ proxies.
 | flux_http_roundtrip_usec | A summary of HTTP roundtrip times, in microseconds |
 | flux_http_total_usec | A summary of HTTP total transaction time, in microseconds |
 
-### Daemon command-line reference
+### Daemon Command-line Reference
 
 ```
 Usage of fluxd:

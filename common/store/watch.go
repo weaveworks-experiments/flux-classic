@@ -87,12 +87,7 @@ func (ws *watchServices) doInitialQuery() error {
 		return err
 	}
 
-	updates := make(map[string]*ServiceInfo)
-	for _, svc := range svcs {
-		updates[svc.Name] = svc
-	}
-
-	ws.callback(ServiceUpdate{Services: updates, Reset: true},
+	ws.callback(ServiceUpdate{Services: svcs, Reset: true},
 		ws.context.Done())
 	return nil
 }

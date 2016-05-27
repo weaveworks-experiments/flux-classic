@@ -1,7 +1,6 @@
 package main
 
 import (
-	"net"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -10,7 +9,7 @@ import (
 	"github.com/weaveworks/flux/common/store"
 )
 
-func allServices(t *testing.T, st store.Store) []*store.ServiceInfo {
+func allServices(t *testing.T, st store.Store) map[string]*store.ServiceInfo {
 	services, err := st.GetAllServices(store.QueryServiceOptions{})
 	require.NoError(t, err)
 	return services
@@ -26,7 +25,7 @@ func TestMinimal(t *testing.T) {
 	require.NoError(t, err)
 	services := allServices(t, st)
 	require.Len(t, services, 1)
-	require.Equal(t, "foo", services[0].Name)
+	require.NotNil(t, services["foo"])
 }
 
 func TestParseAddress(t *testing.T) {
@@ -36,7 +35,7 @@ func TestParseAddress(t *testing.T) {
 	svc, err = parseAddress("192.168.45.76:8000")
 	require.NoError(t, err)
 	require.Equal(t, store.Service{
-		Address:  &netutil.IPPort{net.ParseIP("192.168.45.76"), 8000},
+		Address:  netutil.ParseIPPortPtr("192.168.45.76:8000"),
 		Protocol: "",
 	}, svc)
 }
@@ -47,9 +46,9 @@ func TestServiceAddress(t *testing.T) {
 	require.NoError(t, err)
 	services := allServices(t, st)
 	require.Len(t, services, 1)
-	require.Equal(t, "foo", services[0].Name)
-	require.Equal(t, &netutil.IPPort{net.ParseIP("10.3.4.5"), 8000}, services[0].Address)
-	require.Equal(t, 7777, services[0].InstancePort)
+	require.NotNil(t, services["foo"])
+	require.Equal(t, netutil.ParseIPPortPtr("10.3.4.5:8000"), services["foo"].Address)
+	require.Equal(t, 7777, services["foo"].InstancePort)
 }
 
 func TestServiceSelect(t *testing.T) {
@@ -67,5 +66,5 @@ func TestServiceSelect(t *testing.T) {
 		Selector: map[string]string{
 			"image": "repo/image",
 		},
-	}, specs[DEFAULT_GROUP])
+	}, specs[DEFAULT_RULE])
 }

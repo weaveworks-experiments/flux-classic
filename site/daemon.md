@@ -94,7 +94,7 @@ Usage of fluxd:
   -host-ip string
     	IP address for instances with mapped ports
   -host-ttl int
-    	Time-to-live for host record; the daemon will try to refresh this on a schedule such that it doesn't lapse (default 30)
+        The daemon will give its records this time-to-live in seconds, and refresh them while it is running (default 30)
   -listen-prometheus string
     	listen for connections from Prometheus on this IP address and port; e.g., :9000
   -network-mode string

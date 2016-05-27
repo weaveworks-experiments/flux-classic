@@ -40,14 +40,14 @@ func (cf *hostIPConfig) Populate(deps *daemon.Dependencies) {
 	deps.StringVar(&cf.hostIP, "host-ip", "", "externally accessible IP address for host")
 }
 
-func (cf *hostIPConfig) MakeValue() (interface{}, error) {
+func (cf *hostIPConfig) MakeValue() (interface{}, daemon.StartFunc, error) {
 	hostIP, source, err := cf.findHostIP()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	log.Infof("Using host IP address %s from %s", hostIP, source)
-	return hostIP, nil
+	return hostIP, nil, nil
 }
 
 func (cf *hostIPConfig) findHostIP() (net.IP, string, error) {

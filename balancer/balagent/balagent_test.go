@@ -3,7 +3,6 @@ package balagent
 import (
 	"fmt"
 	"io/ioutil"
-	"net"
 	"os"
 	"path"
 	"sort"
@@ -14,31 +13,40 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/weaveworks/flux/balancer/model"
 	"github.com/weaveworks/flux/common/daemon"
 	"github.com/weaveworks/flux/common/netutil"
 	"github.com/weaveworks/flux/common/store"
 	"github.com/weaveworks/flux/common/store/inmem"
 )
 
-type instances []model.Instance
-
-func (insts instances) Len() int { return len(insts) }
-
-func (insts instances) Less(i, j int) bool {
-	return insts[i].Name < insts[j].Name
+type ingressInstance struct {
+	Address netutil.IPPort
+	store.IngressInstance
 }
 
-func (insts instances) Swap(i, j int) {
-	t := insts[i]
-	insts[i] = insts[j]
-	insts[j] = t
+type ingressInstances []ingressInstance
+
+func (iis ingressInstances) Len() int { return len(iis) }
+
+func (iis ingressInstances) Less(i, j int) bool {
+	return iis[i].Address.LessThan(iis[j].Address)
 }
 
-func sortInsts(a interface{}) interface{} {
-	insts := instances(a.([]model.Instance))
-	sort.Sort(insts)
-	return insts
+func (iis ingressInstances) Swap(i, j int) {
+	t := iis[i]
+	iis[i] = iis[j]
+	iis[j] = t
+}
+
+func sortIngressInstances(iis map[netutil.IPPort]store.IngressInstance) ingressInstances {
+	var a ingressInstances
+	for addr, ii := range iis {
+		a = append(a,
+			ingressInstance{Address: addr, IngressInstance: ii})
+	}
+
+	sort.Sort(a)
+	return a
 }
 
 func newBalancerAgentConfig(t *testing.T) *BalancerAgentConfig {
@@ -69,20 +77,20 @@ func TestBalancerAgent(t *testing.T) {
 	defer cleanup(cf, t)
 
 	tmpl := template.New("template")
-	tmpl.Funcs(template.FuncMap{"sortInsts": sortInsts})
+	tmpl.Funcs(template.FuncMap{"sortIngressInstances": sortIngressInstances})
 
 	var err error
 	cf.template, err = tmpl.Parse(`
 {{$HOME := .Getenv "HOME"}}
 {{if len $HOME}}{{else}}No $HOME{{end}}
-{{range .}}{{.Name}}:{{range sortInsts .Instances}} ({{.Name}}, {{.Address}}){{end}}
+{{range $svcname, $svc := .}}{{$svcname}}:{{range sortIngressInstances $svc.IngressInstances}} ({{.Address}}, {{.Weight}}){{end}}
 {{end}}`)
 	require.Nil(t, err)
 
 	// Add an initial service with no instances:
 	require.Nil(t, cf.store.AddService("service1", store.Service{
 		Protocol: "http",
-		Address:  &netutil.IPPort{net.ParseIP("1.2.3.4"), 80},
+		Address:  netutil.ParseIPPortPtr("1.2.3.4:80"),
 	}))
 
 	comp, errs := cf.start(t)
@@ -90,23 +98,25 @@ func TestBalancerAgent(t *testing.T) {
 	requireFile(t, cf.filename, "service1:")
 
 	// Add an instance to the service:
-	require.Nil(t, cf.store.AddInstance("service1", "inst1",
-		store.Instance{Address: &netutil.IPPort{net.ParseIP("5.6.7.8"), 1}}))
+	require.Nil(t, cf.store.AddIngressInstance("service1",
+		*netutil.ParseIPPortPtr("5.6.7.8:1"),
+		store.IngressInstance{Weight: 42}))
 	<-cf.generated
-	requireFile(t, cf.filename, "service1: (inst1, 5.6.7.8:1)")
+	requireFile(t, cf.filename, "service1: (5.6.7.8:1, 42)")
 
 	// And another instance:
-	require.Nil(t, cf.store.AddInstance("service1", "inst2",
-		store.Instance{Address: &netutil.IPPort{net.ParseIP("9.10.11.12"), 2}}))
+	require.Nil(t, cf.store.AddIngressInstance("service1",
+		*netutil.ParseIPPortPtr("9.10.11.12:2"),
+		store.IngressInstance{Weight: 7}))
 	<-cf.generated
-	requireFile(t, cf.filename, "service1: (inst1, 5.6.7.8:1) (inst2, 9.10.11.12:2)")
+	requireFile(t, cf.filename, "service1: (5.6.7.8:1, 42) (9.10.11.12:2, 7)")
 
 	// Add another service:
 	require.Nil(t, cf.store.AddService("service2", store.Service{
 		Protocol: "http",
 	}))
 	<-cf.generated
-	requireFile(t, cf.filename, `service1: (inst1, 5.6.7.8:1) (inst2, 9.10.11.12:2)
+	requireFile(t, cf.filename, `service1: (5.6.7.8:1, 42) (9.10.11.12:2, 7)
 service2:`)
 
 	// Delete first service:
@@ -141,7 +151,7 @@ func TestBadTemplate(t *testing.T) {
 	// Add an initial service with no instances:
 	require.Nil(t, cf.store.AddService("service1", store.Service{
 		Protocol: "http",
-		Address:  &netutil.IPPort{net.ParseIP("1.2.3.4"), 80},
+		Address:  netutil.ParseIPPortPtr("1.2.3.4:80"),
 	}))
 
 	comp, errs := cf.start(t)
@@ -160,7 +170,7 @@ func TestReloadCmd(t *testing.T) {
 
 	require.Nil(t, cf.store.AddService("service1", store.Service{
 		Protocol: "http",
-		Address:  &netutil.IPPort{net.ParseIP("1.2.3.4"), 90},
+		Address:  netutil.ParseIPPortPtr("1.2.3.4:90"),
 	}))
 
 	tmp := cf.filename + "-copy"

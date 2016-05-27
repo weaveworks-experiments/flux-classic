@@ -64,9 +64,9 @@ func (opts *queryOpts) run(_ *cobra.Command, args []string) error {
 		sel[store.RuleLabel] = opts.rule
 	}
 
-	var printInstance func(svc *store.ServiceInfo, instName string, inst store.Instance) error
+	var printInstance func(svcName string, svc *store.ServiceInfo, instName string, inst store.Instance) error
 	if opts.quiet {
-		printInstance = func(_ *store.ServiceInfo, instName string, inst store.Instance) error {
+		printInstance = func(_ string, _ *store.ServiceInfo, instName string, _ store.Instance) error {
 			fmt.Fprintln(opts.getStdout(), instName)
 			return nil
 		}
@@ -84,9 +84,9 @@ func (opts *queryOpts) run(_ *cobra.Command, args []string) error {
 			tmpl = template.Must(template.New("instance").Funcs(extraTemplateFuncs).Parse(opts.format))
 		}
 
-		printInstance = func(svc *store.ServiceInfo, instName string, inst store.Instance) error {
+		printInstance = func(svcName string, svc *store.ServiceInfo, instName string, inst store.Instance) error {
 			err := tmpl.Execute(out, instanceForFormat{
-				Service:  svc.Name,
+				Service:  svcName,
 				Name:     instName,
 				State:    inst.Label(store.StateLabel),
 				Instance: inst,
@@ -99,25 +99,25 @@ func (opts *queryOpts) run(_ *cobra.Command, args []string) error {
 		}
 	}
 
-	svcs := make([]*store.ServiceInfo, 1)
+	svcs := make(map[string]*store.ServiceInfo)
 	var err error
 	if opts.service == "" {
 		svcs, err = opts.store.GetAllServices(store.QueryServiceOptions{WithInstances: true})
 	} else {
-		svcs[0], err = opts.store.GetService(opts.service, store.QueryServiceOptions{WithInstances: true})
+		svcs[opts.service], err = opts.store.GetService(opts.service, store.QueryServiceOptions{WithInstances: true})
 	}
 
 	if err != nil {
 		return err
 	}
 
-	for _, svc := range svcs {
+	for svcName, svc := range svcs {
 		for instName, inst := range svc.Instances {
 			if !sel.Includes(&inst) {
 				continue
 			}
 
-			if err := printInstance(svc, instName, inst); err != nil {
+			if err := printInstance(svcName, svc, instName, inst); err != nil {
 				return err
 			}
 		}

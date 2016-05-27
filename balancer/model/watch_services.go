@@ -2,21 +2,16 @@ package model
 
 import (
 	"github.com/weaveworks/flux/common/daemon"
+	"github.com/weaveworks/flux/common/netutil"
 	"github.com/weaveworks/flux/common/store"
 )
 
-func WatchServicesStartFunc(st store.Store, updates chan<- ServiceUpdate) daemon.StartFunc {
+func WatchServicesStartFunc(st store.Store, filterAddressless bool, updates chan<- ServiceUpdate) daemon.StartFunc {
 	sendUpdate := func(su store.ServiceUpdate, stop <-chan struct{}) {
 		update := make(map[string]*Service)
 		for name, svc := range su.Services {
-			var ms *Service
-			if svc != nil {
-				if ms = translateService(svc); ms == nil {
-					continue
-				}
-			}
-
-			update[name] = ms
+			update[name] = translateService(name, svc,
+				filterAddressless)
 		}
 
 		select {
@@ -32,19 +27,20 @@ func WatchServicesStartFunc(st store.Store, updates chan<- ServiceUpdate) daemon
 		sendUpdate)
 }
 
-func translateService(svc *store.ServiceInfo) *Service {
-	insts := []Instance{}
-	for name, instance := range svc.Instances {
+func translateService(name string, svc *store.ServiceInfo, filterAddressless bool) *Service {
+	if svc == nil || (filterAddressless && svc.Address == nil) {
+		return nil
+	}
+
+	insts := make(map[string]netutil.IPPort)
+	for instName, instance := range svc.Instances {
 		if instance.Address != nil {
-			insts = append(insts, Instance{
-				Name:    name,
-				Address: *instance.Address,
-			})
+			insts[instName] = *instance.Address
 		}
 	}
 
 	return &Service{
-		Name:      svc.Name,
+		Name:      name,
 		Protocol:  svc.Protocol,
 		Address:   svc.Address,
 		Instances: insts,

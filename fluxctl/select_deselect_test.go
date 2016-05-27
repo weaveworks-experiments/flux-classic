@@ -44,4 +44,11 @@ func TestSelect(t *testing.T) {
 			"image": "foo/bar",
 		},
 	}, svc.ContainerRules["ok-rule"])
+
+	err = runOptsWithStore(&deselectOpts{}, st, []string{
+		"foo-svc", "ok-rule",
+	})
+	require.NoError(t, err)
+	svc, err = st.GetService("foo-svc", store.QueryServiceOptions{WithContainerRules: true})
+	require.Len(t, svc.ContainerRules, 0)
 }

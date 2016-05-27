@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"os"
 
+	"github.com/weaveworks/flux/common/netutil"
 	"github.com/weaveworks/flux/common/store"
 	"github.com/weaveworks/flux/common/store/etcdstore"
 	"github.com/weaveworks/flux/common/version"
@@ -100,16 +102,27 @@ func (api *api) proxyStats(w http.ResponseWriter, r *http.Request) {
 
 // Wrapper types to decuople the web JSON from the store types
 
+// like netutil.IPPort, but with the fields broken out as a JSON object
+type ipPort struct {
+	IP   net.IP `json:"ip"`
+	Port int    `json:"port"`
+}
+
 type serviceInfo struct {
-	Name string `json:"name"`
-	store.Service
+	Name           string              `json:"name"`
+	Address        *ipPort             `json:"address,omitempty"`
+	InstancePort   int                 `json:"instancePort,omitempty"`
+	Protocol       string              `json:"protocol,omitempty"`
 	Instances      []instanceInfo      `json:"instances,omitempty"`
 	ContainerRules []containerRuleInfo `json:"groups,omitempty"`
 }
 
 type instanceInfo struct {
-	Name string `json:"name"`
-	store.Instance
+	Name          string            `json:"name"`
+	Host          store.Host        `json:"host"`
+	ContainerRule string            `json:"containerRule"`
+	Address       *ipPort           `json:"address,omitempty"`
+	Labels        map[string]string `json:"labels"`
 }
 
 type containerRuleInfo struct {
@@ -117,12 +130,15 @@ type containerRuleInfo struct {
 	store.ContainerRule
 }
 
-func wrapServiceInfo(si store.ServiceInfo) serviceInfo {
+func wrapServiceInfo(name string, si *store.ServiceInfo) serviceInfo {
 	var insts []instanceInfo
 	for instName, inst := range si.Instances {
 		insts = append(insts, instanceInfo{
-			Name:     instName,
-			Instance: inst,
+			Name:          instName,
+			Host:          inst.Host,
+			ContainerRule: inst.ContainerRule,
+			Address:       wrapIPPort(inst.Address),
+			Labels:        inst.Labels,
 		})
 	}
 
@@ -135,17 +151,27 @@ func wrapServiceInfo(si store.ServiceInfo) serviceInfo {
 	}
 
 	return serviceInfo{
-		Name:           si.Name,
-		Service:        si.Service,
+		Name:           name,
+		Address:        wrapIPPort(si.Address),
+		InstancePort:   si.InstancePort,
+		Protocol:       si.Protocol,
 		Instances:      insts,
 		ContainerRules: rules,
 	}
 }
 
-func wrapServiceInfos(sis []*store.ServiceInfo) []serviceInfo {
+func wrapServiceInfos(svcs map[string]*store.ServiceInfo) []serviceInfo {
 	var res []serviceInfo
-	for _, si := range sis {
-		res = append(res, wrapServiceInfo(*si))
+	for name, si := range svcs {
+		res = append(res, wrapServiceInfo(name, si))
 	}
 	return res
+}
+
+func wrapIPPort(addr *netutil.IPPort) *ipPort {
+	if addr == nil {
+		return nil
+	}
+
+	return &ipPort{IP: addr.IP(), Port: addr.Port()}
 }

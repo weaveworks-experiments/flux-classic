@@ -43,7 +43,6 @@ func TestSyncInstancesComponent(t *testing.T) {
 	addService("svc1")
 
 	cf := AgentConfig{
-		hostTTL:           1,
 		hostIP:            net.ParseIP("192.168.11.34"),
 		network:           LOCAL,
 		store:             st,

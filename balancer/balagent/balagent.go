@@ -9,7 +9,8 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/weaveworks/flux/balancer/model"
+	log "github.com/Sirupsen/logrus"
+
 	"github.com/weaveworks/flux/common/daemon"
 	"github.com/weaveworks/flux/common/store"
 	"github.com/weaveworks/flux/common/store/etcdstore"
@@ -44,13 +45,13 @@ func (cf *templateFileConfig) Populate(deps *daemon.Dependencies) {
 		"name of template file with which to generate the output file")
 }
 
-func (cf *templateFileConfig) MakeValue() (interface{}, error) {
+func (cf *templateFileConfig) MakeValue() (interface{}, daemon.StartFunc, error) {
 	tmpl, err := template.ParseFiles(cf.templateFile)
 	if err != nil {
-		return nil, fmt.Errorf(`unable to parse file "%s": %s`, cf.templateFile, err)
+		return nil, nil, fmt.Errorf(`unable to parse file "%s": %s`, cf.templateFile, err)
 	}
 
-	return tmpl, nil
+	return tmpl, nil, nil
 }
 
 type BalancerAgentConfig struct {
@@ -78,17 +79,21 @@ func (cf *BalancerAgentConfig) Prepare() (daemon.StartFunc, error) {
 		cf.reconnectInterval = 10 * time.Second
 	}
 
-	updates := make(chan model.ServiceUpdate)
+	updates := make(chan store.ServiceUpdate)
 	services := make(chan Services, 1)
 
 	return daemon.Aggregate(
 		daemon.Restart(cf.reconnectInterval,
-			model.WatchServicesStartFunc(cf.store, updates)),
+			store.WatchServicesStartFunc(cf.store,
+				store.QueryServiceOptions{
+					WithInstances:        true,
+					WithIngressInstances: true,
+				}, updates)),
 		daemon.SimpleComponent(updater{updates, services}.run),
 		daemon.SimpleComponent(generator{cf, services}.run)), nil
 }
 
-type Services map[string]*model.Service
+type Services map[string]store.ServiceInfo
 
 // For use in templates
 func (Services) Getenv(name string) string {
@@ -98,7 +103,7 @@ func (Services) Getenv(name string) string {
 // Aggregates service updates, and sends snapshots of the full state
 // to the generator goroutine.
 type updater struct {
-	updates  <-chan model.ServiceUpdate
+	updates  <-chan store.ServiceUpdate
 	services chan Services
 }
 
@@ -115,11 +120,11 @@ func (u updater) run(stop <-chan struct{}, _ daemon.ErrorSink) {
 				services = make(Services)
 			}
 
-			for name, service := range updates.Updates {
+			for name, service := range updates.Services {
 				if service == nil {
 					delete(services, name)
 				} else {
-					services[name] = service
+					services[name] = *service
 				}
 			}
 		}
@@ -152,7 +157,11 @@ func (g generator) run(stop <-chan struct{}, errs daemon.ErrorSink) {
 			return
 
 		case services := <-g.services:
-			errs.Post(g.regenerate(services))
+			err := g.regenerate(services)
+			if err != nil {
+				log.Error(err)
+				errs.Post(err)
+			}
 			if g.generated != nil {
 				g.generated <- struct{}{}
 			}

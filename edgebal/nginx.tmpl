@@ -10,11 +10,11 @@ http {
      {{$service := index . (.Getenv "SERVICE")}}
      upstream service {
        {{if $service}}
-         {{range $service.Instances}}server {{.Address.IP}}:{{.Address.Port}};
+         {{range $addr, $inst := $service.IngressInstances}}server {{$addr}} weight={{$inst.Weight}};
          {{end}}
        {{end}}
          server unix:/home/flux/unavailable.sock
-         {{if $service}}{{if len $service.Instances}} backup{{end}}{{end}};
+         {{if $service}}{{if len $service.IngressInstances}} backup{{end}}{{end}};
      }
 
      server {

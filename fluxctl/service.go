@@ -9,7 +9,7 @@ import (
 	"github.com/weaveworks/flux/common/store"
 )
 
-const DEFAULT_GROUP = string("default")
+const DEFAULT_RULE = "default"
 
 type addOpts struct {
 	baseOpts
@@ -40,7 +40,11 @@ func parseAddress(address string) (store.Service, error) {
 		return svc, nil
 	}
 
-	addr, err := netutil.ParseIPPort(address, "", false)
+	addr, err := netutil.ParseIPPort(address)
+	if addr.IP() == nil {
+		return svc, fmt.Errorf("expected IP address in '%s'", address)
+	}
+
 	svc.Address = &addr
 	return svc, err
 }
@@ -61,7 +65,7 @@ func (opts *addOpts) run(cmd *cobra.Command, args []string) error {
 		svc.Protocol = opts.protocol
 	}
 	if opts.instancePort == 0 && svc.Address != nil {
-		svc.InstancePort = svc.Address.Port
+		svc.InstancePort = svc.Address.Port()
 	} else {
 		svc.InstancePort = opts.instancePort
 	}
@@ -77,7 +81,7 @@ func (opts *addOpts) run(cmd *cobra.Command, args []string) error {
 	}
 
 	if spec != nil {
-		if err = opts.store.SetContainerRule(serviceName, DEFAULT_GROUP, *spec); err != nil {
+		if err = opts.store.SetContainerRule(serviceName, DEFAULT_RULE, *spec); err != nil {
 			return fmt.Errorf("Error updating service: %s", err)
 		}
 	}

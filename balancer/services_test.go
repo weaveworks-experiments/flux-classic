@@ -66,25 +66,20 @@ func TestServices(t *testing.T) {
 	}
 
 	// Add a service
+	addr := netutil.NewIPPort(ip, port)
 	svc := model.Service{
 		Name:     "service",
 		Protocol: "tcp",
-		Address:  &netutil.IPPort{ip, port},
-		Instances: []model.Instance{
-			{
-				Name:    "foo",
-				Address: netutil.IPPort{net.ParseIP("127.0.0.1"), 10000},
-			},
+		Address:  &addr,
+		Instances: map[string]netutil.IPPort{
+			"foo": *netutil.ParseIPPortPtr("127.0.0.1:10000"),
 		},
 	}
 	update(svc, true)
 	requireForwarding(t, &mipt)
 
-	insts := []model.Instance{
-		{
-			Name:    "foo",
-			Address: netutil.IPPort{net.ParseIP("127.0.0.1"), 10001},
-		},
+	insts := map[string]netutil.IPPort{
+		"foo": *netutil.ParseIPPortPtr("127.0.0.1:10001"),
 	}
 
 	// Update it
@@ -97,28 +92,10 @@ func TestServices(t *testing.T) {
 	update(svc, false)
 	requireRejecting(t, &mipt)
 
-	// rejecting -> not forwarding
-	svc.Address = nil
-	update(svc, false)
-	requireNotForwarding(t, &mipt)
-
-	// not forwarding -> forwarding
-	svc.Address = &netutil.IPPort{ip, port}
+	// rejecting -> forwarding
 	svc.Instances = insts
 	update(svc, false)
 	requireForwarding(t, &mipt)
-
-	// Now back the other way
-	// forwarding -> not forwarding
-	svc.Address = nil
-	update(svc, false)
-	requireNotForwarding(t, &mipt)
-
-	// not forwarding -> rejecting
-	svc.Address = &netutil.IPPort{ip, port}
-	svc.Instances = nil
-	update(svc, false)
-	requireRejecting(t, &mipt)
 
 	// Delete it
 	updates <- model.ServiceUpdate{

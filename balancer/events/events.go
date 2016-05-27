@@ -5,21 +5,20 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/weaveworks/flux/balancer/model"
+	"github.com/weaveworks/flux/common/netutil"
 )
 
 type Handler interface {
 	Connection(*Connection)
 	HttpExchange(*HttpExchange)
-
-	// Release any resources
-	Stop()
 }
 
 type Connection struct {
-	Service  *model.Service
-	Instance *model.Instance
-	Inbound  *net.TCPAddr
+	ServiceName  string
+	Protocol     string
+	InstanceName string
+	InstanceAddr netutil.IPPort
+	Inbound      *net.TCPAddr
 }
 
 type HttpExchange struct {

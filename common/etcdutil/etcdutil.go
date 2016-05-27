@@ -64,6 +64,7 @@ func (k dependencyKey) MakeConfig() daemon.DependencyConfig {
 func (dependencyKey) Populate(*daemon.Dependencies) {
 }
 
-func (dependencyKey) MakeValue() (interface{}, error) {
-	return NewClientFromEnv()
+func (dependencyKey) MakeValue() (interface{}, daemon.StartFunc, error) {
+	client, err := NewClientFromEnv()
+	return client, nil, err
 }

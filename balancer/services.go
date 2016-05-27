@@ -1,10 +1,13 @@
 package balancer
 
 import (
+	"fmt"
 	log "github.com/Sirupsen/logrus"
+	"net"
 	"sync"
 
 	"github.com/weaveworks/flux/balancer/events"
+	"github.com/weaveworks/flux/balancer/forwarder"
 	"github.com/weaveworks/flux/balancer/model"
 	"github.com/weaveworks/flux/common/daemon"
 )
@@ -143,17 +146,10 @@ func (svc *service) updateState(update *model.Service) error {
 	// start the new forwarder before stopping the old one, to
 	// avoid a window where there is no rule for the service
 	var start func(*model.Service) (serviceState, error)
-	if !shouldForward(update) {
-		start = notForwarding
-	} else if len(update.Instances) == 0 {
+	if len(update.Instances) == 0 {
 		start = svc.startRejecting
 	} else {
-		start = forwardingConfig{
-			netConfig:    svc.netConfig,
-			ipTables:     svc.ipTables,
-			eventHandler: svc.eventHandler,
-			errorSink:    svc.errorSink,
-		}.start
+		start = svc.startForwarding
 	}
 
 	state, err := start(update)
@@ -174,28 +170,6 @@ func (svc *service) close() {
 	svc.state = nil
 }
 
-// If there's no address, don't forward. We will want more
-// sophisticated rules later, if e.g., there are different kinds of
-// forwarding.
-func shouldForward(s *model.Service) bool {
-	return s.Address != nil
-}
-
-// When a service shouldn't be forwarded
-type notforwarding struct{}
-
-func notForwarding(s *model.Service) (serviceState, error) {
-	log.Debugf("moving service %s to state 'notForwarding'", s.Name)
-	return notforwarding(struct{}{}), nil
-}
-
-func (_ notforwarding) stop() {
-}
-
-func (_ notforwarding) update(s *model.Service) (bool, error) {
-	return !shouldForward(s), nil
-}
-
 // When a service should reject packets
 type rejecting func()
 
@@ -203,8 +177,8 @@ func (svc *service) startRejecting(s *model.Service) (serviceState, error) {
 	log.Info("rejecting service: ", s.Summary())
 	rule := []interface{}{
 		"-p", "tcp",
-		"-d", s.Address.IP,
-		"--dport", s.Address.Port,
+		"-d", s.Address.IP(),
+		"--dport", s.Address.Port(),
 		"-j", "REJECT",
 	}
 
@@ -223,5 +197,100 @@ func (rej rejecting) stop() {
 }
 
 func (rej rejecting) update(s *model.Service) (bool, error) {
-	return shouldForward(s) && len(s.Instances) == 0, nil
+	return len(s.Instances) == 0, nil
+}
+
+// When a service should forward packets
+type forwarding struct {
+	svc       *service
+	service   *model.Service
+	forwarder *forwarder.Forwarder
+	rule      []interface{}
+}
+
+func (svc *service) startForwarding(s *model.Service) (serviceState, error) {
+	log.Info("forwarding service: ", s.Summary())
+
+	ip, err := bridgeIP(svc.netConfig.bridge)
+	if err != nil {
+		return nil, err
+	}
+
+	fwd, err := forwarder.Config{
+		ServiceName:  s.Name,
+		Description:  s.Description(),
+		BindIP:       ip,
+		EventHandler: svc.eventHandler,
+		ErrorSink:    svc.errorSink,
+	}.New()
+	if err != nil {
+		return nil, err
+	}
+
+	fwd.SetProtocol(s.Protocol)
+	fwd.SetInstances(s.Instances)
+
+	rule := []interface{}{
+		"-p", "tcp",
+		"-d", s.Address.IP(),
+		"--dport", s.Address.Port(),
+		"-j", "DNAT",
+		"--to-destination", fwd.Addr(),
+	}
+	err = svc.ipTables.addRule("nat", rule)
+	if err != nil {
+		fwd.Stop()
+		return nil, err
+	}
+
+	return forwarding{svc: svc, service: s, forwarder: fwd, rule: rule}, nil
+}
+
+func (fwd forwarding) stop() {
+	fwd.forwarder.Stop()
+	fwd.svc.ipTables.deleteRule("nat", fwd.rule)
+}
+
+func (fwd forwarding) update(s *model.Service) (bool, error) {
+	if len(s.Instances) == 0 {
+		// Need to switch to rejecting
+		return false, nil
+	}
+
+	if s.Equal(fwd.service) {
+		// Same address and same set of instances; stay as it is
+		return true, nil
+	}
+
+	if s.Address == nil || !s.Address.Equal(*fwd.service.Address) {
+		// Address changed, recreate
+		return false, nil
+	}
+
+	log.Info("forwarding service: ", s.Summary())
+	fwd.forwarder.SetProtocol(s.Protocol)
+	fwd.forwarder.SetInstances(s.Instances)
+	return true, nil
+}
+
+func bridgeIP(br string) (net.IP, error) {
+	iface, err := net.InterfaceByName(br)
+	if err != nil {
+		return nil, err
+	}
+
+	addrs, err := iface.Addrs()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, addr := range addrs {
+		if cidr, ok := addr.(*net.IPNet); ok {
+			if ip := cidr.IP.To4(); ip != nil {
+				return ip, nil
+			}
+		}
+	}
+
+	return nil, fmt.Errorf("no IPv4 address found on netdev %s", br)
 }

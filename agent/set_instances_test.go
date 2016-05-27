@@ -63,8 +63,8 @@ func TestSetInstances(t *testing.T) {
 
 	// Add an instance
 	inst := store.Instance{
-		Host:    store.Host{h.hostIP},
-		Address: &netutil.IPPort{net.ParseIP("1.2.3.4"), 8080},
+		Host:    store.Host{IP: h.hostIP},
+		Address: netutil.ParseIPPortPtr("1.2.3.4:8080"),
 	}
 	h.instanceUpdates <- makeInstanceUpdate("svc", "inst", &inst)
 	<-h.didUpdate
@@ -92,17 +92,17 @@ func TestSetInstancesCleanup(t *testing.T) {
 	<-h.instanceUpdatesReset
 
 	h.AddInstance("svc", "old-inst", store.Instance{
-		Host: store.Host{h.hostIP},
+		Host: store.Host{IP: h.hostIP},
 	})
 
 	otherHostInst := store.Instance{
-		Host: store.Host{net.ParseIP("10.98.99.101")},
+		Host: store.Host{IP: net.ParseIP("10.98.99.101")},
 	}
 	h.AddInstance("svc", "other-host-inst", otherHostInst)
 
 	inst := store.Instance{
-		Host:    store.Host{h.hostIP},
-		Address: &netutil.IPPort{net.ParseIP("1.2.3.4"), 8080},
+		Host:    store.Host{IP: h.hostIP},
+		Address: netutil.ParseIPPortPtr("1.2.3.4:8080"),
 	}
 	upd := makeInstanceUpdate("svc", "inst", &inst)
 	upd.Reset = true

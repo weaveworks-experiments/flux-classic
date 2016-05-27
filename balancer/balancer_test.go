@@ -1,7 +1,6 @@
 package balancer
 
 import (
-	"net"
 	"strings"
 	"testing"
 	"time"
@@ -9,7 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/weaveworks/flux/balancer/eventlogger"
-	"github.com/weaveworks/flux/balancer/events"
 	"github.com/weaveworks/flux/balancer/model"
 	"github.com/weaveworks/flux/common/daemon"
 	"github.com/weaveworks/flux/common/etcdutil"
@@ -41,10 +39,8 @@ func TestEtcdRestart(t *testing.T) {
 			chain:  "FLUX",
 			bridge: "lo",
 		},
-		store: st,
-		startEventHandler: func(daemon.ErrorSink) events.Handler {
-			return eventlogger.EventLogger{}
-		},
+		store:        st,
+		eventHandler: eventlogger.EventLogger{},
 	}
 	start, err := cf.Prepare()
 	require.Nil(t, err)
@@ -59,7 +55,7 @@ func TestEtcdRestart(t *testing.T) {
 	// Add a service and instance, and check that the balancer
 	// heard about it
 	require.Nil(t, st.AddService("svc", store.Service{
-		Address:  &netutil.IPPort{net.ParseIP("127.42.0.1"), 8888},
+		Address:  netutil.ParseIPPortPtr("127.42.0.1:8888"),
 		Protocol: "tcp",
 	}))
 	require.False(t, (<-done).Reset)
@@ -74,7 +70,7 @@ func TestEtcdRestart(t *testing.T) {
 	require.True(t, (<-done).Reset)
 
 	require.Nil(t, st.AddInstance("svc", "inst", store.Instance{
-		Address: &netutil.IPPort{net.ParseIP("127.0.0.1"), 10000},
+		Address: netutil.ParseIPPortPtr("127.0.0.1:10000"),
 	}))
 	require.False(t, (<-done).Reset)
 

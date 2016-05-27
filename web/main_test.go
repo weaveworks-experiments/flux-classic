@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -24,13 +23,13 @@ func doRequest(t *testing.T, st store.Store, url string) *httptest.ResponseRecor
 }
 
 var testService = store.Service{
-	Address:  &netutil.IPPort{net.ParseIP("1.2.3.4"), 4321},
+	Address:  netutil.ParseIPPortPtr("1.2.3.4:4321"),
 	Protocol: "tcp",
 }
 
 var testInstance = store.Instance{
 	ContainerRule: "group",
-	Address:       &netutil.IPPort{net.ParseIP("1.2.3.4"), 12345},
+	Address:       netutil.ParseIPPortPtr("1.2.3.4:12345"),
 	Labels:        map[string]string{"key": "val"},
 }
 
@@ -45,11 +44,16 @@ func TestListServices(t *testing.T) {
 	var deets []serviceInfo
 	require.Nil(t, json.Unmarshal(resp.Body.Bytes(), &deets))
 	require.Equal(t, []serviceInfo{serviceInfo{
-		Name:    "svc",
-		Service: testService,
+		Name:         "svc",
+		Address:      wrapIPPort(testService.Address),
+		InstancePort: testService.InstancePort,
+		Protocol:     testService.Protocol,
 		Instances: []instanceInfo{instanceInfo{
-			Name:     "inst",
-			Instance: testInstance,
+			Name:          "inst",
+			Host:          testInstance.Host,
+			ContainerRule: testInstance.ContainerRule,
+			Address:       wrapIPPort(testInstance.Address),
+			Labels:        testInstance.Labels,
 		}},
 	}}, deets)
 }

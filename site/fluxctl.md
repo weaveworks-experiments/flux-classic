@@ -93,7 +93,8 @@ one in a service address. Otherwise, instances won't be addressable
 (and therefore won't be used) until you supply a port.
 
 There are also options for selecting containers to be instances, as a
-shortcut to using a subsequent `fluxctl select ...` command.
+shortcut to using a subsequent `fluxctl select ...` command. This is
+always assumed to be the "default" rule.
 
 ```
 Usage:
@@ -141,25 +142,27 @@ of the rule must also match.
 
 ```
 Usage:
-  fluxctl select <service> <rule> [flags]
+  fluxctl select <service> [<rule name>] [flags]
 
 Flags:
-      --env="": select only containers with these environment variable values, given as comma-delimited key=value pairs
-      --image="": select only containers with this image
-      --labels="": select only containers with these labels, given as comma-delimited key=value pairs
-      --tag="": select only containers with this tag
+      --env string      select only containers with these environment variable values, given as comma-delimited key=value pairs
+      --image string    select only containers with this image
+      --labels string   select only containers with these labels, given as comma-delimited key=value pairs
+      --instance-port number     use this instance port instead of the default for the service
+      --tag string      select only containers with this tag
 ```
-
-When you use `fluxctl select ...`, you give the rule a name. This name
-can be used to remove that rule later. A container that matched the
-removed rule may remain as an instance, if it matches another rule.
 
 ```
 Usage:
-  fluxctl deselect <service> <rule>
+  fluxctl deselect <service> [<rule name>]
 ```
 
 ### Listing Services and Querying Instances
+
+When you use `fluxctl select ...`, the rule is given a name (which is
+assumed to be "default" if you don't supply it). The name is used to
+remove or alter that rule later. A container that matched the removed
+rule may remain as an instance, if it matches another rule.
 
 You can list the currently configured services, and optionally their
 selection rules by using `fluxctl list`.

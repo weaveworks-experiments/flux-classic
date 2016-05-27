@@ -9,7 +9,7 @@ export default class Instance extends React.Component {
 
   renderOther() {
     const imageTitle = `Image:tag: ${this.props.labels.image}:${this.props.labels.tag}`;
-    const address = (this.props.address === undefined) ? `${this.props.address}:${this.props.port}` : 'No address';
+    const address = (this.props.address !== undefined) ? `${this.props.address.ip}:${this.props.address.port}` : 'No address';
     return (
       <div className="instance-other">
         <div className="instance-title truncate" title={'Name: ' + this.props.name}>

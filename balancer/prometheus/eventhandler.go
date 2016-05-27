@@ -1,12 +1,12 @@
 package prometheus
 
 import (
+	"fmt"
 	"net"
 	"net/http"
 	"strconv"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
 	etcd "github.com/coreos/etcd/client"
 	prom "github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/net/context"
@@ -17,141 +17,166 @@ import (
 	"github.com/weaveworks/flux/common/netutil"
 )
 
-type Config struct {
-	ListenAddr    string
-	AdvertiseAddr string
-	EtcdClient    etcdutil.Client
+type eventHandlerSlot struct {
+	slot *events.Handler
 }
 
-type EventHandler struct {
-	errs       daemon.ErrorSink
-	finished   chan struct{}
-	advertiser daemon.Component
+type eventHandlerKey struct{}
+
+func EventHandlerDependency(slot *events.Handler) daemon.DependencySlot {
+	return eventHandlerSlot{slot}
+}
+
+func (eventHandlerSlot) Key() daemon.DependencyKey {
+	return eventHandlerKey{}
+}
+
+func (s eventHandlerSlot) Assign(value interface{}) {
+	*s.slot = value.(events.Handler)
+}
+
+type eventHandlerConfig struct {
+	listenAddr    string
+	advertiseAddr string
+	etcdClient    etcdutil.Client
+	hostIP        net.IP
+}
+
+func (eventHandlerKey) MakeConfig() daemon.DependencyConfig {
+	return &eventHandlerConfig{}
+}
+
+func (cf *eventHandlerConfig) Populate(deps *daemon.Dependencies) {
+	deps.StringVar(&cf.listenAddr,
+		"listen-prometheus", ":9000",
+		"listen for connections from Prometheus on this IP address and port; e.g., :9000")
+	deps.StringVar(&cf.advertiseAddr,
+		"advertise-prometheus", "",
+		"IP address and port to advertise to Prometheus; e.g. 192.168.42.221:9000")
+
+	deps.Dependency(etcdutil.ClientDependency(&cf.etcdClient))
+	deps.Dependency(netutil.HostIPDependency(&cf.hostIP))
+}
+
+type eventHandler struct {
+	*eventHandlerConfig
 
 	events.DiscardOthers
 	connections   *prom.CounterVec
 	http          *prom.CounterVec
 	httpRoundtrip *prom.SummaryVec
 	httpTotal     *prom.SummaryVec
-
-	listener net.Listener
 }
 
-func (cf Config) Prepare() (func(daemon.ErrorSink) events.Handler, error) {
-	startAdvertiser, err := cf.advertiseStartFunc()
-	if err != nil {
-		return nil, err
+func (cf *eventHandlerConfig) MakeValue() (interface{}, daemon.StartFunc, error) {
+	// Default the prom AdvertiseAddr based on the host IP
+	if cf.advertiseAddr == "" {
+		_, port, err := net.SplitHostPort(cf.listenAddr)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		cf.advertiseAddr = fmt.Sprintf("%s:%s", cf.hostIP, port)
+	} else {
+		address, err := netutil.NormalizeHostPort(cf.advertiseAddr,
+			"tcp", false)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		cf.advertiseAddr = address
 	}
 
-	return func(errs daemon.ErrorSink) events.Handler {
-		h := &EventHandler{
-			errs:     errs,
-			finished: make(chan struct{}),
-		}
-		errs.Post(h.start(cf.ListenAddr))
-		h.advertiser = startAdvertiser(errs)
-		return h
-	}, nil
+	httpLabels := []string{"individual", "src", "dst", "method", "code"}
+	h := &eventHandler{
+		eventHandlerConfig: cf,
+
+		connections: prom.NewCounterVec(prom.CounterOpts{
+			Name: "flux_connections_total",
+			Help: "Number of TCP connections established",
+		}, []string{"individual", "src", "dst", "protocol"}),
+
+		http: prom.NewCounterVec(prom.CounterOpts{
+			Name: "flux_http_total",
+			Help: "Number of HTTP request/response exchanges",
+		}, httpLabels),
+
+		httpRoundtrip: prom.NewSummaryVec(prom.SummaryOpts{
+			Name: "flux_http_roundtrip_usec",
+			Help: "HTTP response roundtrip time in microseconds",
+		}, httpLabels),
+
+		httpTotal: prom.NewSummaryVec(prom.SummaryOpts{
+			Name: "flux_http_total_usec",
+			Help: "HTTP total response time in microseconds",
+		}, httpLabels),
+	}
+
+	return h, daemon.Aggregate(h.listenStartFunc,
+		cf.advertiseStartFunc()), nil
 }
 
-func (h *EventHandler) start(listenAddr string) error {
-	h.connections = prom.NewCounterVec(prom.CounterOpts{
-		Name: "flux_connections_total",
-		Help: "Number of TCP connections established",
-	}, []string{"individual", "src", "dst", "protocol"})
-
-	httpLabels := []string{"individual", "src", "dst", "method", "code"}
-
-	h.http = prom.NewCounterVec(prom.CounterOpts{
-		Name: "flux_http_total",
-		Help: "Number of HTTP request/response exchanges",
-	}, httpLabels)
-
-	h.httpRoundtrip = prom.NewSummaryVec(prom.SummaryOpts{
-		Name: "flux_http_roundtrip_usec",
-		Help: "HTTP response roundtrip time in microseconds",
-	}, httpLabels)
-
-	h.httpTotal = prom.NewSummaryVec(prom.SummaryOpts{
-		Name: "flux_http_total_usec",
-		Help: "HTTP total response time in microseconds",
-	}, httpLabels)
+func (h *eventHandler) listenStartFunc(errs daemon.ErrorSink) daemon.Component {
+	stopped := false
 
 	for _, c := range h.collectors() {
-		if err := prom.Register(c); err != nil {
-			return err
-		}
+		errs.Post(prom.Register(c))
 	}
 
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", prom.Handler())
 
-	var err error
-	h.listener, err = net.Listen("tcp", listenAddr)
-	if err != nil {
-		return err
+	listener, err := net.Listen("tcp", h.listenAddr)
+	errs.Post(err)
+	if err == nil {
+		go func() {
+			err := http.Serve(listener, mux)
+			if !stopped {
+				errs.Post(err)
+			}
+		}()
 	}
 
-	go func() {
-		defer close(h.finished)
-		log.Error(http.Serve(h.listener, mux))
-	}()
+	return daemon.StopFunc(func() {
+		stopped = true
 
-	return nil
+		if listener != nil {
+			errs.Post(listener.Close())
+		}
+
+		for _, c := range h.collectors() {
+			prom.Unregister(c)
+		}
+	})
 }
 
-func (h *EventHandler) Stop() {
-	h.advertiser.Stop()
-
-	if h.listener != nil {
-		h.errs.Post(h.listener.Close())
-	}
-
-	for _, c := range h.collectors() {
-		prom.Unregister(c)
-	}
-
-	<-h.finished
-}
-
-func (h *EventHandler) collectors() []prom.Collector {
+func (h *eventHandler) collectors() []prom.Collector {
 	return []prom.Collector{h.connections, h.http, h.httpRoundtrip,
 		h.httpTotal}
 }
 
-func (h *EventHandler) Connection(ev *events.Connection) {
-	h.connections.WithLabelValues(ev.Instance.Name, ev.Inbound.IP.String(), ev.Instance.Address.IP.String(), ev.Service.Protocol).Inc()
+func (h *eventHandler) Connection(ev *events.Connection) {
+	h.connections.WithLabelValues(ev.InstanceName, ev.Inbound.IP.String(), ev.InstanceAddr.IP().String(), ev.Protocol).Inc()
 }
 
-func (h *EventHandler) HttpExchange(ev *events.HttpExchange) {
-	instName := ev.Instance.Name
+func (h *eventHandler) HttpExchange(ev *events.HttpExchange) {
 	src := ev.Inbound.IP.String()
-	dst := ev.Instance.Address.IP.String()
+	dst := ev.InstanceAddr.IP().String()
 	method := ev.Request.Method
 	code := strconv.Itoa(ev.Response.StatusCode)
-	h.http.WithLabelValues(instName, src, dst, method, code).Inc()
-	h.httpRoundtrip.WithLabelValues(instName, src, dst, method, code).Observe(float64(ev.RoundTrip / time.Microsecond))
-	h.httpTotal.WithLabelValues(instName, src, dst, method, code).Observe(float64(ev.TotalTime / time.Microsecond))
+	h.http.WithLabelValues(ev.InstanceName, src, dst, method, code).Inc()
+	h.httpRoundtrip.WithLabelValues(ev.InstanceName, src, dst, method, code).Observe(float64(ev.RoundTrip / time.Microsecond))
+	h.httpTotal.WithLabelValues(ev.InstanceName, src, dst, method, code).Observe(float64(ev.TotalTime / time.Microsecond))
 }
 
 const TTL = 5 * time.Minute
 
-func (cf Config) advertiseStartFunc() (daemon.StartFunc, error) {
-	if cf.AdvertiseAddr == "" {
-		return daemon.NullStartFunc, nil
-	}
-
-	address, err := netutil.NormalizeHostPort(cf.AdvertiseAddr,
-		"tcp", false)
-	if err != nil {
-		return nil, err
-	}
-
+func (cf *eventHandlerConfig) advertiseStartFunc() daemon.StartFunc {
 	run := func(stop <-chan struct{}, errs daemon.ErrorSink) {
 		ctx := context.Background()
 
-		resp, err := cf.EtcdClient.CreateInOrder(ctx,
-			"/weave-flux/prometheus-targets", address,
+		resp, err := cf.etcdClient.CreateInOrder(ctx,
+			"/weave-flux/prometheus-targets", cf.advertiseAddr,
 			&etcd.CreateInOrderOptions{TTL: TTL})
 		if err != nil {
 			errs.Post(err)
@@ -164,13 +189,13 @@ func (cf Config) advertiseStartFunc() (daemon.StartFunc, error) {
 
 		for {
 			select {
-			case <-t.C:
 			case <-stop:
 				return
+			case <-t.C:
 			}
 
-			_, err := cf.EtcdClient.Set(ctx, key, address,
-				&etcd.SetOptions{TTL: TTL})
+			_, err := cf.etcdClient.Set(ctx, key,
+				cf.advertiseAddr, &etcd.SetOptions{TTL: TTL})
 			if err != nil {
 				errs.Post(err)
 				return
@@ -178,5 +203,5 @@ func (cf Config) advertiseStartFunc() (daemon.StartFunc, error) {
 		}
 	}
 
-	return daemon.Restart(TTL/10, daemon.SimpleComponent(run)), nil
+	return daemon.Restart(TTL/10, daemon.SimpleComponent(run))
 }

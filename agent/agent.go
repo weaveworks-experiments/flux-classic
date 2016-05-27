@@ -8,7 +8,6 @@ import (
 	docker "github.com/fsouza/go-dockerclient"
 
 	"github.com/weaveworks/flux/common/daemon"
-	"github.com/weaveworks/flux/common/heartbeat"
 	"github.com/weaveworks/flux/common/netutil"
 	"github.com/weaveworks/flux/common/store"
 	"github.com/weaveworks/flux/common/store/etcdstore"
@@ -23,7 +22,10 @@ type DockerClient interface {
 }
 
 type AgentConfig struct {
-	hostTTL           int
+	// May be pre-set
+	InstanceUpdates      chan<- InstanceUpdate
+	InstanceUpdatesReset chan struct{}
+
 	hostIP            net.IP
 	network           string
 	store             store.Store
@@ -41,7 +43,6 @@ func isValidNetworkMode(mode string) bool {
 }
 
 func (cf *AgentConfig) Populate(deps *daemon.Dependencies) {
-	deps.IntVar(&cf.hostTTL, "host-ttl", 30, "The daemon will give its records this time-to-live in seconds, and refresh them while it is running")
 	deps.StringVar(&cf.network, "network-mode", LOCAL, fmt.Sprintf(`Kind of network to assume for containers (either "%s" or "%s")`, LOCAL, GLOBAL))
 	deps.Dependency(etcdstore.StoreDependency(&cf.store))
 	deps.Dependency(netutil.HostIPDependency(&cf.hostIP))
@@ -63,17 +64,23 @@ func (cf *AgentConfig) Prepare() (daemon.StartFunc, error) {
 		cf.reconnectInterval = 10 * time.Second
 	}
 
-	hb := heartbeat.HeartbeatConfig{
-		Cluster: cf.store,
-		TTL:     time.Duration(cf.hostTTL) * time.Second,
+	if cf.InstanceUpdatesReset == nil {
+		cf.InstanceUpdatesReset = make(chan struct{}, 1)
 	}
 
 	containerUpdates := make(chan ContainerUpdate)
-	containerUpdatesReset := make(chan struct{})
+	containerUpdatesReset := make(chan struct{}, 1)
 	serviceUpdates := make(chan store.ServiceUpdate)
-	serviceUpdatesReset := make(chan struct{})
+	serviceUpdatesReset := make(chan struct{}, 1)
+
 	instanceUpdates := make(chan InstanceUpdate)
-	instanceUpdatesReset := make(chan struct{})
+	instanceUpdatesRead := instanceUpdates
+	instanceUpdatesTee := daemon.NullStartFunc
+	if cf.InstanceUpdates != nil {
+		instanceUpdatesRead = make(chan InstanceUpdate)
+		instanceUpdatesTee = Tee(instanceUpdates, cf.InstanceUpdates,
+			instanceUpdatesRead)
+	}
 
 	syncInstConf := syncInstancesConfig{
 		hostIP:  cf.hostIP,
@@ -84,22 +91,17 @@ func (cf *AgentConfig) Prepare() (daemon.StartFunc, error) {
 		serviceUpdates:        serviceUpdates,
 		serviceUpdatesReset:   serviceUpdatesReset,
 		instanceUpdates:       instanceUpdates,
-		instanceUpdatesReset:  instanceUpdatesReset,
+		instanceUpdatesReset:  cf.InstanceUpdatesReset,
 	}
 
 	setInstConf := setInstancesConfig{
 		hostIP:               cf.hostIP,
 		store:                cf.store,
-		instanceUpdates:      instanceUpdates,
-		instanceUpdatesReset: instanceUpdatesReset,
+		instanceUpdates:      instanceUpdatesRead,
+		instanceUpdatesReset: cf.InstanceUpdatesReset,
 	}
 
-	// Announce our presence
-	cf.store.RegisterHost(cf.hostIP.String(), &store.Host{IP: cf.hostIP})
-
 	return daemon.Aggregate(
-		daemon.Restart(cf.reconnectInterval, hb.Start),
-
 		daemon.Reset(containerUpdatesReset,
 			daemon.Restart(cf.reconnectInterval,
 				dockerListenerStartFunc(cf.dockerClient,
@@ -112,5 +114,6 @@ func (cf *AgentConfig) Prepare() (daemon.StartFunc, error) {
 					serviceUpdates))),
 
 		daemon.Restart(cf.reconnectInterval, syncInstConf.StartFunc()),
-		daemon.Restart(cf.reconnectInterval, setInstConf.StartFunc())), nil
+		daemon.Restart(cf.reconnectInterval, setInstConf.StartFunc()),
+		instanceUpdatesTee), nil
 }

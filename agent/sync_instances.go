@@ -46,6 +46,7 @@ type syncInstances struct {
 }
 
 type service struct {
+	name string
 	*store.ServiceInfo
 
 	// map from instance names (= container ids)
@@ -69,8 +70,7 @@ func (conf syncInstancesConfig) start(stop <-chan struct{}, errs daemon.ErrorSin
 		errs:                errs,
 	}
 
-	si.containerUpdatesReset <- struct{}{}
-	si.serviceUpdatesReset <- struct{}{}
+	si.requestReset()
 
 	for {
 		// Clear the current update
@@ -88,8 +88,7 @@ func (conf syncInstancesConfig) start(stop <-chan struct{}, errs daemon.ErrorSin
 			// Drop state, ask for resets from our sources
 			si.services = nil
 			si.containers = nil
-			si.containerUpdatesReset <- struct{}{}
-			si.serviceUpdatesReset <- struct{}{}
+			si.requestReset()
 
 		case <-stop:
 			return
@@ -116,6 +115,17 @@ func (si *syncInstances) processContainerUpdate(update ContainerUpdate) {
 		} else {
 			si.removeContainer(id)
 		}
+	}
+}
+
+func (si *syncInstances) requestReset() {
+	select {
+	case si.containerUpdatesReset <- struct{}{}:
+	default:
+	}
+	select {
+	case si.serviceUpdatesReset <- struct{}{}:
+	default:
 	}
 }
 
@@ -152,12 +162,11 @@ func (si *syncInstances) removeContainer(id string) {
 
 func (si *syncInstances) addInstances(svc service, cont container) {
 	for _, rule := range svc.ContainerRules {
-		inst := si.extractInstance(cont.Container, svc.ServiceInfo,
-			rule)
+		inst := si.extractInstance(cont.Container, svc.ServiceInfo, &rule)
 		if inst != nil {
 			svc.instances[cont.ID] = inst
-			cont.instances[svc.Name] = struct{}{}
-			si.updateInstance(svc.Name, cont.ID, inst)
+			cont.instances[svc.name] = struct{}{}
+			si.updateInstance(svc.name, cont.ID, inst)
 		}
 	}
 }
@@ -177,24 +186,25 @@ func (si *syncInstances) processServiceUpdate(update store.ServiceUpdate) {
 
 	for svcName, svcInfo := range update.Services {
 		if svcInfo != nil {
-			si.updateService(svcInfo)
+			si.updateService(svcName, svcInfo)
 		} else {
 			si.removeService(svcName)
 		}
 	}
 }
 
-func (si *syncInstances) updateService(svcInfo *store.ServiceInfo) {
+func (si *syncInstances) updateService(svcName string, svcInfo *store.ServiceInfo) {
 	if si.services == nil {
 		return
 	}
 
 	svc := service{
+		name:        svcName,
 		ServiceInfo: svcInfo,
 		instances:   make(map[string]*store.Instance),
 	}
-	old := si.services[svcInfo.Name]
-	si.services[svcInfo.Name] = svc
+	old := si.services[svcName]
+	si.services[svcName] = svc
 
 	for _, cont := range si.containers {
 		si.addInstances(svc, cont)
@@ -203,7 +213,7 @@ func (si *syncInstances) updateService(svcInfo *store.ServiceInfo) {
 	// See if any instances should go away
 	for instName := range old.instances {
 		if svc.instances[instName] == nil {
-			si.updateInstance(svc.Name, instName, nil)
+			si.updateInstance(svcName, instName, nil)
 		}
 	}
 }
@@ -235,12 +245,12 @@ func (si *syncInstances) clearInstances() {
 	}
 }
 
-func (si *syncInstances) extractInstance(container *docker.Container, svc *store.ServiceInfo, rule store.ContainerRule) *store.Instance {
+func (si *syncInstances) extractInstance(container *docker.Container, svc *store.ServiceInfo, rule *store.ContainerRule) *store.Instance {
 	if !rule.Includes(containerLabels{container}) {
 		return nil
 	}
 
-	addr := si.extractAddress(container, svc)
+	addr := si.extractAddress(container, svc, rule)
 	if addr == nil {
 		log.Infof(`Cannot extract address for instance, from container '%s'`, container.ID)
 	}
@@ -282,29 +292,39 @@ func (container containerLabels) Label(label string) string {
 }
 
 /*
+
 Extract an address from a container, according to what we've been told
-about the service.
+about the service, and how the container was selected.
 
 There are two special cases:
- - if the service has no instance port, we have no chance of getting an
-address, so just let the container be considered unaddressable;
+
+ - if neither the service nor the rule has an instance port set, we
+have no chance of getting an address, so just let the container be
+considered unaddressable;
+
  - if the container has been run with `--net=host`; this means the
 container is using the host's networking stack, so we should use the
 host IP address.
 
 */
-func (si *syncInstances) extractAddress(container *docker.Container, svc *store.ServiceInfo) *netutil.IPPort {
-	if svc.InstancePort == 0 {
+func (si *syncInstances) extractAddress(container *docker.Container, svc *store.ServiceInfo, rule *store.ContainerRule) *netutil.IPPort {
+	port := rule.InstancePort
+	if port == 0 {
+		port = svc.InstancePort
+	}
+	if port == 0 {
 		return nil
 	}
+
 	if container.HostConfig.NetworkMode == "host" {
-		return &netutil.IPPort{si.hostIP, svc.InstancePort}
+		addr := netutil.NewIPPort(si.hostIP, port)
+		return &addr
 	}
 	switch si.network {
 	case LOCAL:
-		return si.mappedPortAddress(container, svc.InstancePort)
+		return si.mappedPortAddress(container, port)
 	case GLOBAL:
-		return si.fixedPortAddress(container, svc.InstancePort)
+		return si.fixedPortAddress(container, port)
 	}
 	return nil
 }
@@ -335,7 +355,8 @@ func (si *syncInstances) mappedPortAddress(container *docker.Container, port int
 				return nil
 			}
 
-			return &netutil.IPPort{si.hostIP, mappedToPort}
+			addr := netutil.NewIPPort(si.hostIP, mappedToPort)
+			return &addr
 		}
 	}
 
@@ -353,7 +374,8 @@ func (si *syncInstances) fixedPortAddress(container *docker.Container, port int)
 		return nil
 	}
 
-	return &netutil.IPPort{ip, port}
+	addr := netutil.NewIPPort(ip, port)
+	return &addr
 }
 
 func envValue(env []string, key string) string {

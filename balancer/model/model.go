@@ -7,17 +7,20 @@ import (
 	"github.com/weaveworks/flux/common/netutil"
 )
 
-type Instance struct {
-	Name    string
-	Address netutil.IPPort
-}
-
 type Service struct {
 	Name string
 	// Protocol, e.g. "http".  "" for simple tcp forwarding.
 	Protocol  string
 	Address   *netutil.IPPort
-	Instances []Instance
+	Instances map[string]netutil.IPPort // map from name to address
+}
+
+func (svc *Service) Description() string {
+	if svc.Address == nil {
+		return svc.Name
+	} else {
+		return fmt.Sprintf("%s (%s)", svc.Name, svc.Address)
+	}
 }
 
 func (svc *Service) Summary() string {
@@ -26,8 +29,8 @@ func (svc *Service) Summary() string {
 	fmt.Fprintf(&buf, "%s %s/%s {", svc.Name, svc.Address, svc.Protocol)
 
 	comma := ""
-	for _, inst := range svc.Instances {
-		fmt.Fprintf(&buf, "%s%s %s", comma, inst.Name, inst.Address)
+	for name, addr := range svc.Instances {
+		fmt.Fprintf(&buf, "%s%s %s", comma, name, addr)
 		comma = ", "
 	}
 
@@ -42,32 +45,20 @@ func (a *Service) Equal(b *Service) bool {
 		return false
 	}
 
-	type instKey struct {
-		name string
-		ip   string
-		port int
-	}
-
-	key := func(i *Instance) instKey {
-		return instKey{i.Name, string(i.Address.IP), i.Address.Port}
-	}
-
-	m := make(map[instKey]struct{})
-
-	for i := range a.Instances {
-		m[key(&a.Instances[i])] = struct{}{}
-	}
-
-	for i := range b.Instances {
-		k := key(&b.Instances[i])
-		if _, found := m[k]; !found {
+	for name, aAddr := range a.Instances {
+		bAddr, found := b.Instances[name]
+		if !found || !aAddr.Equal(bAddr) {
 			return false
 		}
-
-		delete(m, k)
 	}
 
-	return len(m) == 0
+	for name := range b.Instances {
+		if _, found := a.Instances[name]; !found {
+			return false
+		}
+	}
+
+	return true
 }
 
 type ServiceUpdate struct {

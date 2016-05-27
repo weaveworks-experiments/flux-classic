@@ -27,12 +27,19 @@ type setInstances struct {
 
 func (conf setInstancesConfig) StartFunc() daemon.StartFunc {
 	return daemon.SimpleComponent(func(stop <-chan struct{}, errs daemon.ErrorSink) {
+		// Announce our presence
+		conf.store.RegisterHost(conf.hostIP.String(),
+			&store.Host{IP: conf.hostIP})
+
 		si := setInstances{
 			setInstancesConfig: conf,
 			errs:               errs,
 		}
 
-		si.instanceUpdatesReset <- struct{}{}
+		select {
+		case si.instanceUpdatesReset <- struct{}{}:
+		default:
+		}
 
 		for {
 			select {
@@ -59,14 +66,14 @@ func (si *setInstances) processReset(update InstanceUpdate) {
 		return
 	}
 
-	for _, svc := range svcs {
+	for svcName, svc := range svcs {
 		for instName, inst := range svc.Instances {
 			if !si.hostIP.Equal(inst.Host.IP) {
 				continue
 			}
 
 			key := InstanceKey{
-				Service:  svc.Name,
+				Service:  svcName,
 				Instance: instName,
 			}
 			if update.Instances[key] == nil {
